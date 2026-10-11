@@ -35,7 +35,10 @@ describe('translate-screens', () => {
   it('every screen names the product Tabless, never by an old name or in capitals', () => {
     for (const f of readdirSync(dir)) {
       const html = readFileSync(new URL(f, dir), 'utf8');
+      // the wordmark splits the name across tags (<span>Tab</span>less), so read the text too
+      const text = html.replace(/<[^>]*>/g, '');
       expect(html, f).not.toMatch(/lowkey/i);
+      expect(text, f).not.toMatch(/lowkey/i);
       expect(html, f).not.toMatch(/TABLESS|(?<![\w/.-])tabless(?![\w/.-])/);
     }
   });
