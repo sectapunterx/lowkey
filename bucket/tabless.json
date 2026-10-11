@@ -1,0 +1,28 @@
+{
+    "version": "0.8.4",
+    "description": "A developer's workday in one window: the tasks assigned to you from 13 trackers, today's meetings and your notes, from the keyboard.",
+    "homepage": "https://sectapunterx.github.io/tabless/",
+    "license": "MIT",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/sectapunterx/tabless/releases/download/v0.8.4/lowkey-v0.8.4-windows-portable.zip",
+            "hash": "e0c30495873decc10832455d159ad3f5f6f8b0b132235747d82ce8cc1cfd29dd"
+        }
+    },
+    "bin": "lowkey.exe",
+    "shortcuts": [
+        [
+            "lowkey.exe",
+            "Tabless"
+        ]
+    ],
+    "persist": [],
+    "checkver": "github",
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/sectapunterx/tabless/releases/download/v$version/tabless-v$version-windows-portable.zip"
+            }
+        }
+    }
+}

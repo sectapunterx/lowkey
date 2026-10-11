@@ -38,7 +38,7 @@
   "RFC 9110 · Семантика HTTP": "RFC 9110 · HTTP Semantics",
   "Retry-After у платёжки отдаёт секунды, а не дату — проверить парсер.": "Payments send Retry-After in seconds, not a date — check the parser.",
   "Shift ↵ строка": "Shift ↵ new line",
-  "lowkey: создано TASK-4 · завтра 11:00": "lowkey: created TASK-4 · tomorrow 11:00",
+  "Tabless: создано TASK-4 · завтра 11:00": "Tabless: created TASK-4 · tomorrow 11:00",
   "· В работе": "· In progress",
   "· К выполнению": "· To do",
   "· месяц": "· month",

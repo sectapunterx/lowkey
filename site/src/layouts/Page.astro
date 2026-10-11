@@ -8,7 +8,7 @@ import '@fontsource/golos-text/400.css';
 import '@fontsource/golos-text/500.css';
 import '@fontsource/golos-text/600.css';
 import '../styles/site.css';
-import wordmark from '../assets/lowkey-wordmark.svg?raw';
+import wordmark from '../assets/tabless-wordmark.svg?raw';
 import { copy, type Lang } from '../data/i18n';
 import { GITHUB_URL, LICENSE_URL, url } from '../lib/site';
 
@@ -17,6 +17,9 @@ interface Props {
   path: string;
   title: string;
   description: string;
+  /** Social-card title and text; the page title and description when left out. */
+  ogTitle?: string;
+  ogDescription?: string;
   /** Section links in the nav; on the home page they scroll, elsewhere they lead home. */
   home?: boolean;
   /** Where the big download buttons go before the script picks this platform's file. */
@@ -24,7 +27,7 @@ interface Props {
   /** Primary file per platform, as JSON, for the download buttons (see scripts/site.ts). */
   primary: string;
 }
-const { lang, path, title, description, home = false, downloadHref, primary } = Astro.props;
+const { lang, path, title, description, ogTitle = title, ogDescription = description, home = false, downloadHref, primary } = Astro.props;
 const t = copy[lang];
 const other = copy[t.otherLang.lang as Lang];
 const prefix = (l: Lang) => (l === 'ru' ? 'ru/' : '');
@@ -46,8 +49,9 @@ const canonical = new URL(here, Astro.site).href;
     <link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
     <link rel="alternate" hreflang={lang} href={here} />
     <link rel="alternate" hreflang={t.otherLang.lang} href={there} />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
+    <meta property="og:site_name" content="Tabless" />
+    <meta property="og:title" content={ogTitle} />
+    <meta property="og:description" content={ogDescription} />
     <meta property="og:url" content={canonical} />
     <meta name="color-scheme" content="dark" />
   </head>
@@ -71,7 +75,10 @@ const canonical = new URL(here, Astro.site).href;
       <slot />
 
       <footer class="foot">
-        <span class="brand-sm" set:html={wordmark} />
+        <span class="foot-brand">
+          <span class="brand-sm" set:html={wordmark} />
+          <span lang="en">— just makes your day easier.</span>
+        </span>
         <span class="foot-links">
           <a href={url(prefix(lang) + 'download/')}>{t.download}</a>
           <a href={there} hreflang={t.otherLang.lang} lang={t.otherLang.lang}>{other.selfName}</a>

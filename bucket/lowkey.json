@@ -1,19 +1,19 @@
 {
-    "version": "0.8.0",
-    "description": "A desktop app for a developer's workday: tickets, calendar, notes and docs in one quiet window.",
-    "homepage": "https://sectapunterx.github.io/lowkey/",
+    "version": "0.8.4",
+    "description": "A developer's workday in one window: the tasks assigned to you from 13 trackers, today's meetings and your notes, from the keyboard.",
+    "homepage": "https://sectapunterx.github.io/tabless/",
     "license": "MIT",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/sectapunterx/lowkey/releases/download/v0.8.0/lowkey-v0.8.0-windows-portable.zip",
-            "hash": "c7c53b8cacc6be7c2c87e2843fa39840ce9b486249ae478b88b5fdb0dd30ab77"
+            "url": "https://github.com/sectapunterx/tabless/releases/download/v0.8.4/lowkey-v0.8.4-windows-portable.zip",
+            "hash": "e0c30495873decc10832455d159ad3f5f6f8b0b132235747d82ce8cc1cfd29dd"
         }
     },
     "bin": "lowkey.exe",
     "shortcuts": [
         [
             "lowkey.exe",
-            "lowkey"
+            "Tabless"
         ]
     ],
     "persist": [],
@@ -21,7 +21,7 @@
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://github.com/sectapunterx/lowkey/releases/download/v$version/lowkey-v$version-windows-portable.zip"
+                "url": "https://github.com/sectapunterx/tabless/releases/download/v$version/tabless-v$version-windows-portable.zip"
             }
         }
     }

@@ -248,7 +248,7 @@ ScrollTrigger.create({
 });
 render();
 
-/* ---------- a day with lowkey ---------- */
+/* ---------- a day with Tabless ---------- */
 const moments = $$('.moments li');
 const dayImgs = $$('.day-right .screen');
 const clock = $('.clock');

@@ -21,7 +21,7 @@ let cache: Promise<Release[]> | undefined;
 async function fetchReleases(): Promise<Release[]> {
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github+json',
-    'User-Agent': 'lowkey-site-build',
+    'User-Agent': 'tabless-site-build',
   };
   const token = process.env.GITHUB_TOKEN;
   if (token) headers.Authorization = `Bearer ${token}`;

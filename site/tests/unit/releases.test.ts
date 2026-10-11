@@ -5,8 +5,8 @@ import fallback from '../../src/data/releases.fallback.json';
 const asset = (name: string, size = 1_000_000) => ({ name, size, url: `https://example.test/${name}` });
 
 describe('classifyAsset', () => {
-  it('recognises every file a release ships, before and after the rename', () => {
-    for (const p of ['heap-v0.7.2', 'lowkey-v0.8.0']) {
+  it('recognises every file a release ships, under each name the app has had', () => {
+    for (const p of ['heap-v0.7.2', 'lowkey-v0.8.0', 'tabless-v0.9.0']) {
       expect(classifyAsset(asset(`${p}-windows-setup.exe`))).toMatchObject({ os: 'windows', kind: 'installer', rank: 0 });
       expect(classifyAsset(asset(`${p}-windows-portable.zip`))).toMatchObject({ os: 'windows', kind: 'portable', rank: 1 });
       expect(classifyAsset(asset(`${p}-macos.dmg`))).toMatchObject({ os: 'macos', kind: 'dmg' });
@@ -39,8 +39,27 @@ describe('the committed release snapshot', () => {
     for (const list of Object.values(by)) for (const a of list) expect(a.name).toMatch(/^lowkey-/);
   });
 
-  it('points every download at the repository the site names', () => {
-    for (const a of latest.assets) expect(a.url).toMatch(/^https:\/\/github\.com\/sectapunterx\/lowkey\/releases\/download\//);
+  // The snapshot predates the rename to Tabless; GitHub redirects the old repository's links.
+  it('points every download at the repository, under its current or its previous name', () => {
+    for (const a of latest.assets) expect(a.url).toMatch(/^https:\/\/github\.com\/sectapunterx\/(tabless|lowkey)\/releases\/download\//);
+  });
+});
+
+describe('a release made during a rename', () => {
+  const files = (prefix: string) =>
+    ['windows-setup.exe', 'windows-portable.zip', 'macos.dmg', 'linux-x86_64.AppImage'].map((s) => asset(`${prefix}-v0.9.0-${s}`));
+  const release = (assets: ReturnType<typeof asset>[]): Release => ({ tag: 'v0.9.0', name: 'v0.9.0', date: '2026-10-20T00:00:00Z', body: '', url: '', prerelease: false, assets });
+
+  it('offers only the files under the newest name', () => {
+    const by = assetsByOS(release([...files('heap'), ...files('lowkey'), ...files('tabless')]));
+    const names = Object.values(by).flat().map((a) => a.name);
+    expect(names).toHaveLength(4);
+    for (const n of names) expect(n).toMatch(/^tabless-/);
+  });
+
+  it('still offers the lowkey-* files of a release that has no tabless-* ones', () => {
+    const by = assetsByOS(release([...files('heap'), ...files('lowkey')]));
+    for (const n of Object.values(by).flat().map((a) => a.name)) expect(n).toMatch(/^lowkey-/);
   });
 });
 

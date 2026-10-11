@@ -1,6 +1,6 @@
-# lowkey website
+# Tabless website
 
-The site at <https://sectapunterx.github.io/lowkey/>: one page in two languages — `/` English, `/ru/` Russian —
+The site at <https://sectapunterx.github.io/tabless/>: one page in two languages — `/` English, `/ru/` Russian —
 plus a download page for each (`/download/`, `/ru/download/`) and a 404. Pages of the 0.7 site
 (`/demo/`, `/docs/…`, `/features/…`, `/compare/`, `/privacy/`, `/changelog/`, `/brand/`) redirect to the
 closest place (`astro.config.mjs`).
@@ -25,7 +25,7 @@ change its row.
 | All copy, ru + en | `src/data/i18n.ts` (runtime strings of the capture demo: `src/scripts/landing.ts`) |
 | The repository name (download links, releases API, source links) | `REPO` in `src/lib/site.ts`; the Pages path is `base` in `astro.config.mjs` |
 | Download files and sizes | GitHub Releases API at build time (`src/lib/github.ts`), else `src/data/releases.fallback.json` |
-| Scoop on the download page | shown only while `../bucket/heap.json` installs the latest release (`src/lib/scoop.ts`) |
+| Scoop on the download page | shown only while `../bucket/tabless.json` installs the latest release (`src/lib/scoop.ts`) |
 | state.json example | `src/data/state-example.json`, generated — see below |
 | Screens | `src/screens/<name>.html` (ru) and `<name>.en.html` (generated) |
 | Page frame, search, nav | `src/layouts/Page.astro`, `src/scripts/site.ts` |
@@ -37,7 +37,7 @@ change its row.
 ```sh
 cd site
 npm ci
-npm run dev          # http://localhost:4321/heap/
+npm run dev          # http://localhost:4321/tabless/
 npm run check        # astro check (types)
 npm test             # unit tests (vitest)
 npm run build        # static site in dist/

@@ -1,37 +1,40 @@
 // Page copy for both languages. Runtime strings of the live demo live in scripts/landing.ts.
 // Rule for every block (APP-281 B6/B7): a fact you can check in the app, listed in site/PROMISES.md.
-// At most two emotional lines per page. The product name is always lowercase "lowkey" and never
-// starts a sentence.
+// At most two emotional lines per page. The product name is "Tabless", capital T, an ordinary proper
+// noun (it may start a sentence). The tagline "Just makes your day easier." is English on both pages.
+// Commands and file names stay lowercase: tabless, tabless-v0.9.0-….
 export type Lang = 'ru' | 'en';
 
-// Qt's AppDataLocation is <organization>/<application>; both are "lowkey" (src/main.cpp,
+// Qt's AppDataLocation is <organization>/<application>; both are "Tabless" (src/main.cpp,
 // src/platform/Brand.h).
 export const dataPaths = [
-  ['Windows', '%APPDATA%\\lowkey\\lowkey\\state.json'],
-  ['macOS', '~/Library/Application Support/lowkey/lowkey/state.json'],
-  ['Linux', '~/.local/share/lowkey/lowkey/state.json'],
+  ['Windows', '%APPDATA%\\Tabless\\Tabless\\state.json'],
+  ['macOS', '~/Library/Application Support/Tabless/Tabless/state.json'],
+  ['Linux', '~/.local/share/Tabless/Tabless/state.json'],
 ];
 
 // src/integrations/ProviderRegistry.cpp
 export const trackers = ['GitHub', 'GitLab', 'Jira', 'Trello', 'Gitea', 'Forgejo', 'Redmine', 'Todoist', 'Asana', 'ClickUp', 'Sentry', 'Bitbucket', 'Mattermost'];
 
 const ru = {
-  htmlTitle: 'lowkey — рабочий день разработчика в одном окне',
-  description: 'Quiet by default. Задачи из трекеров, встречи и заметки в одном тихом окне. С клавиатуры и офлайн.',
+  htmlTitle: 'Tabless — рабочий день разработчика в одном окне',
+  description: 'Just makes your day easier. Задачи из GitHub, Jira и ещё 11 трекеров, встречи на сегодня и заметки в одном окне. С клавиатуры, локально, бесплатно.',
+  ogTitle: 'Tabless · Just makes your day easier.',
+  ogDescription: 'Задачи, встречи и заметки в одном окне, которым управляешь с клавиатуры.',
   selfName: 'Русский',
   skip: 'К содержимому',
-  brandLabel: 'lowkey, наверх',
+  brandLabel: 'Tabless, наверх',
   navLabel: 'Разделы',
   nav: { try: 'Попробовать', day: 'Как это выглядит', trust: 'Данные', faq: 'Вопросы' },
   search: { button: 'Поиск', label: 'Поиск по сайту', placeholder: 'Найти на странице…', empty: 'Ничего не нашлось', hint: '↑↓ выбрать · Enter перейти · Esc закрыть' },
   download: 'Скачать',
-  downloadApp: 'Скачать lowkey',
+  downloadApp: 'Скачать Tabless',
   otherLang: { label: 'EN', lang: 'en', title: 'English' },
   hero: {
-    sub: 'Рабочий день разработчика в одном окне',
-    try: 'Попробовать прямо здесь',
-    facts: ['Без регистрации', 'Работает офлайн', 'Windows, macOS, Linux'],
-    shot: 'lowkey: экран «Сегодня» — встречи и задачи на день',
+    sub: 'Рабочий день разработчика в одном окне: задачи из 13 трекеров, встречи на сегодня и заметки — с клавиатуры.',
+    try: 'Посмотреть, как это работает',
+    facts: ['Бесплатно, открытый код', 'Без аккаунта', 'Данные — один файл на вашем диске'],
+    shot: 'Tabless: экран «Сегодня» — встречи и задачи на день',
   },
   noise: {
     pings: [
@@ -51,7 +54,7 @@ const ru = {
     a: 'Восемь вкладок, чтобы понять, что делать сейчас?',
     b: 'Одно окно.<br />Ничего лишнего.',
     pa: 'Трекер, календарь, почта, заметки, мессенджер — у каждого свои уведомления и свои счётчики.',
-    pb: 'Задачи из трекеров и встречи из календаря lowkey собирает в одну ленту на день. Цветом отмечено только срочное.',
+    pb: 'Задачи из трекеров и встречи из календаря Tabless собирает в одну ленту на день. Цветом отмечено только срочное.',
     calmHead: 'Сегодня',
     calmFacts: '1 встреча · 2 задачи',
     rows: [['cal', 'Дейлик', '09:30'], ['ring', 'Ревью #482', 'GitHub'], ['ring half', 'Rate limit для логина', 'Jira']],
@@ -59,27 +62,27 @@ const ru = {
   demo: {
     kicker: 'Попробуйте',
     h: 'Запишите задачу так, как сказали бы вслух',
-    p: 'Дату, время, тег и приоритет lowkey поймёт сам. Потом закройте всё — клавишей d или кликом по кружку.',
+    p: 'Дату, время, тег и приоритет Tabless поймёт сам. Потом закройте всё — клавишей d или кликом по кружку.',
     title: 'Сегодня',
     input: 'Новая задача',
     placeholder: 'Например: ревью PR завтра 15:00 #api p1',
     emptyH: 'Пусто. Можно выдохнуть.',
-    emptyCta: 'Скачать lowkey',
+    emptyCta: 'Скачать Tabless',
     hint: 'j / k — курсор · d — готово · Enter — добавить',
   },
   day: {
-    kicker: 'Один день с lowkey',
+    kicker: 'Один день с Tabless',
     moments: [
       { t: '09:00', h: 'Открыли — и сразу ясно, что сейчас', p: 'Встречи и задачи на день одной лентой. Что идёт сейчас и что горит сегодня — видно сразу.' },
       { t: '10:30', h: 'Встречи рядом с задачами', p: 'Неделя календаря и задачи в одном виде. Перетащили задачу на время — она запланирована.' },
-      { t: '12:40', h: 'Мысль пришла — записали за секунду', p: 'Ctrl Shift Space из любой программы, даже когда lowkey свёрнут: «починить логин завтра 15:00». Дата распознаётся из слов. Для заметки — Ctrl Shift N.' },
+      { t: '12:40', h: 'Мысль пришла — записали за секунду', p: 'Ctrl Shift Space из любой программы, даже когда Tabless свёрнут: «починить логин завтра 15:00». Дата распознаётся из слов. Для заметки — Ctrl Shift N.' },
       { t: '14:00', h: 'Задача открывается документом', p: 'Свойства сверху, текст и чек-лист ниже. Сохраняется само. Готово — одна клавиша D.' },
       { t: '17:30', h: 'Знания рядом с задачами', p: 'Заметки и доки в одном разделе. #APP-112 в тексте заметки становится ссылкой с названием задачи.' },
     ],
   },
   git: {
     kicker: 'Git',
-    h: 'Переключили ветку — нужная задача уже подсвечена',
+    h: 'Ветка подсказывает, над чем вы работаете',
     p: 'Репозитории добавляются в Настройки → Git. Ветку приложение читает из .git/HEAD: если в имени есть номер задачи, например APP-112, задача появляется вверху окна, а состояние PR подтягивается через ваш gh или glab. Без привязок, без плагинов.',
     run: 'Выполнить команду',
     repo: '~/src/acme-web',
@@ -92,7 +95,7 @@ const ru = {
   },
   keys: {
     kicker: 'Клавиатура',
-    h: 'Всё — с клавиатуры',
+    h: 'Одна клавиша — одно действие, везде',
     p: 'Клавиши как в Vim: j и k по спискам, d — готово, g — перейти, y — скопировать. Считаются по физической клавише, поэтому работают и в русской раскладке. Любое сочетание можно переназначить. Нажмите любую.',
     cards: [
       ['Вниз и вверх', 'По любому списку, доске и календарю'],
@@ -102,7 +105,7 @@ const ru = {
       ['Перейти', 'g b — доска, g l — список, g c — календарь, g t — сегодня'],
       ['Скопировать номер', 'y b — имя ветки, y l — ссылку в трекере'],
       ['Командная строка', 'Найти, отфильтровать, выполнить'],
-      ['Быстрый ввод', 'Из любой программы, даже когда lowkey свёрнут'],
+      ['Быстрый ввод', 'Из любой программы, даже когда Tabless свёрнут'],
       ['Шпаргалка', 'Все клавиши на одном экране'],
     ],
     note: 'Одиночные буквы действуют на задачу под курсором и только когда вы не печатаете; сочетания с Ctrl работают везде. На этом сайте: Ctrl K или / — поиск, g g — наверх.',
@@ -129,7 +132,7 @@ const ru = {
   },
   trust: {
     kicker: 'Ваши данные',
-    h: 'Ваши задачи — файл на вашем диске',
+    h: 'Один файл, который откроет любой редактор',
     cards: [
       ['Офлайн', 'Задачи, встречи и заметки хранятся в одном файле state.json. Сеть нужна только для проверки обновлений и того, что вы подключили сами.'],
       ['Без регистрации', 'Скачали, открыли, работаете. Ни аккаунта, ни почты.'],
@@ -139,7 +142,7 @@ const ru = {
     whereH: 'Где лежат данные',
     whereP: [
       'Рядом с файлом — папка backups с резервными копиями и папка history со снимками машины времени.',
-      'Переходите с heap 0.7? При первом запуске старая папка heap/heap один раз копируется в новую. Старая остаётся на месте, внутри — записка MOVED-TO-LOWKEY.txt.',
+      'Раньше приложение называлось lowkey, а до того — heap. При первом запуске старая папка lowkey/lowkey (или heap/heap) один раз копируется в новую. Старая остаётся на месте, внутри — записка MOVED-TO-TABLESS.txt.',
       'Токены трекеров не лежат в state.json. На Windows они хранятся в системном хранилище учётных данных; сборки для macOS и Linux держат их в файле secrets.json рядом, доступном только вашему пользователю.',
       'Заметки выгружаются папкой Markdown-файлов, которую открывает Obsidian, и загружаются из неё обратно.',
     ],
@@ -147,11 +150,11 @@ const ru = {
     schema: 'схема',
     exampleNote: 'У карточек из трекера есть ещё слой local: ваши заметки, чек-лист, теги и даты. Синхронизация его не перезаписывает.',
     netH: 'Что приложение отправляет само',
-    netP: 'Полный список. Чего здесь нет, то lowkey не отправляет. Аналитики и отчётов об ошибках нет.',
+    netP: 'Полный список. Чего здесь нет, то Tabless не отправляет. Аналитики и отчётов об ошибках нет.',
     net: [
       ['Проверка обновлений', 'при запуске · выключается в Настройки → О программе', 'Спрашивает GitHub, есть ли новая версия. О вас и ваших данных ничего не передаёт. Скачивает обновление, только когда вы нажали «Обновить», и сверяет файл с контрольными суммами релиза.'],
       ['Трекеры', 'только подключённые', 'Забирают ваши задачи — вручную или по таймеру, если вы его задали. Статус пишется обратно только туда, где вы включили запись.'],
-      ['Вход через браузер', 'когда нажимаете «Подключить»', 'Браузер открывает страницу входа самого трекера. Пароль lowkey не видит.'],
+      ['Вход через браузер', 'когда нажимаете «Подключить»', 'Браузер открывает страницу входа самого трекера. Пароль Tabless не видит.'],
       ['Календари по ссылке', 'только если подписались', 'Скачивает файл .ics по ссылке, которую вы добавили, по умолчанию раз в 15 минут.'],
       ['Состояние PR', 'только для добавленных репозиториев', 'Примерно раз в минуту запускает ваш gh или glab. Выключается в Настройки → Git.'],
       ['Mattermost', 'только если подключён', 'Читает список людей из ваших каналов, чтобы предложить их в @упоминаниях. Ничего не публикует.'],
@@ -170,11 +173,11 @@ const ru = {
       ['Можно работать командой?', 'Нет, это личное рабочее место. Общая работа остаётся в трекере команды: задачи забираются оттуда, а обратно по умолчанию ничего не пишется. Запись статуса включается для каждого трекера отдельно; она есть для GitHub, GitLab, Gitea, Forgejo и Jira.'],
       ['Подойдут заметки из Obsidian?', 'Да. Заметки загружаются из папки .md-файлов (сначала покажут, что будет загружено) и выгружаются в новую папку. Ссылки [[wiki-links]] остаются как есть, папка .obsidian пропускается.'],
       ['На каких языках интерфейс?', 'Русский и английский, переключается в настройках.'],
-      ['У меня heap 0.7. Что будет с данными?', 'heap теперь называется lowkey. При первом запуске данные из папки heap/heap один раз копируются в lowkey/lowkey, старая папка остаётся нетронутой. Встроенная проверка обновлений в 0.7 найдёт новую версию сама.'],
+      ['У меня lowkey или heap. Что будет с данными?', 'Теперь приложение называется Tabless. При первом запуске данные из папки lowkey/lowkey (или heap/heap) один раз копируются в Tabless/Tabless, старая папка остаётся нетронутой. Встроенная проверка обновлений в lowkey найдёт новую версию сама.'],
     ],
   },
   get: {
-    h: 'Скачать lowkey',
+    h: 'Скачать Tabless',
     p: 'Бесплатно, открытый код под MIT. Для Windows, macOS и Linux.',
     mb: 'МБ',
     filesNote: 'Размеры файлов версии {v}.',
@@ -184,15 +187,15 @@ const ru = {
   },
   kinds: { installer: 'Установщик', portable: 'Портативная версия', dmg: 'Образ диска', appimage: 'AppImage' },
   dl: {
-    title: 'Скачать — lowkey',
+    title: 'Скачать — Tabless',
     description: 'Версия {v} для Windows, macOS и Linux: установщик, портативная версия, образ диска или AppImage.',
     kicker: 'Версия {v} · {date}',
-    h: 'Скачать lowkey',
+    h: 'Скачать Tabless',
     p: 'Один файл, ставить больше ничего не нужно. На Linux это один AppImage с Qt внутри.',
     mobile: 'Вы с телефона, а это приложение для компьютера. Откройте эту страницу на нём.',
     notes: {
       windows: 'Установщик добавит ярлык в меню «Пуск» и удаление через «Приложения». Портативная версия запускается из любой папки.',
-      macos: 'Откройте образ диска и перетащите lowkey в «Программы».',
+      macos: 'Откройте образ диска и перетащите Tabless в «Программы».',
       linux: 'Сделайте AppImage исполняемым и запустите — Qt уже внутри.',
     },
     scoopH: 'Scoop · Windows',
@@ -203,7 +206,7 @@ const ru = {
     sourceP: 'Нужны Qt 6.9 или новее и компилятор C++20 — на любой из трёх систем.',
     facts: [
       ['Обновления', 'При запуске приложение спрашивает GitHub о новой версии и ставит её, только когда вы нажали «Обновить». Проверку можно выключить в Настройки → О программе.'],
-      ['Переход с heap 0.7', 'При первом запуске данные один раз копируются в новую папку, старая остаётся на месте. heap 0.7 найдёт эту версию своей проверкой обновлений.'],
+      ['Переход с lowkey или heap', 'При первом запуске данные один раз копируются в новую папку, старая остаётся на месте. lowkey найдёт эту версию своей проверкой обновлений.'],
       ['Удаление', 'Удалите приложение или просто файл AppImage. Папка с данными остаётся, пока вы не удалите её сами.'],
     ],
     all: 'Все релизы и прошлые версии — на GitHub',
@@ -214,22 +217,24 @@ const ru = {
 };
 
 const en: typeof ru = {
-  htmlTitle: 'lowkey — a developer’s workday in one window',
-  description: 'Quiet by default. Tracker tasks, meetings and notes in one quiet window. Keyboard-first and offline.',
+  htmlTitle: 'Tabless — a developer’s workday in one window',
+  description: 'Just makes your day easier: tasks from GitHub, Jira and 11 more trackers, today’s meetings and your notes in one window. Keyboard-first, local, free.',
+  ogTitle: 'Tabless · Just makes your day easier.',
+  ogDescription: 'Your tasks, meetings and notes in one window you drive from the keyboard.',
   selfName: 'English',
   skip: 'Skip to content',
-  brandLabel: 'lowkey, back to top',
+  brandLabel: 'Tabless, back to top',
   navLabel: 'Sections',
   nav: { try: 'Try it', day: 'How it looks', trust: 'Your data', faq: 'FAQ' },
   search: { button: 'Search', label: 'Search this site', placeholder: 'Find on this page…', empty: 'Nothing found', hint: '↑↓ choose · Enter go · Esc close' },
   download: 'Download',
-  downloadApp: 'Download lowkey',
+  downloadApp: 'Download Tabless',
   otherLang: { label: 'RU', lang: 'ru', title: 'Русский' },
   hero: {
-    sub: 'A developer’s workday in one window',
-    try: 'Try it right here',
-    facts: ['No sign-up', 'Works offline', 'Windows, macOS, Linux'],
-    shot: 'lowkey: the Today screen — meetings and tasks for the day',
+    sub: 'A developer’s workday in one window: your tasks from 13 trackers, today’s meetings and your notes, from the keyboard.',
+    try: 'See how it works',
+    facts: ['Free and open source', 'No account', 'Your data in one file on your disk'],
+    shot: 'Tabless: the Today screen — meetings and tasks for the day',
   },
   noise: {
     pings: [
@@ -262,22 +267,22 @@ const en: typeof ru = {
     input: 'New task',
     placeholder: 'e.g. review PR tomorrow 15:00 #api p1',
     emptyH: 'Empty. Breathe out.',
-    emptyCta: 'Download lowkey',
+    emptyCta: 'Download Tabless',
     hint: 'j / k — cursor · d — done · Enter — add',
   },
   day: {
-    kicker: 'A day with lowkey',
+    kicker: 'A day with Tabless',
     moments: [
       { t: '09:00', h: 'Open it and know what’s next', p: 'Meetings and tasks for the day in one feed. What’s on now and what’s due today stand out at once.' },
       { t: '10:30', h: 'Meetings next to tasks', p: 'A calendar week and your tasks in one view. Drag a task onto a time slot — it’s scheduled.' },
-      { t: '12:40', h: 'A thought comes — captured in a second', p: 'Ctrl Shift Space from any app, even with lowkey minimized: “fix login tomorrow 15:00”. The date is read from the words. For a note — Ctrl Shift N.' },
+      { t: '12:40', h: 'A thought comes — captured in a second', p: 'Ctrl Shift Space from any app, even with Tabless minimized: “fix login tomorrow 15:00”. The date is read from the words. For a note — Ctrl Shift N.' },
       { t: '14:00', h: 'A task opens as a document', p: 'Properties on top, text and checklist below. It saves itself. Done is one key: D.' },
       { t: '17:30', h: 'Knowledge next to tasks', p: 'Notes and docs in one section. #APP-112 in a note becomes a link with the task’s title.' },
     ],
   },
   git: {
     kicker: 'Git',
-    h: 'Switch the branch — the task is already marked',
+    h: 'Your branch tells it what you’re on',
     p: 'Add your repositories in Settings → Git. The branch is read from .git/HEAD: when its name carries a task id like APP-112, that task shows at the top of the window, and the PR state comes from your own gh or glab. No bindings, no plugins.',
     run: 'Run the command',
     repo: '~/src/acme-web',
@@ -290,7 +295,7 @@ const en: typeof ru = {
   },
   keys: {
     kicker: 'Keyboard',
-    h: 'Everything from the keyboard',
+    h: 'Every key does one thing, everywhere',
     p: 'Keys as in Vim: j and k through lists, d for done, g to go, y to copy. They follow the physical key, so they work in any keyboard layout, and any shortcut can be rebound. Press one.',
     cards: [
       ['Down and up', 'Through any list, board and calendar'],
@@ -300,7 +305,7 @@ const en: typeof ru = {
       ['Go to', 'g b — board, g l — list, g c — calendar, g t — today'],
       ['Copy the id', 'y b — the branch name, y l — the tracker link'],
       ['Command line', 'Find, filter, run'],
-      ['Quick capture', 'From any app, even with lowkey minimized'],
+      ['Quick capture', 'From any app, even with Tabless minimized'],
       ['Cheat sheet', 'Every key on one screen'],
     ],
     note: 'Single letters act on the task under the cursor and only while you aren’t typing; Ctrl shortcuts work everywhere. On this site: Ctrl K or / searches, g g goes to the top.',
@@ -327,7 +332,7 @@ const en: typeof ru = {
   },
   trust: {
     kicker: 'Your data',
-    h: 'Your tasks are a file on your disk',
+    h: 'One file you can open in any editor',
     cards: [
       ['Offline', 'Tasks, meetings and notes live in one file, state.json. The network is used only for the update check and for what you connect yourself.'],
       ['No sign-up', 'Download, open, work. No account, no email.'],
@@ -337,7 +342,7 @@ const en: typeof ru = {
     whereH: 'Where your data lives',
     whereP: [
       'Next to the file: a backups folder with the scheduled copies and a history folder with the time machine’s snapshots.',
-      'Coming from heap 0.7? On the first start the old heap/heap folder is copied over once. The old folder stays where it was, with a MOVED-TO-LOWKEY.txt note inside.',
+      'The app used to be called lowkey, and heap before that. On the first start the old lowkey/lowkey (or heap/heap) folder is copied over once. The old folder stays where it was, with a MOVED-TO-TABLESS.txt note inside.',
       'Tracker tokens are not in state.json. On Windows they go to the system credential store; the macOS and Linux builds keep them in a secrets.json next to it that only your user can read.',
       'Notes export as a folder of Markdown files that Obsidian opens as-is, and import back from one.',
     ],
@@ -345,11 +350,11 @@ const en: typeof ru = {
     schema: 'schema',
     exampleNote: 'Cards from a tracker also carry a local layer: your own notes, checklist, tags and dates. A sync never overwrites it.',
     netH: 'What the app sends on its own',
-    netP: 'The complete list. If it isn’t here, lowkey doesn’t send it. No analytics, no crash reports.',
+    netP: 'The complete list. If it isn’t here, Tabless doesn’t send it. No analytics, no crash reports.',
     net: [
       ['Update check', 'on start · off in Settings → About', 'Asks GitHub whether a newer version exists. Sends nothing about you or your data. Downloads the update only when you click Update, and checks it against the release’s checksums.'],
       ['Trackers', 'only the ones you connect', 'Pull your tasks — by hand, or on a timer if you set one. A status is written back only where you turned write-back on.'],
-      ['Browser sign-in', 'when you click Connect', 'Your browser opens the tracker’s own sign-in page; lowkey never sees your password.'],
+      ['Browser sign-in', 'when you click Connect', 'Your browser opens the tracker’s own sign-in page; Tabless never sees your password.'],
       ['Calendar links', 'only if you subscribe', 'Downloads the .ics file at the link you added, every 15 minutes by default.'],
       ['PR state', 'only for repositories you add', 'Runs your own gh or glab about once a minute. Off in Settings → Git.'],
       ['Mattermost', 'only if connected', 'Reads the people in your channels to offer them as @mentions. Posts nothing.'],
@@ -368,11 +373,11 @@ const en: typeof ru = {
       ['Can my team share a board?', 'No, it’s a personal workspace. Shared work stays in your team’s tracker: issues are pulled in, and by default nothing is written back. Status write-back is turned on per tracker; it exists for GitHub, GitLab, Gitea, Forgejo and Jira.'],
       ['Can I bring my Obsidian notes?', 'Yes. Notes import from a folder of .md files (you see what comes in first) and export to a new folder. [[wiki-links]] stay as they are; the .obsidian folder is skipped.'],
       ['Which languages does the app speak?', 'English and Russian, switchable in Settings.'],
-      ['I use heap 0.7. What happens to my data?', 'heap is now called lowkey. On the first start the data in the heap/heap folder is copied to lowkey/lowkey once, and the old folder is left untouched. The update check built into 0.7 finds the new version by itself.'],
+      ['I use lowkey or heap. What happens to my data?', 'The app is now called Tabless. On the first start the data in the lowkey/lowkey (or heap/heap) folder is copied to Tabless/Tabless once, and the old folder is left untouched. The update check built into lowkey finds the new version by itself.'],
     ],
   },
   get: {
-    h: 'Download lowkey',
+    h: 'Download Tabless',
     p: 'Free and open source under MIT. For Windows, macOS and Linux.',
     mb: 'MB',
     filesNote: 'File sizes of version {v}.',
@@ -382,15 +387,15 @@ const en: typeof ru = {
   },
   kinds: { installer: 'Installer', portable: 'Portable', dmg: 'Disk image', appimage: 'AppImage' },
   dl: {
-    title: 'Download — lowkey',
+    title: 'Download — Tabless',
     description: 'Version {v} for Windows, macOS and Linux: installer, portable zip, disk image or AppImage.',
     kicker: 'Version {v} · {date}',
-    h: 'Download lowkey',
+    h: 'Download Tabless',
     p: 'One download, nothing else to install. On Linux it is a single AppImage with Qt inside.',
     mobile: 'You’re on a phone, and this is a desktop app. Open this page on your computer.',
     notes: {
       windows: 'The installer adds a Start menu entry and an uninstaller. The portable zip runs from any folder.',
-      macos: 'Open the disk image and drag lowkey into Applications.',
+      macos: 'Open the disk image and drag Tabless into Applications.',
       linux: 'Make the AppImage executable and run it — Qt comes inside.',
     },
     scoopH: 'Scoop · Windows',
@@ -401,7 +406,7 @@ const en: typeof ru = {
     sourceP: 'Needs Qt 6.9 or newer and a C++20 compiler, on any of the three systems.',
     facts: [
       ['Updates', 'On start the app asks GitHub for a newer version and installs it only when you click Update. The check can be turned off in Settings → About.'],
-      ['Coming from heap 0.7', 'Your data is copied to the new folder once, on the first start; the old folder stays where it was. heap 0.7 finds this version through its own update check.'],
+      ['Coming from lowkey or heap', 'Your data is copied to the new folder once, on the first start; the old folder stays where it was. lowkey finds this version through its own update check.'],
       ['Uninstall', 'Remove the app, or just delete the AppImage. Your data folder stays until you delete it.'],
     ],
     all: 'Every release and older versions on GitHub',

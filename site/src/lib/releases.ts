@@ -26,7 +26,8 @@ export interface ClassifiedAsset extends Asset {
   rank: number;
 }
 
-// By suffix, so both the heap-* files of 0.7.x and the lowkey-* files from 0.8.0 on are found.
+// By suffix, so the heap-* files of 0.7.x, the lowkey-* files of 0.8.x and the tabless-* files after
+// them are all found.
 // Releases up to 0.5.1 also carried a .deb and a tarball built against Qt 6.4, on which the UI
 // does not run; they are deliberately not offered. Checksums and the SBOM are not downloads.
 const KINDS: Array<{ test: RegExp; os: DesktopOS; kind: AssetKind; rank: number }> = [
@@ -41,13 +42,21 @@ export function classifyAsset(asset: Asset): ClassifiedAsset | null {
   return k ? { ...asset, os: k.os, kind: k.kind, rank: k.rank } : null;
 }
 
+// The names the app has shipped under, newest first. A release made during a rename also carries
+// copies under the previous name for the old updater (heap-* next to lowkey-* from 0.8.0); the page
+// offers only the files under the newest name the release has.
+const NAMES = ['tabless', 'lowkey', 'heap'];
+
+function prefixOf(name: string): string | undefined {
+  return NAMES.find((n) => name.toLowerCase().startsWith(`${n}-`));
+}
+
 export function assetsByOS(release: Release): Record<DesktopOS, ClassifiedAsset[]> {
   const out: Record<DesktopOS, ClassifiedAsset[]> = { windows: [], macos: [], linux: [] };
-  // From 0.8.0 a release also carries heap-* copies for the 0.7.x updater; the page offers the
-  // lowkey-* files only.
-  const renamed = release.assets.some((a) => /^lowkey-/i.test(a.name));
+  const newest = NAMES.find((n) => release.assets.some((a) => prefixOf(a.name) === n));
   for (const a of release.assets) {
-    if (renamed && /^heap-/i.test(a.name)) continue;
+    const p = prefixOf(a.name);
+    if (newest && p && p !== newest) continue;
     const c = classifyAsset(a);
     if (c) out[c.os].push(c);
   }

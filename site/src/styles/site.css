@@ -1,4 +1,4 @@
-/* The quiet style of lowkey: neutral greys, outlines instead of fills, colour only where it means something. */
+/* The quiet style of Tabless: neutral greys, outlines instead of fills, colour only where it means something. */
 :root {
   --bg: #0c0e11;
   --surface: #111419;
@@ -200,6 +200,7 @@ kbd { min-width: 44px; height: 44px; padding: 0 12px; display: grid; place-items
 .foot { display: flex; justify-content: space-between; padding: 28px var(--gutter) 110px; border-top: 1px solid var(--line); color: var(--dim); font-size: 14px; }
 .foot a:hover { color: var(--ink); }
 .foot-links { display: flex; gap: 24px; }
+.foot-brand { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 /* dock: where you are on the page + download, nothing else */
 .dock {

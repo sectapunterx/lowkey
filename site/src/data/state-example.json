@@ -4,7 +4,7 @@
     "schemaVersion": 12,
     "profiles": [
       {
-        "id": "lowkey-example",
+        "id": "tabless-example",
         "name": "Example",
         "statuses": [
           {

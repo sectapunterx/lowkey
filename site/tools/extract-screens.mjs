@@ -1,4 +1,4 @@
-// Renders screens of the lowkey (heap 2) mockups, <name>.dc.html, into the HTML fragments in
+// Renders screens of the Tabless (heap 2) mockups, <name>.dc.html, into the HTML fragments in
 // src/screens/ that Screen.astro puts on the page inside a declarative shadow root.
 //   MOCKUPS="C:/Users/Fin/Desktop/Code/New heap design/screens" node tools/extract-screens.mjs H2-Board H2-Today …
 // Then run tools/translate-screens.mjs for the English copies. Uses Playwright's Chromium

@@ -1,5 +1,7 @@
 # What the site promises, and what backs it
 
+The site is for **Tabless** (renamed from lowkey, and heap before that, in APP-283).
+
 Every claim on the site (both languages, home page and download page), the app feature behind it, and
 its state when the site was written (branch `heap2/0.8.0` at `deeb506`, 2026-10-09). Before the 0.8.0
 site goes live, check each row against the 0.8.0 build and tick it. A claim the build does not back is
@@ -14,13 +16,13 @@ Copy lives in `src/data/i18n.ts`; section names below follow the page.
 
 | # | Claim | Backed by | Status | 0.8.0 ✓ |
 |---|---|---|---|---|
-| 1 | No sign-up, works offline, Windows / macOS / Linux | no account code; `release.yml` builds all three | built | ☐ |
+| 1 | Hero: "Just makes your day easier." (English on both pages); free and open source, no account, your data in one file on your disk; tasks from 13 trackers (row 58) | LICENSE; no account code; one `state.json` (row 39) | built | ☐ |
 | 2 | Tracker tasks and calendar meetings in one feed for the day | Today screen (`TodayView.qml`), .ics subscriptions | built | ☐ |
 | 3 | Capture: date, time, `#label`, priority `p0`–`p3` picked up from the words (ru + en) | `CaptureParse.h`, `ChronoLocale_ru/en.cpp`, `TaskTextUtils.cpp` | built | ☐ |
 | 4 | `d` or a click on the circle closes a task | `AppController.cpp` shortcut list (`d`) | built | ☐ |
 | 5 | Demo empty state «Пусто. Можно выдохнуть.» / "Empty. Breathe out." | site demo only (one of the two emotional lines) | — | — |
 
-## A day with lowkey
+## A day with Tabless
 
 | # | Claim | Backed by | Status | 0.8.0 ✓ |
 |---|---|---|---|---|
@@ -37,7 +39,7 @@ Copy lives in `src/data/i18n.ts`; section names below follow the page.
 |---|---|---|---|---|
 | 12 | Repositories are added in Settings → Git; the branch is read from `.git/HEAD` | `GitWatcher.cpp` ("Watched repositories") | built | ☐ |
 | 13 | A branch name with a task id (APP-112) puts that task at the top of the window | `TopBar.qml` "Working on %1" | built | ☐ |
-| 14 | Heading: "the right task is already highlighted" | the top bar names the task (git "работаю над…" line, `TopBar.qml`); the board card itself is **not** highlighted — the APP-281 A3 branch row was reverted in 0.8.1 review 3 (the sheet's cards show no branch), and `focusedTaskId` is used nowhere on the board | **gap** — highlight the card, or reword to what the top bar does; owner decides | ☐ |
+| 14 | Heading: "Your branch tells it what you're on" (was "the right task is already highlighted", reworded in APP-283 to what the top bar does) | the top bar names the task (git "работаю над…" line, `TopBar.qml`); the board card itself is **not** highlighted — the APP-281 A3 branch row was reverted in 0.8.1 review 3 (the sheet's cards show no branch), and `focusedTaskId` is used nowhere on the board | **gap** — highlight the card, or reword to what the top bar does; owner decides | ☐ |
 | 15 | PR state from your own `gh` / `glab`, about once a minute; on the card under the cursor | `GitWatcher.cpp:517`, `TaskCard.qml:761`; "Pull PR state (gh / glab)" | built | ☐ |
 | 16 | On a branch switch the task moves to In Progress; off in Settings → Git | "Move task to In Progress", on by default | built | ☐ |
 | 17 | No bindings, no plugins | matching by id in the branch name; no IDE plugin | built | ☐ |
@@ -70,7 +72,7 @@ The site's own keys: Ctrl K and `/` open the search, `g g` goes to the top, Shif
 |---|---|---|---|---|
 | 31 | Bold style by default, quiet on request | `qml/Style.qml` (default `bold`) | built (the styles) | ☐ |
 | 32 | Switch in Settings, no restart | mockup N-Set-StyleKeys; `Style.apply` is called nowhere yet | planned | ☐ |
-| 33 | Tagline "Quiet by default." next to "Bold style by default" | owner's tagline; reads as the product's attitude, not the style setting | — owner may want one of them reworded | — |
+| 33 | ~~Tagline "Quiet by default."~~ — removed in APP-283; the tagline is "Just makes your day easier." (row 1) | — | — | — |
 
 ## Built like a tool, not a service
 
@@ -79,15 +81,15 @@ The site's own keys: Ctrl K and `/` open the search, `g g` goes to the top, Shif
 | 34 | Native, Qt 6 · C++20, no browser inside | `CMakeLists.txt:19, 62` | built | ☐ |
 | 35 | The Linux AppImage carries its own Qt | `release.yml` linuxdeploy-plugin-qt | built | ☐ |
 | 36 | Nothing in the background: runs while the window or tray icon is open | no service/daemon; tray in `NotificationCenter_tray.cpp` | built | ☐ |
-| 37 | Start at login only if you turn it on | "Start at login", off by default (`lowkey.iss` adds no entry) | built | ☐ |
+| 37 | Start at login only if you turn it on | "Start at login", off by default (the Inno Setup script in `installer/` adds no entry) | built | ☐ |
 | 38 | MIT, source on GitHub; free, no paid tier, no trial, no account | `LICENSE` | built | ☐ |
 
 ## Your data
 
 | # | Claim | Backed by | Status | 0.8.0 ✓ |
 |---|---|---|---|---|
-| 39 | Paths: `%APPDATA%\lowkey\lowkey`, `~/Library/Application Support/lowkey/lowkey`, `~/.local/share/lowkey/lowkey` | `main.cpp:275`, `Paths.cpp:31`, `Brand.h` | built | ☐ |
-| 40 | heap 0.7 data copied once on first start; old folder kept with `MOVED-TO-LOWKEY.txt` | `LegacyData.cpp`, `Brand.h:27` | built | ☐ |
+| 39 | Paths: `%APPDATA%\Tabless\Tabless`, `~/Library/Application Support/Tabless/Tabless`, `~/.local/share/Tabless/Tabless` | `main.cpp:275`, `Paths.cpp:31`, `Brand.h` | built | ☐ |
+| 40 | lowkey (or heap 0.7) data copied once on first start; old folder kept with `MOVED-TO-TABLESS.txt` | `LegacyData.cpp`, `Brand.h:27` | built | ☐ |
 | 41 | `backups` next to state.json: daily by default, last 20 kept | `AppController.cpp:171, 7873`, "Auto backup" | built | ☐ |
 | 42 | `history` time machine: hourly for 48 h, daily for 30 days | `Snapshots.h` | built | ☐ |
 | 43 | Tokens not in state.json: Windows → system credential store; macOS / Linux builds → `secrets.json`, owner-only | `SecretStore.h`; `release.yml` (QtKeychain only in the Windows build) | built — **gap vs. APP-281 B4** ("tokens in the system keychain"): the macOS and Linux release builds have no QtKeychain. Add it, or keep this honest wording | ☐ |
@@ -117,7 +119,7 @@ Recheck this list against every `QNetworkRequest` in the 0.8.0 build: the site s
 
 | # | Claim | Backed by | Status | 0.8.0 ✓ |
 |---|---|---|---|---|
-| 58 | GitHub, GitLab, Jira, Trello, Gitea, Forgejo, Redmine, Todoist, Asana, ClickUp, Sentry, Bitbucket, Mattermost | `ProviderRegistry.cpp:660` | built | ☐ |
+| 58 | 13 trackers: GitHub, GitLab, Jira, Trello, Gitea, Forgejo, Redmine, Todoist, Asana, ClickUp, Sentry, Bitbucket, Mattermost (for @mentions) | `ProviderRegistry.cpp:660` | built | ☐ |
 | 59 | Browser sign-in: GitHub, GitLab, Sentry (any build); Jira, Trello, Todoist, Asana, ClickUp, Bitbucket (release builds, OAuth secrets) | `OAuthClients.h`, `release.yml:180` | built | ☐ |
 | 60 | Gitea / Forgejo: token, or your own OAuth app; Redmine: API key; Mattermost: token or login, password not stored | `ProviderRegistry.cpp:219, 278, 642` | built | ☐ |
 
@@ -129,18 +131,18 @@ Recheck this list against every `QNetworkRequest` in the 0.8.0 build: the site s
 | 62 | Not for teams; the tracker stays the shared place | rows 47–48 | built | ☐ |
 | 63 | Obsidian: import with a preview, export to a new folder, `[[wiki-links]]` kept, `.obsidian` skipped | `MdVault.h` | built | ☐ |
 | 64 | English and Russian, switchable in Settings | `I18n.qml` | built | ☐ |
-| 65 | heap 0.7's own update check finds 0.8.0 | `release.yml:697` also uploads `heap-*` copies of the assets | built | ☐ |
+| 65 | lowkey's own update check finds the Tabless release | `release.yml` uploads `lowkey-*` copies of the assets; the old repository name redirects to `sectapunterx/tabless` — **check after the repository rename** (APP-283). heap 0.7's updater looks for `heap-*` files, which only releases up to 0.8.x carry, so the site no longer promises it | to verify | ☐ |
 
 ## Download
 
 | # | Claim | Backed by | Status | 0.8.0 ✓ |
 |---|---|---|---|---|
 | 66 | Files and sizes of the latest release | GitHub Releases API at build time; `src/data/releases.fallback.json` (0.7.2 snapshot) | built | ☐ |
-| 67 | Installer adds a Start menu entry and an uninstaller; portable zip runs from any folder | `installer/lowkey.iss` | built | ☐ |
-| 68 | macOS: open the disk image, drag lowkey into Applications | `packaging/macos/make-dmg.sh` | built | ☐ |
+| 67 | Installer adds a Start menu entry and an uninstaller; portable zip runs from any folder | the Inno Setup script in `installer/` | built | ☐ |
+| 68 | macOS: open the disk image, drag Tabless into Applications | `packaging/macos/make-dmg.sh` | built | ☐ |
 | 69 | AppImage: chmod +x and run, Qt inside | `release.yml` | built | ☐ |
 | 70 | From source: Qt 6.9+ and a C++20 compiler | `CMakeLists.txt:62–69` | built | ☐ |
-| 71 | Scoop | `bucket/heap.json` — **shown only while its version equals the latest release** (`src/lib/scoop.ts`). Today it is 0.5.0 under the heap name, so the page hides it. Bump the bucket (lowkey 0.8.0, `lowkey.exe`) and Scoop appears by itself | hidden | ☐ |
+| 71 | Scoop: `scoop bucket add tabless …`, `scoop install tabless` | `bucket/tabless.json` (`lowkey.json` and `heap.json` are the same manifest for buckets added under the old names) — **shown only while its version equals the latest release** (`src/lib/scoop.ts`). Bump it after each release and Scoop appears by itself | shown while in step | ☐ |
 | 72 | Uninstall leaves the data folder | data folder is outside the install dir | built | ☐ |
 
 winget and Flathub manifests are drafts at 0.5.0 (`docs/DISTRIBUTION.md`), so the site does not mention them.
@@ -148,5 +150,5 @@ winget and Flathub manifests are drafts at 0.5.0 (`docs/DISTRIBUTION.md`), so th
 ## The site itself
 
 - Makes no third-party requests, sets no cookies, runs no analytics (e2e test `renders cleanly`).
-- The product name is lowercase everywhere and never starts a sentence (e2e tests).
+- The product name is "Tabless" with a capital T; commands and file names are lowercase (`tabless`, `tabless-v…`). The old names appear only where the page explains the move (e2e tests).
 - At most two emotional lines per page: «Восемь вкладок, чтобы понять, что делать сейчас?» and «Пусто. Можно выдохнуть.».

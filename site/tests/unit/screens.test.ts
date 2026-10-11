@@ -32,7 +32,11 @@ describe('translate-screens', () => {
     }
   });
 
-  it('no screen names the product with a capital letter', () => {
-    for (const f of readdirSync(dir)) expect(readFileSync(new URL(f, dir), 'utf8')).not.toMatch(/Lowkey|LOWKEY/);
+  it('every screen names the product Tabless, never by an old name or in capitals', () => {
+    for (const f of readdirSync(dir)) {
+      const html = readFileSync(new URL(f, dir), 'utf8');
+      expect(html, f).not.toMatch(/lowkey/i);
+      expect(html, f).not.toMatch(/TABLESS|(?<![\w/.-])tabless(?![\w/.-])/);
+    }
   });
 });

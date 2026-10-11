@@ -1,7 +1,7 @@
 ---
 // The download page, one per language: every file of the latest release with its size (from the
 // GitHub Releases API at build time, src/data/releases.fallback.json when it is unreachable),
-// Scoop, the AppImage, building from source, and what happens to data from heap 0.7.
+// Scoop, the AppImage, building from source, and what happens to data from lowkey and heap.
 import Page from '../layouts/Page.astro';
 import { copy, type Lang } from '../data/i18n';
 import { getLatestRelease } from '../lib/github';
@@ -20,11 +20,11 @@ const d = t.dl;
 const latest = await getLatestRelease();
 const byOS = assetsByOS(latest);
 const order = ['windows', 'macos', 'linux'] as const;
-const image = byOS.linux[0]?.name ?? 'lowkey-*-linux-x86_64.AppImage';
+const image = byOS.linux[0]?.name ?? 'tabless-*-linux-x86_64.AppImage';
 const checkout = REPO.split('/')[1];
 // Scoop only while the bucket installs this very release (src/lib/scoop.ts)
 const ways = [
-  ...(scoopVersion() === versionOf(latest.tag) ? [{ h: d.scoopH, p: d.scoopP, code: `scoop bucket add lowkey ${GITHUB_URL}\nscoop install lowkey` }] : []),
+  ...(scoopVersion() === versionOf(latest.tag) ? [{ h: d.scoopH, p: d.scoopP, code: `scoop bucket add tabless ${GITHUB_URL}\nscoop install tabless` }] : []),
   { h: d.appimageH, p: d.appimageP, code: `chmod +x ${image}\n./${image}` },
   { h: d.sourceH, p: d.sourceP, code: `git clone ${GITHUB_URL}.git\ncmake -S ${checkout} -B build -DCMAKE_BUILD_TYPE=Release\ncmake --build build -j` },
 ];

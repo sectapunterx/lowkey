@@ -29,16 +29,20 @@ for (const path of PAGES) {
     expect(overflow, 'no horizontal page scroll').toBeLessThanOrEqual(0);
   });
 
-  test(`/${path} never starts a sentence with the product name`, async ({ page }) => {
+  test(`/${path} writes the product name as Tabless`, async ({ page }) => {
     await page.goto(path);
-    const text = await page.locator('body').innerText();
-    // A file name (lowkey-v0.8.0-…) or a path (lowkey/lowkey) on its own line is not a sentence.
-    expect(text).not.toMatch(/(?:^|[.!?]\s+|\n\s*)lowkey(?![\w/.-])/);
+    // Commands (scoop install tabless) and file names (tabless-v0.9.0-…) are lowercase on purpose.
+    const text = await page.locator('body').evaluate((body) => {
+      const copy = body.cloneNode(true) as HTMLElement;
+      copy.querySelectorAll('code, pre, kbd, script, style').forEach((el) => el.remove());
+      return copy.innerText ?? copy.textContent ?? '';
+    });
+    expect(text).not.toMatch(/(?<![\w/.-])tabless(?![\w/.-])/);
+    expect(text).not.toMatch(/TABLESS(?!\.txt)/);
   });
 }
 
-test('the product name is never capitalised in the built HTML', () => {
-  // Legal text (the LICENSE) is not part of the site; nothing here is exempt.
+test('the old names appear only where the page explains the move', () => {
   const files: string[] = [];
   const walk = (dir: string) => {
     for (const f of readdirSync(dir)) {
@@ -49,8 +53,13 @@ test('the product name is never capitalised in the built HTML', () => {
   };
   walk('dist');
   expect(files.length).toBeGreaterThanOrEqual(5);
-  // MOVED-TO-LOWKEY.txt is the real name of the marker file the app leaves in the old heap folder
-  for (const f of files) expect(readFileSync(f, 'utf8').replaceAll('MOVED-TO-LOWKEY.txt', ''), f).not.toMatch(/Lowkey|LOWKEY/);
+  // The tagline is gone from the site, and no page writes an old name in capitals. lowkey-* file names
+  // and lowkey/lowkey, heap/heap paths stay: releases before the rename and the migration note need them.
+  for (const f of files) {
+    const html = readFileSync(f, 'utf8');
+    expect(html, f).not.toMatch(/Quiet by default|Тихо по умолчанию/i);
+    expect(html, f).not.toMatch(/Lowkey|LOWKEY|MOVED-TO-LOWKEY/);
+  }
 });
 
 test('unknown pages get the 404 page', async ({ page }) => {
@@ -177,7 +186,7 @@ test('the download buttons point at this platform’s file', async ({ page, isMo
   await page.waitForLoadState('networkidle');
   const cta = page.locator('.hero a[data-os-cta]');
   if (isMobile) {
-    await expect(cta).toHaveText('Download lowkey');
+    await expect(cta).toHaveText('Download Tabless');
     await page.goto('download/');
     await expect(page.locator('[data-mobile-note]')).toBeVisible();
   } else {

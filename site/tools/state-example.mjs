@@ -46,6 +46,10 @@ export function buildExample() {
   if (s.schemaVersion < 12 && target >= 12) s = toV12(s);
   if (s.schemaVersion !== target) throw new Error(`example is schema ${s.schemaVersion}, the app writes ${target}: add the missing rung here`);
 
+  // The example profile's id named the product until APP-283; the app renames it on load
+  // (AppController::migrateExampleProfileId), so the page shows the id the app writes.
+  for (const pr of s.profiles) if (pr.id === 'lowkey-example') pr.id = 'tabless-example';
+
   const p = s.profiles[0];
   const t = p.tasks.find((x) => x.id === 'APP-101') ?? p.tasks[0];
   const col = p.statuses.find((x) => x.id === t.status) ?? p.statuses[0];
