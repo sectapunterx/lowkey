@@ -1,0 +1,43 @@
+name: Wanted — a tracker
+description: Ask for a tracker Tabless doesn't read yet.
+title: "Wanted: "
+labels: [tracker]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tabless reads 13 trackers today ([the list](https://github.com/sectapunterx/tabless/blob/master/docs/INTEGRATIONS.md)). Search the open `tracker` issues first — a 👍 on an existing one counts.
+  - type: input
+    id: name
+    attributes:
+      label: Tracker
+      placeholder: "YouTrack, Linear, Azure DevOps, …"
+    validations:
+      required: true
+  - type: dropdown
+    id: hosting
+    attributes:
+      label: How you use it
+      options:
+        - Cloud
+        - Self-hosted
+        - Both
+    validations:
+      required: true
+  - type: input
+    id: api
+    attributes:
+      label: API docs
+      description: A link to the REST or GraphQL docs, if you have one at hand.
+  - type: textarea
+    id: needs
+    attributes:
+      label: What you'd want from it
+      description: Usually the issues assigned to you, their status and due dates. Anything beyond that?
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Helping out
+      options:
+        - label: I can test a build against a real account
+        - label: I'd like to write the provider myself

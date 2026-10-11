@@ -1,0 +1,57 @@
+name: Bug report
+description: Something in Tabless doesn't work the way it should.
+title: "[bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. **Settings → Help → Report a problem** inside the app fills most of this in for you.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead.
+      placeholder: |
+        Pressed Ctrl+Shift+Space in another app and typed "fix login 15:00".
+        Expected the task at 15:00 today; it landed in the undated tray.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. …
+        2. …
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Settings → About.
+      placeholder: "0.8.5"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - Windows
+        - macOS
+        - Linux (AppImage)
+        - Linux (other)
+    validations:
+      required: true
+  - type: input
+    id: tracker
+    attributes:
+      label: Tracker, if one is involved
+      placeholder: "Jira Cloud, self-hosted GitLab 17.2, …"
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: |
+        `logs/tabless.log` in the data folder (Settings → About shows where it is). Check it for anything private before pasting.
+      render: text

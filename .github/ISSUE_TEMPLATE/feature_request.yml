@@ -1,0 +1,21 @@
+name: Idea
+description: Something that would make your day in Tabless easier.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: moment
+    attributes:
+      label: The moment
+      description: When in your day does this come up, and what gets in the way?
+      placeholder: "Before standup I open three PR pages to see which of my tasks moved…"
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: What you do now
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+      description: Optional — the problem matters more than the solution.

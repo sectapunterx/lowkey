@@ -1,0 +1,9 @@
+# Blank issues stay on: the in-app "Report an issue" opens /issues/new with the body filled in.
+blank_issues_enabled: true
+contact_links:
+  - name: Question
+    url: https://github.com/sectapunterx/tabless/discussions/categories/q-a
+    about: How to set something up, or whether Tabless can do something.
+  - name: Show what you've built
+    url: https://github.com/sectapunterx/tabless/discussions/categories/show-and-tell
+    about: Prompt snippets, themes, keymaps, workflows.
