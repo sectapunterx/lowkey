@@ -268,7 +268,8 @@ TEST(SampleData, LegacyExampleIsKept) {
   }
   EXPECT_EQ(SampleData::legacy::eventTitles().size(), 10);
   EXPECT_TRUE(SampleData::legacy::eventTitles().contains(QStringLiteral("1:1 with Oleg")));
-  const Task* old = findTask(SampleData::legacy::tasks(SampleData::Lang::En), QStringLiteral("APP-101"));
+  const QVector<Task> legacyEn = SampleData::legacy::tasks(SampleData::Lang::En);  // findTask points into it
+  const Task* old = findTask(legacyEn, QStringLiteral("APP-101"));
   ASSERT_NE(old, nullptr);
   EXPECT_EQ(old->title, QStringLiteral("Login rate-limit bypass"));
 }
