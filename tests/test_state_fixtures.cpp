@@ -190,6 +190,26 @@ TEST(StateFixtureRename, TheLowkeyExampleProfileGetsTheNewId) {
   QDir(appDataDir()).removeRecursively();
 }
 
+// APP-271 rework: an example made by 0.8.0 holds the samples of then. They
+// still read as samples, so the question before removing counts only the
+// person's own note, and removing it takes every sample meeting with it.
+TEST(StateFixtureRename, AnOldExampleIsStillRecognised) {
+  QDir(appDataDir()).removeRecursively();
+  QDir().mkpath(appDataDir());
+  ASSERT_TRUE(QFile::copy(QStringLiteral(HEAP_STATE_FIXTURES_DIR "/v0.8.0.json"), statePath()));
+  {
+    AppController app;
+    ASSERT_TRUE(app.hasExample());
+    ASSERT_EQ(app.tasks()->rowCount(), 15);
+    ASSERT_EQ(app.events()->rowCount(), 5);
+    EXPECT_EQ(app.exampleChanges(), 1) << "only the typed note is the person's";
+    app.removeExample();
+    EXPECT_FALSE(app.hasExample());
+    EXPECT_EQ(app.events()->rowCount(), 0) << "a sample meeting of 0.8.0 stayed behind";
+  }
+  QDir(appDataDir()).removeRecursively();
+}
+
 INSTANTIATE_TEST_SUITE_P(Releases,
                          StateFixtureTest,
                          ::testing::ValuesIn(fixtureNames()),

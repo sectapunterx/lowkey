@@ -8,7 +8,9 @@ account, no server, no browser. Everything you create lives on your machine.
 
 ## 1. Launch & the layout
 
-On first run Tabless seeds an **Example** profile so nothing is empty. The window
+On first run Tabless opens an empty Today in a profile of your own. The first-run
+screen also offers an **Example**: a separate profile with a made-up workday
+(meetings, planned tasks, notes) that you can remove from the profile menu. The window
 has three regions: the **side rail** (view switcher, left), the **main view**
 (center), and the **calendar + people** column (right).
 

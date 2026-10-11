@@ -8782,7 +8782,6 @@ Profile AppController::buildExampleProfile(QVector<CalEvent>* events) const {
   p.createdAt = QDateTime::currentDateTime();
   const SampleData::Lang seedLang = (m_language == "ru") ? SampleData::Lang::Ru : SampleData::Lang::En;
   p.tasks = SampleData::tasks(seedLang);
-  SampleData::addExampleLabels(p.tasks);
   p.people = SampleData::people(seedLang);
   // The ids every later launch would give them anyway: an example saved with
   // "p1" was renamed on each start, and the file never matched what it held.
@@ -8798,6 +8797,7 @@ Profile AppController::buildExampleProfile(QVector<CalEvent>* events) const {
   p.activeNoteId = p.notes.isEmpty() ? QString() : p.notes.constFirst().id;
   p.notesState = p.notes.isEmpty() ? QString() : p.notes.constFirst().body;
   p.savedViews = heap::savedviews::starterViews(seedLang == SampleData::Lang::Ru);
+  p.waitingOn = SampleData::waitingOn();
   if(events) {
     *events = SampleData::events(m_today, seedLang);
     for(CalEvent& e : *events) {
@@ -8821,7 +8821,9 @@ QString AppController::openExample() {
     // Task ids are app-wide; a sample id the person already uses gets a
     // fresh one, and the meetings follow it.
     const QHash<QString, QString> renamed = reissueSharedTaskIds(p, &events);
-    Q_UNUSED(renamed);
+    for(WaitingOn& w : p.waitingOn) {
+      w.taskId = renamed.value(w.taskId, w.taskId);
+    }
     // Meeting ids too: a second example after a removal must not collide.
     for(CalEvent& e : events) {
       if(m_events.indexOfId(e.id) >= 0) {
@@ -8853,12 +8855,20 @@ int AppController::exampleChanges() const {
   // A task that is no sample task as it was made (in either language) —
   // its title, text, column or priority changed, or a task added — is the
   // person's work. Tasks carry no edit time, so the samples are the measure.
+  // An example made by 0.8.0 - 0.8.5 holds the samples of then: they are
+  // samples too, so removing an old example does not count them as work.
+  // A #KEY-1 reference renamed by openExample (a sample id the person already
+  // used) is still the sample's text: references compare without their keys.
+  static const QRegularExpression kTicketRef(QStringLiteral("(?<![A-Za-z0-9_])#[A-Z][A-Z0-9]*-\\d+"));
+  const auto plain = [](QString text) {
+    return text.replace(kTicketRef, QStringLiteral("#"));
+  };
   QSet<QString> samples;
-  const auto key = [](const Task& t) {
-    return t.title + QChar(0x1f) + t.desc + QChar(0x1f) + t.status + QChar(0x1f) + t.priority;
+  const auto key = [&plain](const Task& t) {
+    return t.title + QChar(0x1f) + plain(t.desc) + QChar(0x1f) + t.status + QChar(0x1f) + t.priority;
   };
   for(const SampleData::Lang lang : {SampleData::Lang::En, SampleData::Lang::Ru}) {
-    for(const Task& t : SampleData::tasks(lang)) {
+    for(const Task& t : SampleData::tasks(lang) + SampleData::legacy::tasks(lang)) {
       samples.insert(key(t));
     }
   }
@@ -8877,24 +8887,28 @@ int AppController::exampleChanges() const {
   // And notes: a note written in the example went without the question.
   QSet<QString> sampleNotes;
   for(const SampleData::Lang lang : {SampleData::Lang::En, SampleData::Lang::Ru}) {
-    for(const Note& s : SampleData::notes(lang)) {
-      sampleNotes.insert(s.title + QChar(0x1f) + s.body.trimmed());
+    for(const Note& s : SampleData::notes(lang) + SampleData::legacy::notes(lang)) {
+      sampleNotes.insert(s.title + QChar(0x1f) + plain(s.body.trimmed()));
     }
   }
   const QVector<Note>& notes = p.id == m_activeProfileId ? m_notes.items() : p.notes;
   for(const Note& note : notes) {
-    if(!sampleNotes.contains(note.title + QChar(0x1f) + note.body.trimmed())) {
+    if(!sampleNotes.contains(note.title + QChar(0x1f) + plain(note.body.trimmed()))) {
       ++n;
     }
   }
   return n;
 }
 
-// A meeting the example came with, in either language; matched by title,
-// since the sample's dates follow the day it was opened on.
+// A meeting the example came with, in either language, now or as 0.8.0 -
+// 0.8.5 made it; matched by title, since the sample's dates follow the day
+// it was opened on.
 bool AppController::isSampleEvent(const CalEvent& e) {
   static const QSet<QString> titles = [] {
     QSet<QString> out;
+    for(const QString& t : SampleData::legacy::eventTitles()) {
+      out.insert(t);
+    }
     for(const SampleData::Lang lang : {SampleData::Lang::En, SampleData::Lang::Ru}) {
       for(const CalEvent& s : SampleData::events(QDate::currentDate(), lang)) {
         out.insert(s.title);

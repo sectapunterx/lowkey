@@ -190,6 +190,7 @@ qt_add_library(heap_core STATIC
     src/TaskFilterProxy.cpp
     src/RecoveryLog.cpp
     src/SampleData.cpp
+    src/SampleDataLegacy.cpp
     src/StateSerializer.cpp
     # The task's local layer (ADR 0001, APP-244).
     src/local/TaskLocal.cpp

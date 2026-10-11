@@ -9,6 +9,7 @@
 
 #include "AppController.h"
 #include "Models.h"
+#include "SampleData.h"
 
 #include <QApplication>
 #include <QDate>
@@ -124,6 +125,86 @@ TEST_F(OnboardingTest, ExampleChangesCountEditedAndAddedTasks) {
   app.tasks()->upsert(edited);
   app.tasks()->upsert(makeTask(QStringLiteral("NEW-1")));
   EXPECT_EQ(app.exampleChanges(), 2);
+}
+
+// An untouched example is no work of the person's, in either language: its
+// tasks, notes and meetings all read as samples.
+TEST_F(OnboardingTest, UntouchedExampleHasNoChangesInBothLanguages) {
+  for(const char* lang : {"en", "ru"}) {
+    QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).removeRecursively();
+    QDir().mkpath(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation));
+    AppController app;
+    app.setLanguage(QString::fromLatin1(lang));
+    app.openExample();
+    EXPECT_GT(app.notes()->rowCount(), 1) << lang;
+    EXPECT_EQ(app.exampleChanges(), 0) << lang;
+    // ...also when it is not the active profile.
+    app.setActiveProfileId(app.profiles().at(0).toMap().value("id").toString());
+    EXPECT_EQ(app.exampleChanges(), 0) << lang;
+    // The wait on QA came with it.
+    app.openExample();
+    EXPECT_TRUE(app.waitingOnMap().contains(QStringLiteral("APP-115"))) << lang;
+  }
+}
+
+// A sample id the person already uses gets a fresh one (TASKS-1); the notes'
+// #references and the wait follow it, and the example still counts as
+// untouched.
+TEST_F(OnboardingTest, ExampleWithRenamedIdsStillHasNoChanges) {
+  AppController app;
+  app.tasks()->reset({makeTask(QStringLiteral("APP-115")), makeTask(QStringLiteral("APP-112"))});
+  app.openExample();
+  ASSERT_EQ(app.activeProfileId(), QString::fromLatin1(AppController::kExampleProfileId));
+  const QStringList waiting = app.waitingOnMap().keys();
+  ASSERT_EQ(waiting.size(), 1);
+  EXPECT_NE(waiting.at(0), QStringLiteral("APP-115"));
+  EXPECT_GE(app.tasks()->indexOfId(waiting.at(0)), 0);
+  EXPECT_EQ(app.exampleChanges(), 0);
+}
+
+// An example made by 0.8.1 - 0.8.5 kept its notes of then: still samples.
+TEST_F(OnboardingTest, LegacyExampleNotesAreNotChanges) {
+  AppController app;
+  app.openExample();
+  app.notes()->reset(SampleData::legacy::notes(SampleData::Lang::En) + SampleData::legacy::notes(SampleData::Lang::Ru));
+  QVector<Task> old = SampleData::legacy::tasks(SampleData::Lang::Ru);
+  app.tasks()->reset(old);
+  EXPECT_EQ(app.exampleChanges(), 0);
+  Note mine;
+  mine.id = QStringLiteral("mine");
+  mine.title = QStringLiteral("Mine");
+  mine.body = QStringLiteral("# Mine\n");
+  app.notes()->upsert(mine);
+  EXPECT_EQ(app.exampleChanges(), 1);
+}
+
+// The capture lines the guide note shows read the way it says: a time puts
+// the task into the day, `~30m` is an estimate, after "by" / "до" the date is
+// the deadline, and p1 / #auth are priority and label.
+TEST_F(OnboardingTest, GuideCaptureExamplesParseAsDescribed) {
+  AppController app;
+  const QDateTime ref(QDate(2026, 10, 12), QTime(9, 0));  // a Monday
+  for(const SampleData::Lang lang : {SampleData::Lang::En, SampleData::Lang::Ru}) {
+    const QStringList lines = SampleData::captureExamples(lang);
+    ASSERT_EQ(lines.size(), 3);
+
+    const QVariantMap a = app.captureParse(lines.at(0), ref, {});
+    EXPECT_EQ(a.value("when").toDateTime(), QDateTime(ref.date(), QTime(15, 0))) << lines.at(0).toStdString();
+    EXPECT_TRUE(a.value("whenHasTime").toBool());
+    EXPECT_FALSE(a.value("due").toDateTime().isValid());
+    EXPECT_EQ(a.value("priority").toString(), QStringLiteral("P1"));
+    EXPECT_EQ(a.value("labels").toStringList(), QStringList{QStringLiteral("auth")});
+
+    const QVariantMap b = app.captureParse(lines.at(1), ref, {});
+    EXPECT_EQ(b.value("when").toDateTime(), QDateTime(ref.date().addDays(1), QTime(11, 0))) << lines.at(1).toStdString();
+    EXPECT_EQ(b.value("estimateMinutes").toInt(), 30);
+    EXPECT_FALSE(b.value("due").toDateTime().isValid());
+
+    const QVariantMap c = app.captureParse(lines.at(2), ref, {});
+    EXPECT_FALSE(c.value("when").toDateTime().isValid()) << lines.at(2).toStdString();
+    EXPECT_EQ(c.value("due").toDateTime().date(), QDate(2026, 10, 16)) << lines.at(2).toStdString();
+    EXPECT_EQ(c.value("priority").toString(), QStringLiteral("P2"));
+  }
 }
 
 // A new user starts on lowkey / lowkey light with normal contrast (heap 2), written into the

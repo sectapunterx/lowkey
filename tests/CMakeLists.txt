@@ -593,6 +593,7 @@ heap_add_appcontroller_test(heap_knowledge_tests test_knowledge.cpp)
 add_executable(heap_sampledata_tests
         test_sampledata.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/SampleData.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/SampleDataLegacy.cpp
 )
 target_include_directories(heap_sampledata_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 target_link_libraries(heap_sampledata_tests PRIVATE
