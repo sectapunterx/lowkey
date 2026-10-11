@@ -5,7 +5,7 @@
 import Page from '../layouts/Page.astro';
 import { copy, type Lang } from '../data/i18n';
 import { getLatestRelease } from '../lib/github';
-import { assetsByOS, formatDate, megabytes, primaryAssets, versionOf } from '../lib/releases';
+import { assetsByOS, formatDate, megabytes, primaryAssets, shippedName, versionOf } from '../lib/releases';
 import { OS_LABEL } from '../lib/os';
 import { GITHUB_URL, RELEASES_URL, REPO } from '../lib/site';
 import { scoopVersion } from '../lib/scoop';
@@ -19,6 +19,10 @@ const d = t.dl;
 
 const latest = await getLatestRelease();
 const byOS = assetsByOS(latest);
+// Until the first Tabless release the newest files are lowkey's: say so rather than promise a Tabless app.
+const oldName = shippedName(latest) !== 'tabless';
+const notes = oldName ? { ...d.notes, macos: d.notes.macos.replace('Tabless', d.oldNameApp) } : d.notes;
+const facts = oldName ? d.facts.map((f, i) => (i === 1 ? d.oldFact : f)) : d.facts;
 const order = ['windows', 'macos', 'linux'] as const;
 const image = byOS.linux[0]?.name ?? 'tabless-*-linux-x86_64.AppImage';
 const checkout = REPO.split('/')[1];
@@ -42,6 +46,7 @@ const ways = [
     <p class="kicker">{d.kicker.replace('{v}', versionOf(latest.tag)).replace('{date}', formatDate(latest.date, lang))}</p>
     <h1 class="h2">{d.h}</h1>
     <p class="lede">{d.p}</p>
+    {oldName && <p class="muted old-name" data-old-name>{d.oldName.replace('{v}', versionOf(latest.tag))}</p>}
     <p class="mobile-note muted" data-mobile-note hidden>{d.mobile}</p>
 
     <div class="os-cols">
@@ -60,7 +65,7 @@ const ways = [
                 </li>
               ))}
             </ul>
-            <p class="muted os-note">{d.notes[os]}</p>
+            <p class="muted os-note">{notes[os]}</p>
           </div>
         ))
       }
@@ -84,7 +89,7 @@ const ways = [
     </div>
 
     <div class="trio">
-      {d.facts.map(([h, p]) => <div class="tcard"><h3>{h}</h3><p>{p}</p></div>)}
+      {facts.map(([h, p]) => <div class="tcard"><h3>{h}</h3><p>{p}</p></div>)}
     </div>
 
     <p class="files-note"><a href={RELEASES_URL}>{d.all}</a></p>

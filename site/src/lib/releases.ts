@@ -51,6 +51,11 @@ function prefixOf(name: string): string | undefined {
   return NAMES.find((n) => name.toLowerCase().startsWith(`${n}-`));
 }
 
+/** The name the release's files go under ("tabless", "lowkey", "heap"), newest present. */
+export function shippedName(release: Release): string | undefined {
+  return NAMES.find((n) => release.assets.some((a) => prefixOf(a.name) === n));
+}
+
 export function assetsByOS(release: Release): Record<DesktopOS, ClassifiedAsset[]> {
   const out: Record<DesktopOS, ClassifiedAsset[]> = { windows: [], macos: [], linux: [] };
   const newest = NAMES.find((n) => release.assets.some((a) => prefixOf(a.name) === n));

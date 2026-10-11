@@ -192,6 +192,9 @@ const ru = {
     kicker: 'Версия {v} · {date}',
     h: 'Скачать Tabless',
     p: 'Один файл, ставить больше ничего не нужно. На Linux это один AppImage с Qt внутри.',
+    oldName: 'Версия {v} ещё выходит под прежним именем lowkey: так называются файлы, приложение и папка с данными. Первая сборка под именем Tabless — следующий релиз; lowkey сам предложит на неё обновиться.',
+    oldNameApp: 'lowkey',
+    oldFact: ['Переход на Tabless', 'Следующий релиз выйдет под именем Tabless. lowkey найдёт его своей проверкой обновлений, а при первом запуске данные один раз скопируются в новую папку; старая останется на месте.'],
     mobile: 'Вы с телефона, а это приложение для компьютера. Откройте эту страницу на нём.',
     notes: {
       windows: 'Установщик добавит ярлык в меню «Пуск» и удаление через «Приложения». Портативная версия запускается из любой папки.',
@@ -392,6 +395,9 @@ const en: typeof ru = {
     kicker: 'Version {v} · {date}',
     h: 'Download Tabless',
     p: 'One download, nothing else to install. On Linux it is a single AppImage with Qt inside.',
+    oldName: 'Version {v} still ships under the old name, lowkey: the files, the app and its data folder are called lowkey. The first build named Tabless is the next release, and lowkey will offer the update by itself.',
+    oldNameApp: 'lowkey',
+    oldFact: ['Moving to Tabless', 'The next release ships as Tabless. lowkey finds it through its own update check, and on the first start your data is copied to the new folder once; the old folder stays where it was.'],
     mobile: 'You’re on a phone, and this is a desktop app. Open this page on your computer.',
     notes: {
       windows: 'The installer adds a Start menu entry and an uninstaller. The portable zip runs from any folder.',

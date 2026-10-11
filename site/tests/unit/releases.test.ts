@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assetsByOS, classifyAsset, megabytes, primaryAssets, versionOf, type Release } from '../../src/lib/releases';
+import { assetsByOS, classifyAsset, megabytes, primaryAssets, shippedName, versionOf, type Release } from '../../src/lib/releases';
 import fallback from '../../src/data/releases.fallback.json';
 
 const asset = (name: string, size = 1_000_000) => ({ name, size, url: `https://example.test/${name}` });
@@ -68,5 +68,13 @@ describe('megabytes / versionOf', () => {
     expect(megabytes(39_715_428)).toBe('39.7');
     expect(megabytes(50_526_712)).toBe('50.5');
     expect(versionOf('v0.8.0')).toBe('0.8.0');
+  });
+});
+
+describe('shippedName', () => {
+  const rel = (...names: string[]): Release => ({ tag: 'v1.0.0', date: '2026-10-11T00:00:00Z', assets: names.map((name) => ({ name, url: name, size: 1 })) }) as Release;
+  it('is the newest name the release has files under', () => {
+    expect(shippedName(rel('lowkey-v0.8.3-macos.dmg', 'heap-v0.8.3-macos.dmg'))).toBe('lowkey');
+    expect(shippedName(rel('tabless-v0.9.0-macos.dmg', 'lowkey-v0.9.0-macos.dmg'))).toBe('tabless');
   });
 });
