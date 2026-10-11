@@ -93,6 +93,13 @@ Jira need nothing: leave the repo/project/JQL blank and they pull the issues
 Once connected, **Sync now** pulls issues and **Test connection** validates the
 credentials.
 
+**Sentry shows a bare "403 Forbidden"?** Sentry's website refuses some networks
+outright, before any sign-in — the login page itself answers 403. Browser
+sign-in goes through that website, and so does creating a token, so neither
+works from such a network. Its API usually still answers: create an auth token
+once from another network (or ask a teammate to), paste it under **Advanced**,
+and syncing works from here.
+
 ## Enabling one-click OAuth (maintainers)
 
 > Step-by-step registration for every provider — where to click, which scopes,
