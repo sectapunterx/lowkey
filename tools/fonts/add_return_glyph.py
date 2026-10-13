@@ -21,11 +21,12 @@ The change makes these Modified Versions under the SIL OFL 1.1; the note at
 the top of each resources/fonts/*-OFL.txt says so.
 """
 
+import struct
 import sys
 from pathlib import Path
 
 from fontTools.pens.ttGlyphPen import TTGlyphPen
-from fontTools.ttLib import TTFont
+from fontTools.ttLib import TTFont, newTable
 
 DROP = 120  # the arrow moves down (font units) so the stem has room to rise to cap height
 CODEPOINT = 0x21B5
@@ -38,11 +39,67 @@ def area(pts):
                for i in range(len(pts))) / 2
 
 
+def repair_vmtx(t: TTFont, path: Path) -> bool:
+    """Gives every glyph its vmtx entry; returns True when one was missing.
+
+    fontTools copies a table it never loaded byte for byte, so the first
+    version of this script grew the glyph order by one and left Golos's vmtx a
+    glyph short. FreeType shrugs that off; DirectWrite (Qt on Windows) then
+    draws U+21B5 as an empty advance, the bug R4-056 meant to fix.
+    """
+    if "vmtx" not in t:
+        return False
+    raw = t.reader["vmtx"]
+    num_v = t["vhea"].numberOfVMetrics
+    order = t.getGlyphOrder()
+    if len(raw) >= num_v * 4 + (len(order) - num_v) * 2:
+        return False
+    metrics = {}
+    for i, name in enumerate(order):
+        if i < num_v:
+            off = i * 4
+            if off + 4 > len(raw):
+                break
+            adv, tsb = struct.unpack(">Hh", raw[off:off + 4])
+        else:
+            off = num_v * 4 + (i - num_v) * 2
+            if off + 2 > len(raw):
+                break
+            adv = metrics[order[num_v - 1]][0]
+            (tsb,) = struct.unpack(">h", raw[off:off + 2])
+        metrics[name] = (adv, tsb)
+    for name in order:
+        if name not in metrics:
+            metrics[name] = vertical_metric(t, name, metrics)
+    table = newTable("vmtx")
+    table.metrics = metrics
+    t["vmtx"] = table
+    print(path.name, "vmtx repaired")
+    return True
+
+
+def vertical_metric(t: TTFont, name: str, metrics=None):
+    """The return arrow sits where arrowleft does, so it takes its advance and
+    keeps the same gap from the top."""
+    source = (metrics or t["vmtx"].metrics)["arrowleft"]
+    glyf = t["glyf"]
+    ref, new = glyf["arrowleft"], glyf[name]
+    ref.recalcBounds(glyf)
+    new.recalcBounds(glyf)
+    return (source[0], source[1] + (ref.yMax - new.yMax))
+
+
 def add_glyph(path: Path) -> None:
     t = TTFont(path)
     if CODEPOINT in t.getBestCmap():
-        print(path.name, "already has U+21B5")
+        if repair_vmtx(t, path):
+            t.recalcTimestamp = False
+            t.save(path)
+        else:
+            print(path.name, "already has U+21B5")
         return
+    if "vmtx" in t:
+        t["vmtx"]  # load it, or the save below copies it a glyph short
     glyf = t["glyf"]
     coords, ends, _flags = glyf["arrowleft"].getCoordinates(glyf)
     pts = [(int(x), int(y) - DROP) for x, y in coords]
@@ -76,6 +133,8 @@ def add_glyph(path: Path) -> None:
     glyf[GLYPH_NAME] = g
     g.recalcBounds(glyf)
     t["hmtx"][GLYPH_NAME] = (t["hmtx"]["arrowleft"][0], g.xMin)
+    if "vmtx" in t:
+        t["vmtx"][GLYPH_NAME] = vertical_metric(t, GLYPH_NAME)
     for sub in t["cmap"].tables:
         if sub.isUnicode():
             sub.cmap[CODEPOINT] = GLYPH_NAME

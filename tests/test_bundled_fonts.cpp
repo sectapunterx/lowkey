@@ -148,6 +148,60 @@ TEST(BundledFonts, CoverCyrillic) {
   }
 }
 
+// The ↵ in every key hint is a glyph tools/fonts/add_return_glyph.py adds.
+// Its first version grew the glyph count but left Golos's vmtx a glyph short:
+// FreeType (these tests, offscreen) still draws it, DirectWrite (the app on
+// Windows) draws an empty advance. So check the tables, not a rendering.
+namespace {
+
+quint32 be32(const QByteArray& data, qsizetype at) {
+  const auto* p = reinterpret_cast<const uchar*>(data.constData() + at);
+  return (quint32(p[0]) << 24) | (quint32(p[1]) << 16) | (quint32(p[2]) << 8) | quint32(p[3]);
+}
+
+quint16 be16(const QByteArray& data, qsizetype at) {
+  const auto* p = reinterpret_cast<const uchar*>(data.constData() + at);
+  return quint16((p[0] << 8) | p[1]);
+}
+
+// Offset and length of an sfnt table, or {-1, 0}.
+std::pair<qsizetype, quint32> table(const QByteArray& data, const char* tag) {
+  const int count = be16(data, 4);
+  for(int i = 0; i < count; ++i) {
+    const qsizetype rec = 12 + i * 16;
+    if(data.mid(rec, 4) == QByteArray(tag, 4)) {
+      return {be32(data, rec + 8), be32(data, rec + 12)};
+    }
+  }
+  return {-1, 0};
+}
+
+}  // namespace
+
+TEST(BundledFonts, MetricsTablesCoverEveryGlyph) {
+  const QDir dir(QStringLiteral(":/fonts"));
+  for(const QString& file : dir.entryList({QStringLiteral("*.ttf")}, QDir::Files)) {
+    QFile f(dir.filePath(file));
+    ASSERT_TRUE(f.open(QIODevice::ReadOnly));
+    const QByteArray data = f.readAll();
+    const auto [maxp, maxpLen] = table(data, "maxp");
+    ASSERT_GE(maxp, 0) << qPrintable(file);
+    const int glyphs = be16(data, maxp + 4);
+    for(const auto& [head, metrics] : {std::pair{"hhea", "hmtx"}, std::pair{"vhea", "vmtx"}}) {
+      const auto [h, hLen] = table(data, head);
+      if(h < 0) {
+        continue;  // JetBrains Mono has no vertical metrics
+      }
+      const int longMetrics = be16(data, h + 34);
+      const auto [m, mLen] = table(data, metrics);
+      ASSERT_GE(m, 0) << qPrintable(file) << " " << metrics;
+      EXPECT_GE(mLen, quint32(longMetrics * 4 + (glyphs - longMetrics) * 2)) << qPrintable(file) << " " << metrics;
+    }
+    const QRawFont raw(data, 13);
+    EXPECT_TRUE(raw.supportsCharacter(QChar(0x21B5))) << qPrintable(file);
+  }
+}
+
 int main(int argc, char** argv) {
   qputenv("QT_QPA_PLATFORM", "offscreen");
   const QGuiApplication app(argc, argv);
