@@ -266,6 +266,21 @@ TestCase {
         // Words in the custom row's field read as a rule.
         compare(EventRule.fromChrono(AppController.recurrenceFromText("every 3 weeks")), "FREQ=WEEKLY;INTERVAL=3");
         compare(EventRule.fromChrono(AppController.recurrenceFromText("пн, ср")), "FREQ=WEEKLY;BYDAY=MO,WE");
+        // EYE-24: a bare length and weekly words chrono does not read.
+        const w = EventRule.extract("Созвон по релизу завтра 11:00 30м каждую среду");
+        compare(w.minutes, 30);
+        compare(w.rule, "FREQ=WEEKLY;BYDAY=WE");
+        compare(w.text, "Созвон по релизу завтра 11:00");
+        compare(EventRule.extract("Sync every mon, wed and fri 9:00").rule, "FREQ=WEEKLY;BYDAY=MO,WE,FR");
+        compare(EventRule.extract("Ретро по средам и пятницам").rule, "FREQ=WEEKLY;BYDAY=WE,FR");
+        compare(EventRule.extract("Sync weekly").rule, "FREQ=WEEKLY");
+        compare(EventRule.extract("Синк еженедельно").rule, "FREQ=WEEKLY");
+        compare(EventRule.extract("Sync 10:00 1h").minutes, 60);
+        // "через 30 мин" is when it starts, not how long it lasts.
+        compare(EventRule.extract("созвон через 30 мин").minutes, 0);
+        compare(EventRule.extract("встреча по вт").rule, "", "по takes the plural");
+        compare(EventRule.firstOn("FREQ=WEEKLY;BYDAY=WE", new Date(2026, 9, 13)).getDate(), 14);
+        compare(EventRule.firstOn("FREQ=WEEKLY", new Date(2026, 9, 13)).getDate(), 13);
     }
 
     // A new meeting comes from one line, with chips for what was read.

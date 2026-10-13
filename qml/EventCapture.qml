@@ -91,6 +91,9 @@ Popup {
                 }
             }
         }
+        // "каждую среду" with no day of its own starts on the first Wednesday,
+        // not on the slot's day, which is no Wednesday (EYE-24).
+        if (!out.fromLine && out.rule) out.date = EventRule.firstOn(out.rule, out.date);
         if (x.minutes > 0) out.end = out.start + x.minutes / 60;
         // Past midnight the meeting ends on the next day, as the editor stores
         // it, instead of being cut at 24:00 (IDIOT-CAL-11).

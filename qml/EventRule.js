@@ -88,9 +88,29 @@ function extract(raw) {
         out.ruleText = m[0].trim();
         text = text.replace(m[0], " ");
     }
-    var len = /(?:^|\s)(на|for)\s+(\d+(?:[.,]\d+)?)\s*(ч|час[а-яё]*|h|hours?|мин[а-яё]*|m|min|minutes?)(?=\s|$)/i;
-    var l = text.match(len);
+    if (!out.rule) {
+        var weekly = weeklyRule(text);
+        if (weekly) {
+            out.rule = weekly.rule;
+            out.ruleText = weekly.text;
+            text = text.replace(weekly.text, " ");
+        }
+    }
+    // "на 30 мин", "for 1h", and a bare "30m" / "1,5ч" too (EYE-24: "30м"
+    // was tinted as read and the meeting stayed an hour). "через 30 мин" /
+    // "in 30m" is when, not how long: chrono's.
+    var len = /(^|\s)(?:(на|for)\s+)?(\d+(?:[.,]\d+)?)\s*(ч|час[а-яё]*|h|hrs?|hours?|мин[а-яё]*|м|m|min|mins|minutes?)(?=\s|$)/i;
+    var l = null;
+    var rest = text;
+    var offset = 0;
+    while ((l = rest.match(len)) !== null) {
+        var before = text.slice(0, offset + l.index).trim().split(/\s+/).pop().toLowerCase();
+        if (l[2] || (before !== "через" && before !== "in" && before !== "after" && before !== "спустя")) break;
+        offset += l.index + l[0].length;
+        rest = text.slice(offset);
+    }
     if (l) {
+        l = { 0: l[0], 2: l[3], 3: l[4] };
         var v = parseFloat(l[2].replace(",", "."));
         var hours = /^(ч|час|h)/i.test(l[3]);
         out.minutes = Math.round(hours ? v * 60 : v);
@@ -99,4 +119,61 @@ function extract(raw) {
     }
     out.text = text.replace(/\s+/g, " ").trim();
     return out;
+}
+
+// A weekly repeat chrono does not read (EYE-24): "every wednesday",
+// "каждую среду", "по средам", "every mon and thu", "weekly", "еженедельно".
+// { rule, text } or null; `text` is the words as typed.
+var DAY_WORDS = [
+    ["MO", "monday|mon|понедельник(?:ам|и)?|пн"],
+    ["TU", "tuesday|tues|tue|вторник(?:ам|и)?|вт"],
+    ["WE", "wednesday|wed|сред(?:у|ам|а|ы)|ср"],
+    ["TH", "thursday|thurs|thur|thu|четверг(?:ам|и)?|чт"],
+    ["FR", "friday|fri|пятниц(?:у|ам|а|ы)|пт"],
+    ["SA", "saturday|sat|суббот(?:у|ам|а|ы)|сб"],
+    ["SU", "sunday|sun|воскресень(?:е|ям|я)|вс"]
+];
+
+function dayOf(word) {
+    var w = String(word || "").toLowerCase().replace(/s$/, "");
+    for (var i = 0; i < DAY_WORDS.length; i++) {
+        if (new RegExp("^(?:" + DAY_WORDS[i][1] + ")$", "i").test(w) ||
+            new RegExp("^(?:" + DAY_WORDS[i][1] + ")$", "i").test(w + "s")) return DAY_WORDS[i][0];
+    }
+    return "";
+}
+
+function weeklyRule(raw) {
+    var text = String(raw || "");
+    var plain = /(^|\s)(weekly|еженедельно|every\s+week|each\s+week|каждую\s+неделю)(?=\s|$|[,.])/i.exec(text);
+    if (plain) return { rule: "FREQ=WEEKLY", text: plain[2] };
+    var day = "(?:" + DAY_WORDS.map(function (d) { return d[1]; }).join("|") + ")s?";
+    var list = day + "(?:\\s*(?:,|\\sи|\\sand)\\s*" + day + ")*";
+    var re = new RegExp("(^|\\s)((?:every|each|каждый|каждую|каждое|каждые|по)\\s+(" + list + "))(?=\\s|$|[.])", "i");
+    var m = re.exec(text);
+    if (!m) return null;
+    var words = m[3].split(/\s*(?:,|\sи\s|\sand\s)\s*/i);
+    var days = [];
+    for (var i = 0; i < words.length; i++) {
+        var d = dayOf(words[i].trim());
+        if (!d) return null;
+        if (days.indexOf(d) < 0) days.push(d);
+    }
+    // "по вт" is not how anyone says it: "по" takes the plural, full word.
+    if (/^по\s/i.test(m[2]) && !/(ам|ям)$/i.test(m[3])) return null;
+    days.sort(function (a, b) { return DAYS.indexOf(a) - DAYS.indexOf(b); });
+    return { rule: "FREQ=WEEKLY;BYDAY=" + days.join(","), text: m[2] };
+}
+
+// The first day on or after `from` that a weekly BYDAY rule meets; `from`
+// itself when the rule names no day.
+function firstOn(rule, from) {
+    var p = parts(rule);
+    if (p.FREQ !== "WEEKLY" || !p.BYDAY || !from || !from.getDay) return from;
+    var days = p.BYDAY.split(",");
+    for (var i = 0; i < 7; i++) {
+        var d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + i);
+        if (days.indexOf(DAYS[(d.getDay() + 6) % 7]) >= 0) return d;
+    }
+    return from;
 }
