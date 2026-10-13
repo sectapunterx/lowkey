@@ -528,14 +528,14 @@ int MdBlockModel::rowForFootnote(const QString& id) const {
 }
 
 int MdBlockModel::rowForLine(int line) const {
-  // The last row that starts at or before the line: rows are in document
-  // order, and a row covers everything up to the next one.
+  // The row that starts nearest at or before the line (the last of equals):
+  // a row covers everything up to the next one. Not stopping at the first
+  // later row keeps one misplaced row from hiding all the rows after it.
   int best = -1;
   for(int i = 0; i < m_rows.size(); ++i) {
-    if(m_rows.at(i).firstLine <= line) {
+    const int first = m_rows.at(i).firstLine;
+    if(first <= line && (best < 0 || first >= m_rows.at(best).firstLine)) {
       best = i;
-    } else {
-      break;
     }
   }
   return best;

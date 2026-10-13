@@ -465,8 +465,8 @@ ListView {
                     // Relative sizes, so the hierarchy reads at a glance without
                     // any level becoming shouty.
                     font.pixelSize: view.noteType
-                                    ? [Theme.fsNoteTitle, Theme.fsNoteHeading, Theme.fsLg, Theme.fsMd, Theme.fsMd, Theme.fsSm][Math.min(rowItem.model.level, 6) - 1]
-                                    : [24, 20, 17, 15, 14, 13][Math.min(rowItem.model.level, 6) - 1]
+                                    ? [Theme.fsNoteTitle, Theme.fsNoteHeading, Theme.fsLg, Theme.fsMd, Theme.fsMd, Theme.fsSm][Math.max(1, Math.min(rowItem.model.level, 6)) - 1]
+                                    : [24, 20, 17, 15, 14, 13][Math.max(1, Math.min(rowItem.model.level, 6)) - 1]
                     onLinkActivated: (link) => view._handleLink(link, rowItem.model.firstLine)
                 }
                 // A rule under the top two levels, the way a document separates

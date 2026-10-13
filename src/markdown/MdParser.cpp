@@ -251,6 +251,7 @@ class Builder {
   // pointers to its own storage for anything it synthesized.
   void anchor(int byteStart, int byteEnd);
   void anchorPointer(const MD_CHAR* text, MD_SIZE size);
+  void placeUnanchored();
   void anchorAttribute(const MD_ATTRIBUTE& attr);
 
   // Parse the body of each footnote definition and hang it on its block. The
@@ -564,7 +565,46 @@ void Builder::assignSpans() {
       block.span.lastLine = m_src.lineOfByte(std::max(block.span.byteEnd - 1, block.span.byteStart));
     }
   }
+  placeUnanchored();
   partitionTopLevel();
+}
+
+void Builder::placeUnanchored() {
+  // A nested block with no source text of its own — "3. #", an empty heading
+  // in a list item — got no anchor. Blocks are stored in document order, so
+  // its line is the first non-blank one after whatever came before it
+  // (ancestors aside: they wrap it). Without this it fell back to line 0 and
+  // a click on the item above opened the note's title.
+  const int lines = m_src.lineCount();
+  for(int i = 0; i < m_ast.blocks.size(); ++i) {
+    MdBlock& block = m_ast.blocks[i];
+    if(block.type == BlockType::Document || block.span.isValid() || block.parent == m_ast.root || block.parent < 0) {
+      continue;
+    }
+    auto isAncestor = [&](int candidate) {
+      for(int p = block.parent; p >= 0; p = m_ast.blocks.at(p).parent) {
+        if(p == candidate) {
+          return true;
+        }
+      }
+      return false;
+    };
+    int after = -1;
+    for(int j = 0; j < i; ++j) {
+      const MdSpan& span = m_ast.blocks.at(j).span;
+      if(span.isValid() && !isAncestor(j)) {
+        after = std::max(after, span.lastLine);
+      }
+    }
+    int line = after + 1;
+    while(line < lines && m_src.isBlankLine(line)) {
+      ++line;
+    }
+    if(line >= lines) {
+      line = std::max(after, 0);
+    }
+    block.span = spanForLines(line, line);
+  }
 }
 
 void Builder::partitionTopLevel() {

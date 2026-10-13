@@ -255,6 +255,22 @@ TEST(MdBlockModelTest, MapsRowsBackToSourceLines) {
   EXPECT_EQ(doc.model().rowForLine(3), 1);
 }
 
+TEST(MdBlockModelTest, TextlessNestedBlockKeepsItsOwnLine) {
+  // "3. #" is an empty heading inside a list item: no text, so no anchor.
+  // It used to map to line 0, and a click on item 2 opened the title.
+  Doc doc(QStringLiteral("# Title\n\n1. one\n2. two\n3. #\n4. four\n"));
+  QVector<int> firsts;
+  for(int row = 0; row < doc.rows(); ++row) {
+    firsts.append(doc.model().firstLineOfRow(row));
+  }
+  for(int row = 1; row < firsts.size(); ++row) {
+    EXPECT_GE(firsts.at(row), firsts.at(row - 1)) << "row " << row;
+  }
+  EXPECT_EQ(doc.model().firstLineOfRow(doc.model().rowForLine(3)), 3);
+  EXPECT_EQ(doc.model().firstLineOfRow(doc.model().rowForLine(4)), 4);
+  EXPECT_EQ(doc.model().firstLineOfRow(doc.model().rowForLine(5)), 5);
+}
+
 // ── The diff ────────────────────────────────────────────────────────
 
 TEST(MdBlockModelTest, EditingOneParagraphTouchesOnlyThatRow) {
