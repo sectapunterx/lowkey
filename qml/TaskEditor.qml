@@ -136,6 +136,10 @@ Popup {
     // default. Saving goes there, as quick capture's picker does.
     property string _pickedProfileId: ""
     property string _titleProfileId: ""
+    // The priority a "p1" in a new task's title will give, shown in the box
+    // until the box is picked by hand (EYE-10: chip P1, box still P2).
+    property string _titlePriority: ""
+    property bool _priorityPicked: false
     readonly property string _targetProfileId: root._titleProfileId || root._pickedProfileId || root._profileId
     readonly property string _targetProfileName: {
         const p = AppController.profileById(root._targetProfileId);
@@ -310,6 +314,7 @@ Popup {
         descField.text = draft.desc || "";
         statusBox.currentIndex = Math.max(0, statusList().indexOf(draft.status));
         priBox.currentIndex = Math.max(0, ["P0", "P1", "P2", "P3"].indexOf(draft.priority || "P2"));
+        _priorityPicked = false;
         branchField.text = draft.branch || "";
         // Each datetime has its own clock flag (schema v10): a date-only
         // deadline next to a timed schedule stays date-only.
@@ -506,7 +511,7 @@ Popup {
             return { title: raw.trim(), priority: "", labels: [], id: "" };
         const asTyped = { title: String(meta.head || "").trim(), priority: "", labels: [], id: "" };
         const autoPri = root.draft.priority || "P2";
-        if (meta.priority && meta.priority !== priBox.currentText && priBox.currentText !== autoPri)
+        if (meta.priority && meta.priority !== priBox.currentText && (priBox.currentText !== autoPri || root._priorityPicked))
             return asTyped;
         let id = "";
         if (meta.ticketKey && meta.ticketKey !== typedId) {
@@ -562,6 +567,7 @@ Popup {
         if (!root.isNew || titleField.text.trim().length === 0) {
             root._titleChips = [];
             root._titleProfileId = "";
+            root._titlePriority = "";
             return;
         }
         const meta = root._extractMeta(titleField.text);
@@ -576,6 +582,7 @@ Popup {
         if (t.recurrence) chips.push({ kind: "repeat", key: I18n.t("capture.repeat"), value: root._recurText(t.recurrence) });
         if (t.estimate) chips.push({ kind: "estimate", key: I18n.t("capture.estimate"), value: I18n.fmtMinutes(t.estimate) });
         if (t.priority) chips.push({ kind: "priority", key: I18n.t("capture.priority"), value: t.priority });
+        root._titlePriority = t.priority || "";
         for (const l of (t.labels || [])) chips.push({ kind: "label", key: I18n.t("capture.label"), value: "#" + l });
         if (read.profileName) chips.push({ kind: "profile", key: I18n.t("capture.profile"), value: String(read.profileName) });
         root._titleChips = chips;
@@ -1174,6 +1181,8 @@ Popup {
                         Accessible.name: I18n.t("editor.label.priority")
                         Layout.preferredWidth: 88
                         model: ["P0", "P1", "P2", "P3"]
+                        displayText: root._titlePriority.length > 0 ? root._titlePriority : currentText
+                        onActivated: { root._priorityPicked = true; root._refreshTitleChips(); }
                         textColor: Theme.priorityColor(priBox.displayText)
                         textWeight: Theme.fwTitle
                     }

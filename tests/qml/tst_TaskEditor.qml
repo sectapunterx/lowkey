@@ -343,6 +343,27 @@ TestCase {
         AppController.deleteTask(made.id);
     }
 
+    // The box says the priority the title will give, so the chip and the box
+    // never disagree; a pick by hand wins, even of the box's own default
+    // (EYE-10).
+    function test_the_priority_box_follows_the_title() {
+        const te = make('import TodoCpp; TaskEditor { }');
+        te.showFor(AppController.newTaskDraft("todo"));
+        const pri = findChild(te, "te-priority");
+        compare(pri.displayText, "P2");
+        findChild(te, "te-title").text = "Write the report p1";
+        te._refreshTitleChips();
+        compare(pri.displayText, "P1");
+        pri.activated(2);   // P2 picked by hand, the box's own value
+        compare(pri.displayText, "P2");
+        verify(!te._titleChips.some(c => c.kind === "priority"), "the title's p1 is text now");
+        te.showFor(AppController.newTaskDraft("todo"));
+        findChild(te, "te-title").text = "Again p0";
+        te._refreshTitleChips();
+        compare(pri.displayText, "P0", "a new draft forgets the pick");
+        te.close();
+    }
+
     // A deadline typed below wins over a date in the title: the title's
     // date words stay words. A deadline alone says it also plans (A5-23).
     function test_a_typed_deadline_keeps_the_title_date_as_words() {
