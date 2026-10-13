@@ -1369,6 +1369,14 @@ ApplicationWindow {
                     Binding { when: win._listOn; target: viewLoader.item; property: "prioritiesFilter"; value: win.prioritiesFilter }
                     Binding { when: win._listOn; target: viewLoader.item; property: "showArchived"; value: win.tasksShowArchived }
                     Binding { when: win._listOn; target: viewLoader.item; property: "groupBy"; value: win.listGroupEffective }
+                    // "show them" under an all-done list (EYE-27): the default
+                    // "not done" lets go. Wired here, not in listComp, where
+                    // win is out of qmllint's sight.
+                    Connections {
+                        target: win._listOn ? viewLoader.item : null
+                        ignoreUnknownSignals: true
+                        function onShowDoneRequested() { win.searchText = win.searchText.replace(/(^|\s)is:open(?=\s|$)/gi, " ").trim(); }
+                    }
                     Connections {
                         target: viewLoader.item as TaskListView
                         ignoreUnknownSignals: true
@@ -1509,7 +1517,6 @@ ApplicationWindow {
                     id: listComp
                     TaskListView {
                         onResetFilterRequested: win.resetTaskFilter()
-                        onShowDoneRequested: win.searchText = win.searchText.replace(/(^|\s)is:open(?=\s|$)/gi, " ").trim()
                     }
                 }
                 // The Calendar lens (APP-264): Day / Week / Month as one zoom,
