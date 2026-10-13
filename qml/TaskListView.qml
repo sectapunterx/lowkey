@@ -28,6 +28,8 @@ Item {
     signal taskClicked(string id)
     // "сбросить фильтр · Esc" under a filter that found nothing (DG-160).
     signal resetFilterRequested()
+    // "show them" under "all done": the default "not done" lets go (EYE-27).
+    signal showDoneRequested()
     // The default "не готово" is not a search (DG-020).
     readonly property bool _searching: root.searchText.replace(/(^|\s)is:open(?=\s|$)/gi, " ").trim().length > 0
                                        || root.activePriorities.length > 0
@@ -41,6 +43,11 @@ Item {
     // The filter as words for "Ничего под «…»" (DG-160).
     readonly property string filterLabel: QueryWords.label(root.searchText, root.activePriorities)
     readonly property bool nothingFound: root.taskCount === 0 && root._searching
+    // Nothing listed, no search, yet the profile has tasks: the default "not
+    // done" hides them all. "No tasks yet" read as "your tasks are gone"
+    // (EYE-27).
+    readonly property int hiddenByDefault: root.taskCount === 0 && !root._searching && !root._archive
+                                           ? Number(AppController.statusCounts["_total"] || 0) : 0
     // The archive (X-Oth-Archive-People): the list under "is:archived".
     readonly property bool _archive: /(^|\s)is:archived(\s|$)/i.test(root.searchText)
 
@@ -612,12 +619,16 @@ Item {
             Layout.alignment: Qt.AlignHCenter
             Layout.preferredWidth: Math.min(root.width - 96, 360)
             visible: root.taskCount === 0
-            title: root.nothingFound ? I18n.t("view.empty.noMatchFor").arg(root.filterLabel) : I18n.t("list.empty")
+            title: root.nothingFound ? I18n.t("view.empty.noMatchFor").arg(root.filterLabel)
+                 : root.hiddenByDefault > 0 ? I18n.t("list.empty.allDone") : I18n.t("list.empty")
             // Where the filter would find something (A3-13).
-            hint: root.nothingFound ? AppController.matchesElsewhere(root.searchText) : ""
-            line: root.nothingFound ? I18n.t("view.empty.resetFilter") : I18n.t("tasks.empty.line").arg(AppController.shortcutText("task.new"))
-            lineLink: root.nothingFound
-            onLineActivated: root.resetFilterRequested()
+            hint: root.nothingFound ? AppController.matchesElsewhere(root.searchText)
+                : root.hiddenByDefault > 0 ? I18n.count(root.hiddenByDefault, "list.empty.hiddenDone") : ""
+            line: root.nothingFound ? I18n.t("view.empty.resetFilter")
+                : root.hiddenByDefault > 0 ? I18n.t("list.empty.showDone")
+                : I18n.t("tasks.empty.line").arg(AppController.shortcutText("task.new"))
+            lineLink: root.nothingFound || root.hiddenByDefault > 0
+            onLineActivated: root.hiddenByDefault > 0 ? root.showDoneRequested() : root.resetFilterRequested()
         }
         Item { visible: root.taskCount === 0; Layout.fillHeight: true }
 

@@ -65,6 +65,35 @@ TestCase {
         l.toggleGroup("none:");
     }
 
+    // EYE-27: every task done and the default "not done" on — the list says
+    // they are hidden and offers them, not "No tasks yet".
+    function test_all_done_is_not_no_tasks() {
+        const prev = AppController.activeProfileId;
+        const pid = AppController.createProfile("eyes-probe-done", "#5cc2dd");
+        verify(pid !== "");
+        try {
+            tryVerify(() => (AppController.statusCounts["_total"] || 0) === 0, 2000);
+            const d = AppController.newTaskDraft("done");
+            d.title = "all done probe";
+            verify(AppController.saveTask(d));
+            const l = makeList("is:open");
+            compare(l.taskCount, 0);
+            compare(l.hiddenByDefault, 1);
+            const s = findChild(l, "list-empty");
+            compare(s.title, I18n.t("list.empty.allDone"));
+            let shown = false;
+            l.showDoneRequested.connect(() => shown = true);
+            s.lineActivated();
+            verify(shown, "the line lets the done tasks in");
+            l.searchText = "is:open zzz-nothing";
+            l.refresh();
+            compare(l.hiddenByDefault, 0, "a search that finds nothing says that instead");
+        } finally {
+            AppController.deleteProfile(pid);
+            AppController.activeProfileId = prev;
+        }
+    }
+
     function test_group_by_status_follows_the_columns() {
         add({ id: "TLV-5", title: "tlvs a", status: "review" });
         add({ id: "TLV-6", title: "tlvs b", status: "todo" });

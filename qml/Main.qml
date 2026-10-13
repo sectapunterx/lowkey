@@ -1279,8 +1279,12 @@ ApplicationWindow {
                     // Under the filters the bar itself shows (TASKS-20): the
                     // counts used to include archived tasks and ignore the
                     // search and the priority chips.
-                    readonly property var _fc: AppController.filteredCounts(win.searchText, win._activePriorities,
-                        win.tasksShowArchived, false, win._counts)
+                    // The board keeps done cards in its folded Done column under the
+                    // default "not done", so its count includes them: "0 tasks"
+                    // over a Done column of 42 (EYE-27).
+                    readonly property var _fc: AppController.filteredCounts(
+                        AppController.currentView === "board" ? win.searchText.replace(/(^|\s)is:open(?=\s|$)/gi, " ").trim() : win.searchText,
+                        win._activePriorities, win.tasksShowArchived, false, win._counts)
                     totalCount: _fc.total
                     activeCount: _fc.active
                     blockedCount: _fc.blocked
@@ -1505,6 +1509,7 @@ ApplicationWindow {
                     id: listComp
                     TaskListView {
                         onResetFilterRequested: win.resetTaskFilter()
+                        onShowDoneRequested: win.searchText = win.searchText.replace(/(^|\s)is:open(?=\s|$)/gi, " ").trim()
                     }
                 }
                 // The Calendar lens (APP-264): Day / Week / Month as one zoom,
