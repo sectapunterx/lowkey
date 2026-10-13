@@ -9,12 +9,20 @@
 #include <QLocale>
 #include <QQuickItem>
 #include <QQuickWindow>
+#include <QScopeGuard>
 #include <QWindow>
 
 KeyRouter::KeyRouter(QObject* parent) : QObject(parent) {
   m_timeout.setSingleShot(true);
   m_timeout.setInterval(1000);
-  connect(&m_timeout, &QTimer::timeout, this, &KeyRouter::cancel);
+  connect(&m_timeout, &QTimer::timeout, this, [this] {
+    // The prefix stood alone: only now is it the old key a hand reached for.
+    const QString alone = m_noticeChord;
+    cancel();
+    if(!alone.isEmpty()) {
+      emit chordPressed(alone);
+    }
+  });
   m_holdTimer.setSingleShot(true);
   m_holdTimer.setInterval(0);
   connect(&m_holdTimer, &QTimer::timeout, this, &KeyRouter::flushHeld);
@@ -155,6 +163,7 @@ void KeyRouter::setLayout(const QString& l) {
 void KeyRouter::cancel() {
   m_timeout.stop();
   m_pendingText.clear();
+  m_noticeChord.clear();
   setPending(QString());
 }
 
@@ -231,9 +240,16 @@ bool KeyRouter::decide(QKeyEvent* ke, bool focusTyping) {
     return false;  // a modifier on its own: a prefix keeps waiting
   }
   const bool bare = heap::keys::isBareChord(chord);
-  if(!ke->isAutoRepeat() && (!focusTyping || !bare)) {
-    emit chordPressed(chord);
-  }
+  // Said after the key is handled, and not for a key that finishes a
+  // sequence or starts one: "z m" is the new keymap used right, so the old
+  // meaning of z is news only when z times out on its own (EYE-16).
+  const bool noticeable = !ke->isAutoRepeat() && (!focusTyping || !bare) && m_pending.isEmpty();
+  bool noticeDeferred = false;
+  const auto notice = qScopeGuard([&] {
+    if(noticeable && !noticeDeferred) {
+      emit chordPressed(chord);
+    }
+  });
 
   // A command key is waiting to see whether a word follows (A4-3).
   if(!m_heldChord.isEmpty()) {
@@ -263,6 +279,7 @@ bool KeyRouter::decide(QKeyEvent* ke, bool focusTyping) {
     }
     const QString seq = m_pending + QStringLiteral(", ") + chord;
     const QString prefixText = m_pendingText;
+    const QString prefixNotice = m_noticeChord;
     cancel();
     if(ke->key() == Qt::Key_Escape) {
       return true;
@@ -285,6 +302,10 @@ bool KeyRouter::decide(QKeyEvent* ke, bool focusTyping) {
       }
       callHandler(ids, false);
       return true;
+    }
+    // The prefix led nowhere, so it was pressed on its own after all.
+    if(!prefixNotice.isEmpty()) {
+      emit chordPressed(prefixNotice);
     }
     // A second key that continues nothing is a key of its own: Ctrl+K after
     // g opens the palette, d marks done (IDIOT-TASKS-17). Where a word may
@@ -314,6 +335,8 @@ bool KeyRouter::decide(QKeyEvent* ke, bool focusTyping) {
       m_heldText.clear();
       setPending(chord);
       m_pendingText = held + ke->text();
+      m_noticeChord = noticeable ? chord : QString();
+      noticeDeferred = true;
       m_timeout.start();
     }
     return true;

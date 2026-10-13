@@ -188,6 +188,8 @@ class KeyRouter : public QObject, public QQmlParserStatus {
   QString m_heldText;
   // The text the waiting prefix typed ("g"), for "github" typed on the board.
   QString m_pendingText;
+  // The waiting prefix, told to chordPressed only if nothing follows it.
+  QString m_noticeChord;
   // The press whose ShortcutOverride was taken: its KeyPress is swallowed.
   int m_takenKey = 0;
   // The press whose ShortcutOverride was seen and left alone.

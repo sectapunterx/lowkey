@@ -160,6 +160,26 @@ TestCase {
         compare(AppController.currentView, "today", "a b long after g is not g b");
     }
 
+    // The one-time "this key moved" notice hears a prefix only when it stands
+    // alone: "g b" used right is not the old g (EYE-16).
+    SignalSpy { id: chordSpy; signalName: "chordPressed" }
+    function test_a_finished_sequence_is_not_an_old_key() {
+        AppController.currentView = "today";
+        tc.win.focusActiveView();
+        chordSpy.target = router();
+        chordSpy.clear();
+        keyClick(Qt.Key_G);
+        keyClick(Qt.Key_B);
+        tryCompare(AppController, "currentView", "board");
+        wait(1300);
+        compare(chordSpy.count, 0, "neither g nor b of g b");
+        keyClick(Qt.Key_G);
+        wait(1300);
+        compare(chordSpy.count, 1, "g that timed out on its own");
+        compare(chordSpy.signalArguments[0][0], "G");
+        chordSpy.target = null;
+    }
+
     // Esc lets go of the prefix.
     function test_esc_cancels_the_prefix() {
         AppController.currentView = "today";
