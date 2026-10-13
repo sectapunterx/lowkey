@@ -340,8 +340,12 @@ Rectangle {
     // row above the title, and only while there is one. No people and no
     // branch: heap shows the tasks that are mine, so the assignee is always
     // me, and the branch is the editor's business.
-    readonly property bool detailsOpen: (card.cursored || card.activeFocus || hoverArea.containsMouse)
+    // The pointer opens a card once it rests there: opening on the way past
+    // grew every card it crossed, and the column below jumped under the
+    // pointer aimed at the next one (EYE-2).
+    readonly property bool detailsOpen: (card.cursored || card.activeFocus || card._hoverRested)
         && !dragArea.drag.active
+    property bool _hoverRested: false
     // The description's first line with words in it, as prose.
     readonly property string _excerpt: {
         // Code blocks out first: their fences would be a line of their own.
@@ -924,6 +928,15 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         acceptedButtons: Qt.NoButton
+        onContainsMouseChanged: {
+            if (containsMouse) hoverRest.restart();
+            else { hoverRest.stop(); card._hoverRested = false; }
+        }
+    }
+    Timer {
+        id: hoverRest
+        interval: 450
+        onTriggered: card._hoverRested = hoverArea.containsMouse
     }
 
     // Files dragged in from a file manager attach to this task — one undo
