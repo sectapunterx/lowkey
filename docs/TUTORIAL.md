@@ -16,9 +16,11 @@ has three regions: the **side rail** (view switcher, left), the **main view**
 
 ![The board with the calendar column](assets/img/screens/board-kanban.png)
 
-Switch views with `Ctrl+1…8`, in side-rail order: **Board**, **Timeline**,
-**Week**, **Month**, **Archive**, **Docs**, **Notes**, **Settings**. Hover a
-rail icon to see its shortcut.
+The side rail has three sections: **Today** (`Ctrl+1` or `g t`), **Tasks**
+(`Ctrl+2`) and **Notes** (`Ctrl+3` or `g n`); **Docs** is `g d` and **Settings**
+`Ctrl+,`. Tasks shows the same tasks through a lens: **Board** (`g b`), **List**
+(`g l`) or **Calendar** (`g c`, then `z d` / `z w` / `z m` for day, week, month).
+`?` lists every key.
 
 ## 2. Capture a task in under two seconds
 

@@ -178,8 +178,8 @@ Item {
                               "Виды — основные экраны")
             }
             Body {
-                text: root.tr2("On the left in the sidebar — buttons for switching between views (Ctrl+1…8, in the sidebar's order). What is shown in the center is the current view. Board, Timeline, Week and Month all work with the same set of tasks, they just display them differently.",
-                              "Слева на боковой панели — кнопки переключения видов (Ctrl+1…8, в порядке панели). В центре показан текущий вид. Доска, лента, неделя и месяц работают с одним и тем же набором задач — просто показывают его по-разному.")
+                text: root.tr2("On the left in the sidebar are the sections: Today (Ctrl+1 or g t), Tasks (Ctrl+2) and Notes (Ctrl+3 or g n); Docs is g d, Settings Ctrl+,. Tasks shows one set of tasks through a lens — Board (g b), List (g l) or Calendar (g c), and in the calendar z d, z w and z m pick a day, a week or a month. The lenses only display the same tasks differently.",
+                              "Слева на боковой панели — разделы: «Сегодня» (Ctrl+1 или g t), «Задачи» (Ctrl+2) и «Заметки» (Ctrl+3 или g n); доки — g d, настройки — Ctrl+,. «Задачи» показывают один набор задач через линзу — доску (g b), список (g l) или календарь (g c), а в календаре z d, z w и z m выбирают день, неделю или месяц. Линзы только по-разному показывают одни и те же задачи.")
             }
 
             H3 {
@@ -622,8 +622,8 @@ Item {
                               "Архив")
             }
             Body {
-                text: root.tr2("The toggle shows archived tasks. Archive is a separate state, not the same thing as Done; the Archive view (Ctrl+5) lists them all.",
-                              "Переключатель показывает архивные задачи. Архив — отдельное состояние, не то же самое, что «Готово»; вид «Архив» (Ctrl+5) показывает их все.")
+                text: root.tr2("The toggle shows archived tasks. Archive is a separate state, not the same thing as Done; \"Go to Archive\" in the command line (Ctrl+K) lists them all.",
+                              "Переключатель показывает архивные задачи. Архив — отдельное состояние, не то же самое, что «Готово»; «Перейти к архиву» в командной строке (Ctrl+K) показывает их все.")
             }
 
             H3 {
@@ -745,8 +745,8 @@ Item {
                               "По умолчанию")
             }
             Body {
-                text: root.tr2("Ctrl+K — command line, Ctrl+N — new task, Ctrl+1…8 — the views in side-rail order (Board, Timeline, Week, Month, Archive, Docs, Notes, Settings), Ctrl+] / Ctrl+[ — next/previous profile, Ctrl+Z / Ctrl+Shift+Z — undo / redo, Ctrl+, — Tweaks, Ctrl+/ — hotkey catalog, Ctrl+F — focus search, Ctrl+= / Ctrl+- / Ctrl+0 — interface scale up, down, back to the default. docs/HOTKEYS.md has the full list.",
-                              "Ctrl+K — командная строка, Ctrl+N — новая задача, Ctrl+1…8 — виды в порядке боковой панели (доска, лента, неделя, месяц, архив, доки, заметки, настройки), Ctrl+] / Ctrl+[ — следующий/предыдущий профиль, Ctrl+Z / Ctrl+Shift+Z — отменить / повторить, Ctrl+, — твики, Ctrl+/ — каталог клавиш, Ctrl+F — фокус в поиск, Ctrl+= / Ctrl+- / Ctrl+0 — масштаб интерфейса крупнее, мельче, обратно по умолчанию. Полный список — в docs/HOTKEYS.md.")
+                text: root.tr2("Ctrl+K — command line, Ctrl+N — new task, Ctrl+1 / Ctrl+2 / Ctrl+3 — Today, Tasks, Notes, g b / g l / g c — Board, List, Calendar, g d — Docs, Ctrl+, — Settings, Ctrl+] / Ctrl+[ — next/previous profile, Ctrl+Z / Ctrl+Shift+Z (or u / Ctrl+R) — undo / redo, Ctrl+/ or ? — hotkey catalog, Ctrl+F or / — focus search, Ctrl+= / Ctrl+- / Ctrl+0 — interface scale up, down, back to the default. docs/HOTKEYS.md has the full list.",
+                              "Ctrl+K — командная строка, Ctrl+N — новая задача, Ctrl+1 / Ctrl+2 / Ctrl+3 — «Сегодня», «Задачи», «Заметки», g b / g l / g c — доска, список, календарь, g d — доки, Ctrl+, — настройки, Ctrl+] / Ctrl+[ — следующий/предыдущий профиль, Ctrl+Z / Ctrl+Shift+Z (или u / Ctrl+R) — отменить / повторить, Ctrl+/ или ? — каталог клавиш, Ctrl+F или / — фокус в поиск, Ctrl+= / Ctrl+- / Ctrl+0 — масштаб интерфейса крупнее, мельче, обратно по умолчанию. Полный список — в docs/HOTKEYS.md.")
             }
             Body {
                 text: root.tr2("On the board, J/K/H/L (or the arrows) move a cursor between cards and Shift with them moves the card itself; Return opens it, Space adds it to the selection. On the week and month views T goes to today, the arrows step a period, and G opens a date picker. Esc closes the innermost thing first — a menu, a dialog, the editor — and lets go of the selection last.",
