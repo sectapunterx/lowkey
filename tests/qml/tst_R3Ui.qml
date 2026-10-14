@@ -266,7 +266,7 @@ TestCase {
         keyClick(Qt.Key_Down);
         tryVerify(function () { return flick.contentY > y || flick.contentY >= flick.contentHeight - flick.height - 1; }, 1000);
         keyClick(Qt.Key_End, Qt.NoModifier);   // the field's own key: no scroll
-        for (let i = 0; i < 20; i++) keyClick(Qt.Key_PageDown);
+        for (let i = 0; i < 60; i++) keyClick(Qt.Key_PageDown);
         tryVerify(function () { return Math.abs(flick.contentY - (flick.contentHeight - flick.height)) < 2; }, 1000,
                   "the end of the sheet is out of reach");
         keyClick(Qt.Key_U, Qt.ControlModifier);

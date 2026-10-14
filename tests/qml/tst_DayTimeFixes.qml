@@ -384,7 +384,7 @@ TestCase {
                 wait(50);
                 const tag = "scale " + c[0] + " width " + c[1] + ": ";
                 sixLetters.font.family = Theme.fontUi;
-                sixLetters.font.pixelSize = Theme.fsXs;
+                sixLetters.font.pixelSize = Theme.fsBlock;
                 sixLetters.font.weight = Theme.fwHeading;
                 verify(wv.minLaneW >= Math.ceil(sixLetters.advanceWidth), tag + wv.minLaneW);
                 verify(wv.laneFit >= 2, tag + "two lanes side by side, fit " + wv.laneFit + " avail " + wv.laneAvail);

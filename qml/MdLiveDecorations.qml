@@ -324,7 +324,7 @@ Item {
                         for (const row of grid.rows) {
                             if (row.separator) continue;
                             for (let c = 0; c < row.cells.length; c++)
-                                w[c] = Math.max(w[c] || 0, (row.header ? fmHead : fm).advanceWidth(root.plain(row.cells[c])) + 2 * Theme.spLg + 2);
+                                w[c] = Math.max(w[c] || 0, Math.ceil((row.header ? fmHead : fm).advanceWidth(root.plain(row.cells[c]))) + 2 * Theme.spLg + Theme.spSm);
                         }
                         return w;
                     }

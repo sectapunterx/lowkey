@@ -483,11 +483,19 @@ QtObject {
     // and a half; on the scale the headings sit two and four steps above
     // the dialog title. The floor is 11px at any scale: nothing the user
     // has to read is smaller. A screen uses at most four of these.
-    readonly property int typeBase: 13
+    // A desktop reading scale (owner, 0.9.3): body 14, meta 13, the smallest
+    // label 12 at 100 % - 15 / 14 / 13 at the 110 % a 2K screen starts at.
+    // Below 12 the section labels, hints and empty states read as jagged
+    // specks; 13 / 11 was the old scale.
+    readonly property int typeBase: 14
     readonly property real typeRatio: 1.125
     function typeStep(n) { return Math.round(typeBase * Math.pow(typeRatio, n) * scale); }
-    readonly property int fsXs:  Math.max(11, typeStep(-2))  // chips, badges, counts
-    readonly property int fsSm:  typeStep(-1)  // meta, descriptions, section labels
+    readonly property int fsXs:  Math.max(px(12), typeStep(-2))  // chips, badges, counts
+    readonly property int fsSm:  Math.max(px(13), typeStep(-1))  // meta, descriptions, section labels
+    // A slim calendar block's title - the one size left on the old scale's
+    // smallest step (11 px at 100-110 %): a day of the week grid holds two
+    // lanes side by side and keeps the tray beside it in a 1280 px window.
+    readonly property int fsBlock: Math.max(11, Math.round(13 * Math.pow(typeRatio, -2) * scale))
     readonly property int fsMd:  typeStep(0)   // body, card titles, inputs
     readonly property int fsLg:  typeStep(1)   // dialog and section titles
     readonly property int fsXl:  typeStep(3)   // page headings

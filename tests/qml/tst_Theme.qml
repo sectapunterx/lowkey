@@ -420,8 +420,8 @@ TestCase {
         for (let i = 1; i < s.length; i++) verify(s[i] > s[i - 1], "type scale step " + i + " does not ascend");
     }
 
-    // Every size sits on the 1.125 scale from 13px (APP-181), not on the
-    // old 11/12/13/15/20/28 list.
+    // Every size sits on the 1.125 scale from 14px (APP-181; 13px until
+    // 0.9.3), with a reading floor: meta 13, the smallest label 12.
     function test_type_scale_is_modular() {
         const saved = AppController.appSettingsJson;
         try {
@@ -429,11 +429,13 @@ TestCase {
             o.appearance = Object.assign({}, o.appearance || {}, { uiScale: 1 });
             AppController.appSettingsJson = JSON.stringify(o);
             compare(Theme.scale, 1);
-            const steps = { fsSm: -1, fsMd: 0, fsLg: 1, fsXl: 3, fs2xl: 5 };
+            const steps = { fsMd: 0, fsLg: 1, fsXl: 3, fs2xl: 5 };
             for (const k in steps)
-                compare(Theme[k], Math.round(13 * Math.pow(1.125, steps[k])), k);
-            compare(Theme.fsXs, 11, "the floor");
-            compare([Theme.fsXl, Theme.fs2xl], [19, 23]);
+                compare(Theme[k], Math.round(14 * Math.pow(1.125, steps[k])), k);
+            compare(Theme.fsSm, 13, "the meta floor");
+            compare(Theme.fsXs, 12, "the floor");
+            compare(Theme.fsBlock, 11, "a slim calendar block keeps the old step");
+            compare([Theme.fsMd, Theme.fsLg, Theme.fsXl, Theme.fs2xl], [14, 16, 20, 25]);
         } finally {
             AppController.appSettingsJson = saved;
         }

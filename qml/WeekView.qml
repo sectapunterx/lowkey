@@ -1210,7 +1210,7 @@ Item {
     TextMetrics {
         id: laneSample
         font.family: Theme.fontUi
-        font.pixelSize: Theme.fsXs
+        font.pixelSize: Theme.fsBlock
         font.weight: Theme.fwHeading
         text: "oooooo…"
     }
@@ -2235,7 +2235,7 @@ Item {
                                         text: weEv.modelData.title
                                         color: Theme.text
                                         font.family: Theme.fontUi
-                                        font.pixelSize: root.dayZoom ? Theme.fsMd : (weEv.slim ? Theme.fsXs : Theme.fsSm)
+                                        font.pixelSize: root.dayZoom ? Theme.fsMd : (weEv.slim ? Theme.fsBlock : Theme.fsSm)
                                         font.weight: Style.fills && !root.dayZoom ? Theme.fwHeading : Theme.fwBody
                                         elide: Text.ElideRight
                                     }
@@ -2553,7 +2553,7 @@ Item {
                                               + (wkBlock.modelData.title || "")
                                         color: Theme.text
                                         font.family: Theme.fontUi
-                                        font.pixelSize: root.dayZoom ? Theme.fsMd : (wkBlock.slim ? Theme.fsXs : Theme.fsSm)
+                                        font.pixelSize: root.dayZoom ? Theme.fsMd : (wkBlock.slim ? Theme.fsBlock : Theme.fsSm)
                                         font.weight: Style.fills && !root.dayZoom ? Theme.fwHeading : Theme.fwBody
                                         // Wrapped at words only while every word fits;
                                         // a word wider than the lane was cut through
