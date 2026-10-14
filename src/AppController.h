@@ -1785,6 +1785,7 @@ class AppController : public QObject {
   // scheduled-task labels stay attached. Returns the number of tasks
   // renamed. Used by Settings → Tasks when toggling idPrefix.
   Q_INVOKABLE int renameTaskIdPrefix(const QString& oldPrefix, const QString& newPrefix);
+
   // The id the next task under this prefix gets, for the setting's example
   // (EYE-29: "APP-4, APP-5…" beside a profile at APP-313).
   Q_INVOKABLE QString nextTaskIdFor(const QString& prefix) const {
