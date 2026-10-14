@@ -1,0 +1,55 @@
+#include "markdown/JiraWiki.h"
+
+#include <gtest/gtest.h>
+
+using heap::md::jiraWikiToMarkdown;
+using heap::md::looksLikeJiraWiki;
+
+TEST(JiraWikiTest, TellsWikiFromMarkdown) {
+  EXPECT_TRUE(looksLikeJiraWiki(QStringLiteral("h2. Steps\n* one")));
+  EXPECT_TRUE(looksLikeJiraWiki(QStringLiteral("text\n{code:java}\nx();\n{code}")));
+  EXPECT_TRUE(looksLikeJiraWiki(QStringLiteral("||a||b||\n|1|2|")));
+  EXPECT_TRUE(looksLikeJiraWiki(QStringLiteral("see [docs|https://x.test]")));
+  EXPECT_TRUE(looksLikeJiraWiki(QStringLiteral("run {{make}} first")));
+  EXPECT_FALSE(looksLikeJiraWiki(QStringLiteral("## Steps\n- one\n\n```js\nx()\n```")));
+  EXPECT_FALSE(looksLikeJiraWiki(QStringLiteral("plain words, a **bold** one and [a link](https://x.test)")));
+}
+
+TEST(JiraWikiTest, HeadingsListsAndRules) {
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("h1. Title\nh3. Sub")), QStringLiteral("# Title\n### Sub"));
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("* a\n** b\n# one\n## two\n*# mixed")),
+            QStringLiteral("- a\n   - b\n1. one\n   1. two\n   2. mixed"));
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("# a\n# b\n# c\ntext\n# again")), QStringLiteral("1. a\n2. b\n3. c\ntext\n1. again"));
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("- dash\n----")), QStringLiteral("- dash\n---"));
+}
+
+TEST(JiraWikiTest, InlineMarkup) {
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("a *bold* and _it_ and -gone- and {{mono}}")),
+            QStringLiteral("a **bold** and _it_ and ~~gone~~ and `mono`"));
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("2 * 3 * 4 and well-known x-y-z")), QStringLiteral("2 * 3 * 4 and well-known x-y-z"));
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("{{*not bold*}}")), QStringLiteral("`*not bold*`"));
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("{color:red}red{color} text")), QStringLiteral("red text"));
+}
+
+TEST(JiraWikiTest, LinksAndImages) {
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("see [the docs|https://x.test/a-b-c] now")),
+            QStringLiteral("see [the docs](https://x.test/a-b-c) now"));
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("[https://x.test]")), QStringLiteral("<https://x.test>"));
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("ask [~jdoe]")), QStringLiteral("ask @jdoe"));
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("!screen.png|thumbnail!")), QStringLiteral("![screen.png](screen.png)"));
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("wow! really!")), QStringLiteral("wow! really!"));
+}
+
+TEST(JiraWikiTest, CodeKeepsItsText) {
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("{code:java}\nint *p = -1-;\nh1. no\n{code}")),
+            QStringLiteral("```java\nint *p = -1-;\nh1. no\n```"));
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("{code:title=A.py|language=python}\nx\n{code}")), QStringLiteral("```python\nx\n```"));
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("{noformat}\n* raw\n{noformat}")), QStringLiteral("```\n* raw\n```"));
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("{code}one(){code}")), QStringLiteral("```\none()\n```"));
+}
+
+TEST(JiraWikiTest, TablesAndQuotes) {
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("||a||b||\n|1|*2*|")), QStringLiteral("| a | b |\n| --- | --- |\n| 1 | **2** |"));
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("bq. said")), QStringLiteral("> said"));
+  EXPECT_EQ(jiraWikiToMarkdown(QStringLiteral("{quote}\nfirst\nsecond\n{quote}\nafter")), QStringLiteral("> first\n> second\nafter"));
+}

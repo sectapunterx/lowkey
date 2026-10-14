@@ -766,6 +766,13 @@ class AppController : public QObject {
   // ask again for <tracker>". On by default.
   Q_INVOKABLE bool trackerAskBeforeWrite(const QString& providerId) const;
   Q_INVOKABLE void setTrackerAskBeforeWrite(const QString& providerId, bool ask);
+  // Jira Server / Data Center wiki markup shown as markdown, or as it is: the
+  // user's choice per tracker, on by default (APP-313). Display only.
+  Q_INVOKABLE bool trackerWikiToMarkdown(const QString& providerId) const;
+  Q_INVOKABLE void setTrackerWikiToMarkdown(const QString& providerId, bool convert);
+  // A tracker card's description as it is shown: the wiki markup converted
+  // when that is on; the stored text is left as the tracker sent it.
+  Q_INVOKABLE QString trackerDescription(const QString& taskId) const;
   QStringList trackerWriteProviders() const;
   // Once per install after the update that made writes opt-in: the sentence
   // naming the connected trackers whose status heap no longer changes, or an

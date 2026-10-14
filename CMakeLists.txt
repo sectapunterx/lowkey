@@ -167,6 +167,7 @@ qt_add_library(heap_markdown STATIC
     src/markdown/MdExtensions.cpp
     src/markdown/MdHtml.cpp
     src/markdown/MdMath.cpp
+    src/markdown/JiraWiki.cpp
     src/markdown/MdBlockModel.cpp
     src/markdown/MdEditOps.cpp
     src/notes/NoteLinks.cpp
@@ -441,6 +442,7 @@ qt_add_qml_module(heap_core
         qml/TaskCardLocal.qml
         qml/MdBlockEditor.qml
         qml/MdLiveDecorations.qml
+        qml/MdLivePreview.qml
         qml/FilterBar.qml
         qml/KanbanBoard.qml
         qml/TaskCard.qml

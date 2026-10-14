@@ -22,6 +22,8 @@ Item {
     property int revealStart: -1
     property int revealEnd: -1
     property bool under: false
+    // Off for read-only text: a box is drawn, a click does not tick it.
+    property bool tasksClickable: true
 
     x: editor.x
     y: editor.y
@@ -50,6 +52,13 @@ Item {
     }
 
     FontMetrics { id: fm; font: root.editor.font }
+    // A header cell is drawn bold, so it is measured bold.
+    FontMetrics {
+        id: fmHead
+        font.family: root.editor.font.family
+        font.pixelSize: root.editor.font.pixelSize
+        font.weight: Theme.fwTitle
+    }
     // Off-screen, only to reach the clipboard (as MdView's code blocks do).
     TextEdit { id: clipboardHelper; visible: false }
 
@@ -113,6 +122,7 @@ Item {
                     // and a handler destroyed inside its own tap kept the
                     // pointer, so later clicks never reached the editor.
                     MouseArea {
+                        enabled: root.tasksClickable
                         anchors.fill: parent
                         anchors.margins: -Theme.spXs
                         cursorShape: Qt.PointingHandCursor
@@ -257,7 +267,7 @@ Item {
                         for (const row of grid.rows) {
                             if (row.separator) continue;
                             for (let c = 0; c < row.cells.length; c++)
-                                w[c] = Math.max(w[c] || 0, fm.advanceWidth(root.plain(row.cells[c])) + 2 * Theme.spMd);
+                                w[c] = Math.max(w[c] || 0, (row.header ? fmHead : fm).advanceWidth(root.plain(row.cells[c])) + 2 * Theme.spMd + 2);
                         }
                         return w;
                     }

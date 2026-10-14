@@ -22,7 +22,6 @@ Item {
     // Stored as settings.notes.view; the old settings.notes.mode is read only
     // for "source".
     property string viewMode: "rich"
-    readonly property var _liveDecor: root.viewMode === "rich" ? highlighter.decorations(editor.text) : []
 
     // The note's text without its title: past a "# " heading on the first
     // line and the blank lines under it. {start: 0, end} when there is none.
@@ -1140,24 +1139,11 @@ Item {
 
                     // Rich (live preview): what is drawn over the hidden source -
                     // the code box under the text, bullets, boxes, bars, rules
-                    // and tables over it.
-                    MdLiveDecorations {
+                    // and tables over it - and the source colours in split/edit.
+                    MdLivePreview {
+                        id: livePreview
                         editor: editor
-                        under: true
-                        z: -1
-                        visible: root.viewMode === "rich"
-                        decorations: root._liveDecor
-                        revealStart: highlighter.revealStart
-                        revealEnd: highlighter.revealEnd
-                    }
-                    MdLiveDecorations {
-                        objectName: "notes-live-decorations"
-                        editor: editor
-                        z: 2
-                        visible: root.viewMode === "rich"
-                        decorations: root._liveDecor
-                        revealStart: highlighter.revealStart
-                        revealEnd: highlighter.revealEnd
+                        rich: root.viewMode === "rich"
                     }
 
                     TextArea {
@@ -1693,36 +1679,6 @@ Item {
         onActivated: root.toggleList()
     }
 
-    // ── Markdown highlighter ─────────────────────────────────────
-    // target is wired imperatively in Component.onCompleted so we hand the
-    // highlighter a fully-initialised QQuickTextDocument (the declarative
-    // binding sometimes fires before TextArea's textDocument is ready).
-    MdHighlighter {
-        id: highlighter
-        headingScale: 1.45
-        // Markup hidden away from the caret in rich; the line (or the lines
-        // of the selection) being edited shows its source. Nothing is
-        // revealed while the editor does not hold the keyboard.
-        livePreview: root.viewMode === "rich"
-        revealStart: editor.activeFocus ? editor.selectionStart : -1
-        revealEnd: editor.activeFocus ? editor.selectionEnd : -1
-        palette: ({
-            text:          Theme.text,
-            dim:           Theme.textMuted,
-            accent:        Theme.accent,
-            code:          Theme.code,
-            codeBg:        Theme.codeBg,
-            mention:       Theme.mention,
-            ticket:        Theme.ticket,
-            tag:           Theme.tag,
-            math:          Theme.math,
-            highlightBg:   Theme.highlightBg,
-            keyword:       Theme.synKeyword,
-            string:        Theme.synString,
-            number:        Theme.synNumber
-        })
-    }
-
     // ── Autocomplete popup ───────────────────────────────────────
     Popup {
         PopupArrival { popup: acPopup; dialog: false }
@@ -2020,7 +1976,6 @@ Item {
     }
 
     Component.onCompleted: {
-        highlighter.target = editor.textDocument;
         viewMode = _readViewMode();
         _loadFromController();
         _loadedOnce = true;

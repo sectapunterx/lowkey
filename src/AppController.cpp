@@ -45,6 +45,7 @@
 #include "keys/KeyNames.h"
 #include "local/Effective.h"
 #include "local/Sessions.h"
+#include "markdown/JiraWiki.h"
 #include "markdown/MdHtml.h"
 #include "markdown/MdOutline.h"
 #include "notes/ChecklistItems.h"
@@ -3190,6 +3191,60 @@ void AppController::setTrackerWriteEnabled(const QString& providerId, bool enabl
     return;
   }
   setIntegrationField(providerId, QStringLiteral("writeStatus"), enabled);
+}
+
+bool AppController::trackerWikiToMarkdown(const QString& providerId) const {
+  // On unless the user chose to see the wiki markup as it is (APP-313).
+  const QVariant v =
+      settingsMap().value(QStringLiteral("integrations")).toMap().value(providerId).toMap().value(QStringLiteral("wikiToMarkdown"));
+  return !v.isValid() || v.toBool();
+}
+
+void AppController::setTrackerWikiToMarkdown(const QString& providerId, bool convert) {
+  if(trackerWikiToMarkdown(providerId) == convert) {
+    return;
+  }
+  setIntegrationField(providerId, QStringLiteral("wikiToMarkdown"), convert);
+}
+
+QString AppController::trackerDescription(const QString& taskId) const {
+  const int row = m_tasks.indexOfId(taskId);
+  if(row < 0) {
+    return {};
+  }
+  const Task& t = m_tasks.items().at(row);
+  // Only Jira Server / Data Center writes wiki markup; Cloud's ADF arrives
+  // as markdown already. The card's own address says which it came from
+  // (only Atlassian runs *.atlassian.net) - the settings may point at
+  // another Jira since; else the connected provider, else the settings'
+  // address; with none of them, the text itself.
+  if(t.externalProvider != QLatin1String("jira") || !trackerWikiToMarkdown(t.externalProvider)) {
+    return t.desc;
+  }
+  using heap::integrations::JiraDeployment;
+  JiraDeployment deployment = JiraDeployment::Unknown;
+  if(!t.externalUrl.trimmed().isEmpty()) {
+    deployment = heap::integrations::guessJiraDeployment(t.externalUrl.trimmed());
+  }
+  for(const auto& provider : m_syncProviders) {
+    const auto* jira = dynamic_cast<const heap::integrations::JiraProvider*>(provider.get());
+    if(jira != nullptr && deployment == JiraDeployment::Unknown) {
+      deployment = jira->deployment();
+    }
+  }
+  if(deployment == JiraDeployment::Unknown) {
+    const QString base = integrationConfig(t.externalProvider).value(QStringLiteral("baseUrl")).toString().trimmed();
+    if(!base.isEmpty()) {
+      deployment = heap::integrations::guessJiraDeployment(base);
+    }
+  }
+  if(deployment == JiraDeployment::Cloud) {
+    return t.desc;
+  }
+  if(deployment == JiraDeployment::Server || heap::md::looksLikeJiraWiki(t.desc)) {
+    return heap::md::jiraWikiToMarkdown(t.desc);
+  }
+  return t.desc;
 }
 
 QStringList AppController::trackerWriteProviders() const {

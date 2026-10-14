@@ -346,21 +346,28 @@ Rectangle {
     readonly property bool detailsOpen: (card.cursored || card.activeFocus || card._hoverRested)
         && !dragArea.drag.active
     property bool _hoverRested: false
-    // The description's first line with words in it, as prose.
-    readonly property string _excerpt: {
+    // The description's first line with words in it: as prose (_excerpt)
+    // and with its bold, italic, code and links drawn (_excerptHtml, APP-313).
+    // A Jira Server card reads its wiki markup as markdown when that is on.
+    readonly property string _excerptLine: {
+        const desc = card._ticket.provider === "jira" && card.task && card.task.id
+            ? AppController.trackerDescription(card.task.id) : String((card.task && card.task.desc) || "");
         // Code blocks out first: their fences would be a line of their own.
-        const lines = String((card.task && card.task.desc) || "").replace(/```[\s\S]*?```/g, " ").split("\n");
+        const lines = desc.replace(/```[\s\S]*?```/g, " ").split("\n");
         for (let i = 0; i < lines.length; i++) {
             // A heading ("## Description", Jira's "h2. Description") names a
             // section, it says nothing; a Jira image ("!image-….png|thumbnail!")
             // is markup, not prose (EYE-7).
             const raw = lines[i].trim();
             if (/^(#{1,6}\s|h[1-6]\.\s)/i.test(raw)) continue;
-            const p = MdPlain.plain(raw.replace(/![^\s!|]+\.(?:png|jpe?g|gif|webp|svg|bmp)(?:\|[^!]*)?!/gi, " "), 160).trim();
-            if (p.length > 0) return p;
+            const line = raw.replace(/![^\s!|]+\.(?:png|jpe?g|gif|webp|svg|bmp)(?:\|[^!]*)?!/gi, " ");
+            if (MdPlain.plain(line, 160).trim().length > 0) return line;
         }
         return "";
     }
+    readonly property string _excerpt: MdPlain.plain(card._excerptLine, 160).trim()
+    readonly property string _excerptHtml: card._excerpt.length > 0
+        ? MdPlain.inlineHtml(card._excerptLine, 160, { code: Theme.code, link: Theme.accent, mono: Theme.fontMono }) : ""
     readonly property var _cl: (card.task && card.task.checklist) ? card.task.checklist : ({})
     readonly property bool _timing: !!(card.task && card.task.isTiming)
     readonly property int _tracked: card.task ? (card.task.trackedSeconds || 0) : 0
@@ -671,8 +678,8 @@ Rectangle {
                     objectName: "tc-excerpt"
                     Layout.fillWidth: true
                     visible: card._excerpt.length > 0 && (card.detailsOpen || card._restLine === "excerpt")
-                    text: card._excerpt
-                    textFormat: Text.PlainText
+                    text: card._excerptHtml
+                    textFormat: Text.StyledText
                     color: Theme.textMuted
                     font.pixelSize: Theme.fsSm
                     maximumLineCount: 1

@@ -3194,6 +3194,17 @@ Item {
                                     options: [ ({ value: "off", label: I18n.t("settings.trk.writeOff") }), ({ value: "on", label: I18n.t("settings.trk.writeOn") }) ]
                                     onSelected: (v) => AppController.setTrackerWriteEnabled(intCard.intKey, v === "on")
                                 }
+                                // Jira Server / Data Center wiki markup: shown
+                                // as markdown or as it is (APP-313).
+                                SegRow {
+                                    objectName: "int-wiki-" + intCard.intKey
+                                    visible: intCard.intKey === "jira"
+                                    label: I18n.t("settings.trk.wiki")
+                                    hint: I18n.t("settings.trk.wiki.hint")
+                                    value: intCard.conf.wikiToMarkdown === false ? "raw" : "md"
+                                    options: [ ({ value: "md", label: I18n.t("settings.trk.wikiMd") }), ({ value: "raw", label: I18n.t("settings.trk.wikiRaw") }) ]
+                                    onSelected: (v) => AppController.setTrackerWikiToMarkdown(intCard.intKey, v === "md")
+                                }
                                 // Cards a filter change left behind: kept as
                                 // "only here" until the user says otherwise.
                                 SettingsRow {

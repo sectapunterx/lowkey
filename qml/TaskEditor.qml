@@ -40,7 +40,6 @@ Popup {
     signal seenBeforeActivated(var hit)
     // "edit" | "preview" for the description. Starts on edit — the editor is
     // where you go to change things.
-    property string descMode: "edit"
     // Both kept across opens: whoever likes Details open, or writes long
     // descriptions, should not have to ask again for every task.
     property bool detailsOpen: false
@@ -1304,21 +1303,6 @@ Popup {
                         spacing: Theme.spXs
                         FieldLabel { text: I18n.t("editor.label.desc") }
                         Item { Layout.fillWidth: true }
-                        // The description is markdown and always has been — it
-                        // was just never rendered, so a template's checklist was
-                        // inert text the user could not tick.
-                        Repeater {
-                            model: [ ({ id: "edit", label: I18n.t("notes.mode.edit") }),
-                                     ({ id: "preview", label: I18n.t("notes.mode.preview") }) ]
-                            delegate: SegChip {
-                                required property var modelData
-                                objectName: "desc-mode-" + modelData.id
-                                text: modelData.label
-                                active: root.descMode === modelData.id
-                                onClicked: root.descMode = modelData.id
-                            }
-                        }
-                        Rectangle { implicitWidth: 1; implicitHeight: 14; color: Theme.border; Layout.leftMargin: Theme.spXs; Layout.rightMargin: Theme.spXs }
                         SegChip {
                             objectName: "desc-expand"
                             text: root.descExpanded ? "⤡  " + I18n.t("editor.desc.collapse")
@@ -1332,11 +1316,13 @@ Popup {
                     // and lifts the cap for writing at length.
                     ScrollView {
                         id: descScroll
-                        visible: root.descMode === "edit"
                         Layout.fillWidth: true
                         Layout.preferredHeight: Math.max(root._descMinH,
                                                          Math.min(root._descMaxH, descField.implicitHeight))
                         clip: true
+                        // The frame on the scroll, not the text: the code box of
+                        // rich drawing sits under the text and over this.
+                        background: FieldBg { control: descField }
                         TextArea {
                             id: descField
                             ContextMenu.menu: TextEditMenu { editor: descField }
@@ -1346,7 +1332,7 @@ Popup {
                             font.pixelSize: Theme.fsMd
                             topPadding: Theme.spLg; bottomPadding: Theme.spLg
                             leftPadding: Theme.spLg; rightPadding: Theme.spLg
-                            background: FieldBg {}
+                            background: Item {}
                             color: Theme.text
                             placeholderTextColor: Theme.textDim
                             selectByMouse: true
@@ -1383,24 +1369,6 @@ Popup {
                         text: descField.text
                         excludeTaskId: root._originalId
                         onActivated: (hit) => root.seenBeforeActivated(hit)
-                    }
-                    // The checkbox write goes through the editor's own document,
-                    // so ticking an item in the preview edits the text the Save
-                    // button will store — and does it as one undo step.
-                    Rectangle {
-                        visible: root.descMode === "preview"
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: descScroll.Layout.preferredHeight
-                        radius: Theme.radiusMd
-                        color: Theme.panel2
-                        border.color: Theme.border
-                        border.width: 1
-                        MdView {
-                            anchors.fill: parent
-                            anchors.margins: Theme.spSm
-                            document: descDocument
-                            editorDocument: descField.textDocument
-                        }
                     }
                 }
 
@@ -1727,7 +1695,7 @@ Popup {
                             font.family: Theme.fontUi
                             font.features: Theme.tabularNums
                             validator: IntValidator { bottom: 0; top: 100000 }
-                            background: FieldBg {}
+                            background: Item {}
                             color: Theme.text
                             placeholderTextColor: Theme.textDim
                         }
@@ -2127,6 +2095,13 @@ Popup {
         }
     }
 
+    // The description drawn as a note is in rich (APP-313): one text, its
+    // markup shown only on the line being edited. It replaced Text / Preview.
+    MdLivePreview {
+        editor: descField
+        headingScale: 1.3
+    }
+
     component FieldLabel: Text {
         color: Theme.textDim
         font.pixelSize: Theme.fsSm
@@ -2134,16 +2109,5 @@ Popup {
         topPadding: Theme.sp2xs
     }
     component FieldBg: FieldFrame {}
-    // Parses the description for the preview. Same engine the notes editor
-    // uses, so a checklist behaves the same in both places.
-    MdDocument {
-        id: descDocument
-        text: descField.text
-        allowRemoteImages: false
-        // An image pasted into the description lives in the attachments folder.
-        imageBaseDir: AppController.dataDir + "/attachments"
-        palette: Theme.mdPalette
-        ticketTitles: AppController.taskTitles
-    }
 
 }

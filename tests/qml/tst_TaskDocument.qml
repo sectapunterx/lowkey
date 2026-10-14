@@ -66,9 +66,11 @@ TestCase {
         typeText(" more");
         doc.flush();
         compare(AppController.taskById(id).desc, "first line more\n\n- [ ] item");
-        // First Esc leaves the text, the second the document.
+        // First Esc leaves the text, the second the document. The text stays
+        // drawn in place (rich, APP-313): the field is there, without the keyboard.
         keyClick(Qt.Key_Escape);
-        verify(!field.visible);
+        verify(!field.activeFocus);
+        verify(body.documentFocused);
         verify(doc.opened);
     }
 

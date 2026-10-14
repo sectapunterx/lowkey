@@ -32,6 +32,15 @@ Item {
     // caret on the clicked line (the task document): block by block, the
     // text opened in pieces and read as not editable.
     property bool wholeDocument: false
+    // With wholeDocument: the note's rich mode (APP-313) - the source is
+    // always the one field, its markup hidden away from the caret and drawn
+    // over (MdLivePreview), so selecting, Shift+arrows and copying run
+    // across lines as in Notes. Read-only, it is text to read and copy.
+    property bool rich: false
+    // Room under the text to click for a new line; off for a short text in
+    // a box (the tracker's).
+    property bool tailRoom: true
+    readonly property real contentHeight: view.contentHeight
     // A printable key on the drawn document opens the block the caret was
     // last in and is typed there (the Knowledge editors).
     property bool typeToEdit: false
@@ -82,7 +91,29 @@ Item {
         // Positions map one to one only when the normalising kept lengths.
         if (root._srcSeen.length !== root._rawLF.length) root._rawLF = root._srcSeen;
         root.rawText = root._crlf ? root._rawLF.replace(/\n/g, "\r\n") : root._rawLF;
+        root._openRich();
     }
+    readonly property bool _isRich: root.rich && root.wholeDocument
+    on_IsRichChanged: if (root._isRich) root._openRich()
+    // Rich: the whole source in the field, without taking the keyboard.
+    function _openRich() {
+        if (!root._isRich) return;
+        const t = src.text;
+        const caret = field.cursorPosition;
+        view.editRow = view.count > 0 ? 0 : -1;
+        view.editFirst = 0;
+        view.editLast = Math.max(0, root._lineCount(t) - 1);
+        root._fieldLoading = true;
+        field.text = t;
+        root._fieldLoading = false;
+        field.cursorPosition = Math.min(caret, field.length);
+    }
+    // Rich: the keyboard is on the drawn text, not in the field (which is
+    // always there) - after Esc, a tick, a click beside it.
+    readonly property bool _drawnFocus: !root.editing || (root._isRich && !field.activeFocus)
+    // The field's own edits going into the source, as opposed to an undo or
+    // a tick that changed the source under it.
+    property bool _committing: false
     // An edit of the text area, spliced into the raw source: only the span
     // that differs, the rest kept as it was.
     function _takeEdit() {
@@ -151,7 +182,7 @@ Item {
         return false;
     }
     // The drawn document holds the keyboard (not a block, not a stop on it).
-    readonly property bool documentFocused: view.activeFocus && !root.editing && !root._onStop()
+    readonly property bool documentFocused: view.activeFocus && root._drawnFocus && !root._onStop()
     // Its own undo, for the keymap's bare "u" on the drawn document.
     readonly property bool canUndoHere: !root.readOnly && src.canUndo
     function undoHere() {
@@ -380,6 +411,8 @@ Item {
     function _leave(commit) {
         if (!root.editing) return;
         if (commit) root._commit();
+        // Rich keeps its one field: leaving only takes the edits in.
+        if (root._isRich) return;
         commitTimer.stop();
         view.editFirst = -1;
         view.editLast = -1;
@@ -398,10 +431,12 @@ Item {
         const e = root._lineEnd(t, view.editLast);
         // One edit, one undo step: as a remove and an insert, Ctrl+Z took
         // back only the insert and saved the block blank (KNOW-1).
+        root._committing = true;
         if (t.substring(s, e) !== field.text && !doc.replaceRange(src.textDocument, s, e, field.text)) {
             src.remove(s, e);
             src.insert(s, field.text);
         }
+        root._committing = false;
         view.editLast = view.editFirst + root._lineCount(field.text) - 1;
         doc.flush();
         view.editRow = root.wholeDocument ? (view.count > 0 ? 0 : -1) : root._rowFor(src.text, view.editFirst);
@@ -452,6 +487,13 @@ Item {
         root.editLine(root._lineCount(src.text) - 1, false);
     }
 
+    // Rich: the first drawn row holds the field's place once there is one.
+    Connections {
+        target: view
+        enabled: root._isRich
+        function onCountChanged() { if (root.editing) view.editRow = view.count > 0 ? 0 : -1; }
+    }
+
     Timer {
         id: commitTimer
         interval: 400
@@ -467,6 +509,8 @@ Item {
             if (root._loading) return;
             root._takeEdit();
             root.edited(root.rawText);
+            // Rich: the source changed under the field (an undo, a tick).
+            if (root._isRich && !root._committing) root._openRich();
         }
     }
 
@@ -502,7 +546,7 @@ Item {
         footer: MdTailHost {
             id: tailHost
             width: view.width
-            height: tailLoader.y + tailLoader.height + Theme.px(160)
+            height: tailLoader.y + tailLoader.height + (root.tailRoom ? Theme.px(160) : 0)
             loaded: tailLoader.item as Item
             Loader {
                 id: tailLoader
@@ -573,6 +617,10 @@ Item {
             width: (root.noteType ? Math.min(view.width - 2 * view.sideMargin, Theme.px(680)) : view.width - 2 * view.sideMargin) + leftPadding + rightPadding - _indentX
             wrapMode: TextEdit.Wrap
             selectByMouse: true
+            readOnly: root.readOnly
+            // Rich: the field is the empty document too, so it says what goes there.
+            placeholderText: root._isRich ? root.placeholder : ""
+            placeholderTextColor: Theme.textDim
             textFormat: TextEdit.PlainText
             color: Theme.text
             font.family: _single && view.editHostCode ? Theme.fontMono : Theme.fontUi
@@ -597,7 +645,7 @@ Item {
 
             Keys.priority: Keys.BeforeItem
             Keys.onShortcutOverride: (event) => {
-                if (mdEditor.claimsShortcut(event.key, event.modifiers)) event.accepted = true;
+                if (!root.readOnly && mdEditor.claimsShortcut(event.key, event.modifiers)) event.accepted = true;
             }
             Keys.onPressed: (event) => {
                 // The caller's list over the caret (Notes' @ # [[) first.
@@ -605,6 +653,15 @@ Item {
                 root.blockKey(event);
                 if (event.accepted) return;
                 const mods = event.modifiers & ~Qt.KeypadModifier;
+                // Read-only text: moving, selecting and copying are the text
+                // area's own; Esc lets go of it. Nothing below may edit.
+                if (root.readOnly) {
+                    if (event.key === Qt.Key_Escape && mods === Qt.NoModifier) {
+                        root._holdView();
+                        event.accepted = true;
+                    }
+                    return;
+                }
                 // Ctrl+Z past what the block itself can undo: the document's.
                 // Past the document's too: the app's (a deleted note or page,
                 // which the toast offers Ctrl+Z for, IDIOT-KNOW-10).
@@ -780,6 +837,16 @@ Item {
             }
         }
     }
+    // Rich: the field's markup hidden away from the caret and drawn over.
+    Loader {
+        active: root._isRich
+        sourceComponent: Component {
+            MdLivePreview {
+                editor: field
+                readOnly: root.readOnly
+            }
+        }
+    }
     // Esc on the drawn document: back to whoever opened it.
     Keys.onEscapePressed: root.escaped()
     // A letter typed with no block open goes into the text, where the caret
@@ -788,18 +855,18 @@ Item {
     // undo while it has one; it fell through to the app's and took back an
     // unseen change on the board instead (KNOW-2).
     Keys.onShortcutOverride: (event) => {
-        if (!root.editing && !root.readOnly && ((event.matches(StandardKey.Undo) && src.canUndo)
+        if (root._drawnFocus && !root.readOnly && ((event.matches(StandardKey.Undo) && src.canUndo)
                                                 || (event.matches(StandardKey.Redo) && src.canRedo)))
             event.accepted = true;
     }
     Keys.onPressed: (event) => {
-        if (!root.editing && !root.readOnly && event.matches(StandardKey.Undo) && src.canUndo) {
+        if (root._drawnFocus && !root.readOnly && event.matches(StandardKey.Undo) && src.canUndo) {
             src.undo();
             doc.flush();
             event.accepted = true;
             return;
         }
-        if (!root.editing && !root.readOnly && event.matches(StandardKey.Redo) && src.canRedo) {
+        if (root._drawnFocus && !root.readOnly && event.matches(StandardKey.Redo) && src.canRedo) {
             src.redo();
             doc.flush();
             event.accepted = true;

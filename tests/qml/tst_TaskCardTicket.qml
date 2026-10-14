@@ -181,14 +181,21 @@ TestCase {
         // cursor (APP-179), a few levels down.
         (function walk(it) {
             if (!it) return;
-            if (it instanceof Text && (it.text === t.title || it.text === t.desc)) {
+            if (it instanceof Text && it.text === t.title) {
                 compare(it.textFormat, Text.PlainText, "tracker text is rendered as markup");
                 checked++;
             }
             const kids = it.children || [];
             for (let i = 0; i < kids.length; i++) walk(kids[i]);
         })(card);
-        verify(checked >= 2, "did not find the title and description to check");
+        verify(checked >= 1, "did not find the title to check");
+        // The description's line is drawn (APP-313) from escaped text: the
+        // tracker's tags are shown as characters, never read as tags.
+        card.cursored = true;
+        const excerpt = findChild(card, "tc-excerpt");
+        tryVerify(function () { return excerpt.visible; }, 2000, "the description line did not show");
+        verify(excerpt.text.indexOf("<b>bold") < 0, "the tracker's <b> reached the text as a tag: " + excerpt.text);
+        verify(excerpt.text.indexOf("&lt;b&gt;bold") >= 0, "the tracker's text is not there escaped: " + excerpt.text);
         card.destroy();
     }
 }
