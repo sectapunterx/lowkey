@@ -166,6 +166,7 @@ qt_add_library(heap_markdown STATIC
     src/markdown/MdOutline.cpp
     src/markdown/MdExtensions.cpp
     src/markdown/MdHtml.cpp
+    src/markdown/MdMath.cpp
     src/markdown/MdBlockModel.cpp
     src/markdown/MdEditOps.cpp
     src/notes/NoteLinks.cpp

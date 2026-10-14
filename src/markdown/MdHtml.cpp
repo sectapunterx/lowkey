@@ -1,4 +1,5 @@
 #include "markdown/MdHtml.h"
+#include "markdown/MdMath.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -222,14 +223,14 @@ void appendInline(const MdAst& ast, int index, const MdHtmlOptions& options, QSt
 
     case InlineType::LatexMath:
     case InlineType::LatexMathDisplay: {
-      // Nothing typesets maths in this build, so the source is shown in a
-      // distinct colour rather than silently dropped or rendered wrongly.
+      // Typeset (MdMath, APP-312); a formula it cannot set stays its
+      // source, in code, rather than being drawn wrongly.
       QString body;
       for(const int child : node.children) {
         body += ast.inlines.at(child).text;
       }
       body += node.text;
-      *out += span(options.palette.math, QStringLiteral("<code>%1</code>").arg(escapeHtml(body)));
+      *out += span(options.palette.math, renderMath(body, node.type == InlineType::LatexMathDisplay).html);
       break;
     }
 

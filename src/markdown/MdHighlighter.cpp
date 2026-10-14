@@ -1,5 +1,7 @@
 #include "markdown/MdHighlighter.h"
+#include "markdown/MdMath.h"
 
+#include <QFontMetricsF>
 #include <QRegularExpression>
 #include <QTextBlock>
 #include <QTextDocument>
@@ -134,6 +136,20 @@ QPair<QTextBlock, QTextBlock> MdHighlighter::revealUnit(const QTextBlock& block)
       first = first.previous();
     }
     while(isTable(last.next())) {
+      last = last.next();
+    }
+    return {first, last};
+  }
+  const auto inMath = [](const QTextBlock& b) {
+    return b.isValid() && b.userState() == InMathBlock;
+  };
+  if(inMath(block) || inMath(block.previous())) {
+    QTextBlock first = block;
+    while(inMath(first.previous())) {
+      first = first.previous();
+    }
+    QTextBlock last = block;
+    while(inMath(last) && last.next().isValid()) {
       last = last.next();
     }
     return {first, last};
@@ -290,6 +306,14 @@ QList<QPair<int, int>> MdHighlighter::hiddenMarkup(const QString& line) {
     }
     add(m.capturedStart(4), 2);
   }
+  // A backslash escape (\$, \*, \#): the backslash goes, the character stays.
+  static const QRegularExpression escapeRx(QStringLiteral("\\\\[!-/:-@\\[-`{-~]"));
+  for(auto it = escapeRx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    if(!inCode(m.capturedStart())) {
+      add(m.capturedStart(), 1);
+    }
+  }
   return out;
 }
 
@@ -340,8 +364,74 @@ QVariantList MdHighlighter::decorations(const QString& text) {
       while(j < lines.size() && !(fenceRx().match(lines.at(j)).hasMatch() && fenceRx().match(lines.at(j)).captured(2).isEmpty())) {
         ++j;
       }
+      // A fence never closed runs to the end of the note: drawn so, and
+      // said so, rather than quietly swallowing everything after it.
+      const bool closed = j < lines.size();
       const int last = std::min(j, static_cast<int>(lines.size()) - 1);
-      out.append(QVariantMap{{"kind", "code"}, {"start", starts.at(i)}, {"end", lineEnd(last)}, {"language", f.captured(2)}});
+      const QStringList body = lines.mid(i + 1, (closed ? j : static_cast<int>(lines.size())) - i - 1);
+      out.append(QVariantMap{{"kind", "code"},
+                             {"start", starts.at(i)},
+                             {"end", lineEnd(last)},
+                             {"language", f.captured(2)},
+                             {"closed", closed},
+                             {"fenced", true},
+                             {"code", body.join(QLatin1Char('\n'))}});
+      i = last + 1;
+      continue;
+    }
+    // Indented code: four spaces (or a tab) after a blank line, not under a
+    // list item, where the indent continues the item.
+    static const QRegularExpression indentedRx(QStringLiteral("^(?: {4}|\\t)"));
+    const auto blankAbove = i == 0 || lines.at(i - 1).trimmed().isEmpty();
+    const auto underItem = [&]() {
+      for(int k = i - 1; k >= 0; --k) {
+        if(!lines.at(k).trimmed().isEmpty()) {
+          return listMarkerRx().match(lines.at(k)).hasMatch() || indentedRx.match(lines.at(k)).hasMatch();
+        }
+      }
+      return false;
+    };
+    if(blankAbove && indentedRx.match(line).hasMatch() && !line.trimmed().isEmpty() && !underItem()) {
+      int j = i;
+      int last = i;
+      while(j < lines.size() && (indentedRx.match(lines.at(j)).hasMatch() || lines.at(j).trimmed().isEmpty())) {
+        if(!lines.at(j).trimmed().isEmpty()) {
+          last = j;
+        }
+        ++j;
+      }
+      QStringList body;
+      for(int k = i; k <= last; ++k) {
+        body << lines.at(k).mid(lines.at(k).startsWith(QLatin1Char('\t')) ? 1 : 4);
+      }
+      out.append(QVariantMap{{"kind", "code"},
+                             {"start", starts.at(i)},
+                             {"end", lineEnd(last)},
+                             {"language", QString()},
+                             {"closed", true},
+                             {"fenced", false},
+                             {"code", body.join(QLatin1Char('\n'))}});
+      i = last + 1;
+      continue;
+    }
+    // $$ on its own line opens display maths, to the next $$.
+    if(line.trimmed() == QStringLiteral("$$")) {
+      int j = i + 1;
+      QStringList body;
+      while(j < lines.size() && lines.at(j).trimmed() != QStringLiteral("$$")) {
+        body << lines.at(j);
+        ++j;
+      }
+      const int last = std::min(j, static_cast<int>(lines.size()) - 1);
+      const MathRender math = renderMath(body.join(QLatin1Char('\n')), true);
+      if(math.ok) {
+        out.append(QVariantMap{{"kind", "math"},
+                               {"display", true},
+                               {"start", starts.at(i)},
+                               {"end", lineEnd(last)},
+                               {"at", starts.at(i)},
+                               {"html", math.html}});
+      }
       i = last + 1;
       continue;
     }
@@ -384,6 +474,20 @@ QVariantList MdHighlighter::decorations(const QString& text) {
       ++i;
       continue;
     }
+    for(const MathSpan& span : mathSpans(line)) {
+      const MathRender math = renderMath(span.tex, span.display);
+      if(!math.ok) {
+        continue;
+      }
+      // A line that is nothing but $$ … $$ is a centred formula.
+      const bool whole = span.display && line.trimmed().size() == span.length;
+      out.append(QVariantMap{{"kind", "math"},
+                             {"display", whole},
+                             {"start", starts.at(i)},
+                             {"end", lineEnd(i)},
+                             {"at", starts.at(i) + span.start},
+                             {"html", math.html}});
+    }
     if(const auto q = quoteRx().match(line); q.hasMatch() && q.capturedLength() > 0) {
       out.append(QVariantMap{{"kind", "quote"},
                              {"start", starts.at(i)},
@@ -408,6 +512,82 @@ QVariantList MdHighlighter::decorations(const QString& text) {
     ++i;
   }
   return out;
+}
+
+QList<MdHighlighter::MathSpan> MdHighlighter::mathSpans(const QString& line) {
+  QList<MathSpan> out;
+  // Code spans first: nothing in them is maths.
+  static const QRegularExpression codeRx(QStringLiteral("`[^`\\n]+`"));
+  QList<QPair<qsizetype, qsizetype>> code;
+  for(auto it = codeRx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    code.append({m.capturedStart(), m.capturedEnd()});
+  }
+  const auto inCode = [&code](qsizetype at) {
+    for(const auto& [a, b] : code) {
+      if(at >= a && at < b) {
+        return true;
+      }
+    }
+    return false;
+  };
+  static const QRegularExpression displayRx(QStringLiteral("(?<!\\\\)\\$\\$(.+?)(?<!\\\\)\\$\\$"));
+  static const QRegularExpression inlineRx(
+      QStringLiteral("(?<![\\\\$])\\$(?![\\s$])((?:\\\\[^$]|[^$\\\\\\n])+?)(?<![\\s\\\\])\\$(?![$\\d])"));
+  QList<QPair<qsizetype, qsizetype>> taken;
+  for(auto it = displayRx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    if(inCode(m.capturedStart())) {
+      continue;
+    }
+    out.append({static_cast<int>(m.capturedStart()), static_cast<int>(m.capturedLength()), m.captured(1), true});
+    taken.append({m.capturedStart(), m.capturedEnd()});
+  }
+  for(auto it = inlineRx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    bool clash = inCode(m.capturedStart());
+    for(const auto& [a, b] : taken) {
+      clash = clash || (m.capturedStart() < b && m.capturedEnd() > a);
+    }
+    if(!clash) {
+      out.append({static_cast<int>(m.capturedStart()), static_cast<int>(m.capturedLength()), m.captured(1), false});
+    }
+  }
+  std::sort(out.begin(), out.end(), [](const MathSpan& a, const MathSpan& b) {
+    return a.start < b.start;
+  });
+  return out;
+}
+
+void MdHighlighter::ghostTo(int start, int length, qreal width) {
+  if(length <= 0 || document() == nullptr) {
+    return;
+  }
+  const QFont font = document()->defaultFont();
+  const QString source = currentBlock().text().mid(start, length);
+  const qreal own = QFontMetricsF(font).horizontalAdvance(source);
+  QTextCharFormat f;
+  f.setForeground(QColor(0, 0, 0, 0));
+  f.setFontLetterSpacingType(QFont::AbsoluteSpacing);
+  f.setFontLetterSpacing((width - own) / length);
+  setFormat(start, length, f);
+}
+
+void MdHighlighter::hideMaths(const QString& text) {
+  if(document() == nullptr) {
+    return;
+  }
+  for(const MathSpan& span : mathSpans(text)) {
+    const MathRender math = renderMath(span.tex, span.display);
+    if(!math.ok) {
+      continue;  // shown as its source, which is what is drawn instead
+    }
+    QTextDocument measure;
+    measure.setDocumentMargin(0);
+    measure.setDefaultFont(document()->defaultFont());
+    measure.setHtml(math.html);
+    ghostTo(span.start, span.length, measure.idealWidth());
+  }
 }
 
 void MdHighlighter::hideMarkup(const QString& text) {
@@ -658,7 +838,6 @@ void MdHighlighter::highlightInline(const QString& text) {
   static const QRegularExpression linkRx(QStringLiteral("!?\\[[^\\]\\n]*\\]\\([^)\\n]*\\)"));
   static const QRegularExpression wikiRx(QStringLiteral("\\[\\[[^\\]\\n]+\\]\\]"));
   static const QRegularExpression urlRx(QStringLiteral("\\bhttps?://[^\\s)\\]]+"));
-  static const QRegularExpression mathRx(QStringLiteral("(?<![\\\\$])\\$(?!\\s)[^$\\n]+\\$(?!\\$)"));
   // Names and tags in any script: "@Олег_Т" is as much a mention as "@oleg".
   static const QRegularExpression mentionRx(QStringLiteral("(?<![\\p{L}\\p{N}_])@[\\p{L}\\p{N}_.-]+"));
   static const QRegularExpression ticketRx(QStringLiteral("(?<![A-Za-z0-9_])#[A-Z][A-Z0-9]*-\\d+"));
@@ -673,7 +852,6 @@ void MdHighlighter::highlightInline(const QString& text) {
       {&wikiRx, &m_wiki, 0},
       {&linkRx, &m_link, 0},
       {&urlRx, &m_link, 0},
-      {&mathRx, &m_math, 0},
       {&ticketRx, &m_ticket, 0},
       {&tagRx, &m_tag, 0},
       {&mentionRx, &m_mention, 0},
@@ -686,6 +864,10 @@ void MdHighlighter::highlightInline(const QString& text) {
       const auto match = it.next();
       setFormat(static_cast<int>(match.capturedStart(rule.group)), static_cast<int>(match.capturedLength(rule.group)), *rule.format);
     }
+  }
+
+  for(const MathSpan& span : mathSpans(text)) {
+    setFormat(span.start, span.length, m_math);
   }
 
   // Inline code last: what is inside backticks is not markdown, so nothing
@@ -739,6 +921,9 @@ void MdHighlighter::highlightBlock(const QString& text) {
   if(previous == InMathBlock) {
     setFormat(0, length, m_math);
     setCurrentBlockState(text.trimmed() == QStringLiteral("$$") ? Normal : InMathBlock);
+    if(hides()) {
+      ghost(0, length);  // the formula is drawn over its lines
+    }
     return;
   }
 
@@ -757,6 +942,9 @@ void MdHighlighter::highlightBlock(const QString& text) {
     setFormat(0, length, m_math);
     setCurrentBlockUserData(nullptr);
     setCurrentBlockState(InMathBlock);
+    if(hides()) {
+      ghost(0, length);
+    }
     return;
   }
 
@@ -779,6 +967,7 @@ void MdHighlighter::highlightBlock(const QString& text) {
     highlightInline(text);
     if(m_livePreview && !revealed(currentBlock())) {
       hideMarkup(text);
+      hideMaths(text);
     }
     return;
   }
@@ -816,6 +1005,7 @@ void MdHighlighter::highlightBlock(const QString& text) {
     highlightInline(text);
     if(hides()) {
       hideMarkup(text);
+      hideMaths(text);
       ghost(0, static_cast<int>(quote.capturedLength()));  // the bar is drawn there
     }
     return;
@@ -837,6 +1027,7 @@ void MdHighlighter::highlightBlock(const QString& text) {
   highlightInline(text);
   if(hides()) {
     hideMarkup(text);
+    hideMaths(text);
     // The bullet or the box is drawn over its marker, which keeps its width.
     if(list.hasMatch() && !list.captured(2).at(0).isDigit()) {
       const int to = list.captured(4).isEmpty() ? static_cast<int>(list.capturedEnd(2)) : static_cast<int>(list.capturedEnd(4)) - 1;

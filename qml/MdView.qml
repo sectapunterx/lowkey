@@ -907,11 +907,13 @@ ListView {
                     anchors.margins: Theme.spLg
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.Wrap
-                    // Nothing typesets maths in this build, so the source is shown
-                    // rather than dropped or drawn wrongly.
-                    text: rowItem.model.code
+                    // Typeset (MdMath, APP-312); a formula it cannot set is
+                    // shown as its source, in mono, rather than drawn wrongly.
+                    readonly property bool typeset: String(rowItem.model.html || "").length > 0
+                    textFormat: typeset ? Text.RichText : Text.PlainText
+                    text: typeset ? rowItem.model.html : rowItem.model.code
                     color: Theme.text
-                    font.family: Theme.fontMono
+                    font.family: typeset ? Theme.fontUi : Theme.fontMono
                     font.pixelSize: Theme.fsMd
                 }
             }

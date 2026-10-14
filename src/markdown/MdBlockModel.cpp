@@ -1,6 +1,7 @@
 #include "markdown/MdBlockModel.h"
 #include "markdown/MdExtensions.h"
 #include "markdown/MdHtml.h"
+#include "markdown/MdMath.h"
 
 #include <algorithm>
 #include <functional>
@@ -363,6 +364,11 @@ void MdBlockModel::setDocument(const MdSourceMap& src, const MdAst& ast, const M
           code.chop(2);
         }
         row.code = code.trimmed();
+        // Typeset (APP-312); `html` stays empty when it cannot be, and the
+        // view shows the source.
+        if(const MathRender math = renderMath(row.code, true); math.ok) {
+          row.html = math.html;
+        }
         rows.append(row);
         return;
       }

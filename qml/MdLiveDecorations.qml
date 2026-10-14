@@ -50,15 +50,18 @@ Item {
     }
 
     FontMetrics { id: fm; font: root.editor.font }
+    // Off-screen, only to reach the clipboard (as MdView's code blocks do).
+    TextEdit { id: clipboardHelper; visible: false }
 
     Repeater {
         model: root.decorations
         delegate: Loader {
             id: deco
             required property var modelData
-            active: root._shown(modelData)
-                    && (root.under ? modelData.kind === "code" : modelData.kind !== "code")
+            // Code: the box under the text, its language and Copy over it.
+            active: root._shown(modelData) && (!root.under || modelData.kind === "code")
             sourceComponent: {
+                if (deco.modelData.kind === "code" && !root.under) return codeHeader;
                 switch (deco.modelData.kind) {
                 case "bullet": return bullet;
                 case "task": return task;
@@ -66,6 +69,7 @@ Item {
                 case "rule": return rule;
                 case "code": return code;
                 case "table": return table;
+                case "math": return deco.modelData.display ? mathBlock : mathInline;
                 }
                 return null;
             }
@@ -128,6 +132,46 @@ Item {
                     color: Theme.border
                 }
             }
+            // A formula (MdMath, APP-312) over its hidden source, which the
+            // highlighter squeezed to the drawn width so the line stays put.
+            Component {
+                id: mathInline
+                Text {
+                    objectName: "md-live-math"
+                    readonly property rect r: root._rect(deco.modelData.at)
+                    x: r.x
+                    y: r.y
+                    height: r.height
+                    verticalAlignment: Text.AlignVCenter
+                    textFormat: Text.RichText
+                    text: deco.modelData.html
+                    color: Theme.math
+                    font: root.editor.font
+                }
+            }
+            // $$ … $$: centred over its lines.
+            Component {
+                id: mathBlock
+                Item {
+                    readonly property rect a: root._rect(deco.modelData.start)
+                    readonly property rect b: root._rect(deco.modelData.end)
+                    x: 0
+                    y: a.y
+                    width: root.width
+                    height: b.y + b.height - a.y
+                    Text {
+                        objectName: "md-live-math-block"
+                        anchors.centerIn: parent
+                        width: Math.min(implicitWidth, parent.width)
+                        wrapMode: Text.Wrap
+                        horizontalAlignment: Text.AlignHCenter
+                        textFormat: Text.RichText
+                        text: deco.modelData.html
+                        color: Theme.math
+                        font: root.editor.font
+                    }
+                }
+            }
             Component {
                 id: rule
                 Rectangle {
@@ -152,6 +196,53 @@ Item {
                     color: Theme.codeBg
                     border.width: 1
                     border.color: Theme.border
+                }
+            }
+            // On the hidden ``` line (or the box's first line, for indented
+            // code): the language, "not closed" for a fence that runs to the
+            // end of the note, and Copy, which takes the code without fences.
+            Component {
+                id: codeHeader
+                Item {
+                    readonly property rect a: root._rect(deco.modelData.start)
+                    x: 0
+                    y: a.y
+                    width: root.width
+                    height: a.height
+                    Text {
+                        objectName: "md-live-code-language"
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: deco.modelData.fenced
+                        text: !deco.modelData.closed ? I18n.t("notes.code.unclosed")
+                            : String(deco.modelData.language || "")
+                        color: deco.modelData.closed ? Theme.textDim : Theme.warning
+                        font.family: Theme.fontMono
+                        font.pixelSize: Theme.fsXs
+                    }
+                    Text {
+                        id: copyText
+                        objectName: "md-live-code-copy"
+                        property bool copied: false
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: copied ? I18n.t("notes.code.copied") : I18n.t("notes.code.copy")
+                        color: copyArea.hovered ? Theme.text : Theme.textDim
+                        font.family: Theme.fontUi
+                        font.pixelSize: Theme.fsXs
+                        ClickArea {
+                            id: copyArea
+                            label: I18n.t("notes.code.copy")
+                            onActivated: {
+                                clipboardHelper.text = deco.modelData.code;
+                                clipboardHelper.selectAll();
+                                clipboardHelper.copy();
+                                copyText.copied = true;
+                                copiedReset.restart();
+                            }
+                        }
+                        Timer { id: copiedReset; interval: 1200; onTriggered: copyText.copied = false }
+                    }
                 }
             }
             Component {

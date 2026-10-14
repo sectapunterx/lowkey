@@ -359,3 +359,36 @@ TEST(MdParserTest, HandlesDegenerateInputWithoutCrashing) {
     EXPECT_TRUE(problem.isEmpty()) << markdown.left(40).toStdString() << " -> " << problem.toStdString();
   }
 }
+
+// ── Dollars (APP-312): money is not maths ─────────────────────────────
+
+namespace {
+
+// The maths spans of a text, as their source between the dollars.
+QStringList mathOf(const QString& text) {
+  const MdAst ast = parse(text);
+  QStringList out;
+  for(const MdInline& in : ast.inlines) {
+    if(in.type == InlineType::LatexMath || in.type == InlineType::LatexMathDisplay) {
+      QString body;
+      for(const int child : in.children) {
+        body += ast.inlines.at(child).text;
+      }
+      out << body;
+    }
+  }
+  return out;
+}
+
+}  // namespace
+
+TEST(MdParserTest, DollarsThatAreMoneyAreText) {
+  EXPECT_TRUE(mathOf(QStringLiteral("costs $5 and $10 a month")).isEmpty());
+  EXPECT_TRUE(mathOf(QStringLiteral("price $20, tax $3.50")).isEmpty());
+  EXPECT_TRUE(mathOf(QStringLiteral("between $5 and 6$7 here")).isEmpty()) << "a closing $ before a digit closes nothing";
+  EXPECT_TRUE(mathOf(QStringLiteral("an escaped \\$x$ is a dollar")).isEmpty());
+  EXPECT_TRUE(mathOf(QStringLiteral("tax $3.50. An escaped \\$x$ is a dollar.")).isEmpty());
+  EXPECT_TRUE(mathOf(QStringLiteral("in code `$x$` it is code")).isEmpty());
+  EXPECT_EQ(mathOf(QStringLiteral("so $x^2$ and $\\alpha$ are maths")), (QStringList{QStringLiteral("x^2"), QStringLiteral("\\alpha")}));
+  EXPECT_EQ(mathOf(QStringLiteral("$$E = mc^2$$")), (QStringList{QStringLiteral("E = mc^2")}));
+}

@@ -501,9 +501,25 @@ int Builder::onEnterSpan(MD_SPANTYPE type, void* detail) {
   return 0;
 }
 
-int Builder::onLeaveSpan(MD_SPANTYPE /*type*/) {
-  if(!m_spanStack.isEmpty()) {
-    m_spanStack.removeLast();
+int Builder::onLeaveSpan(MD_SPANTYPE type) {
+  if(m_spanStack.isEmpty()) {
+    return 0;
+  }
+  const int index = m_spanStack.takeLast();
+  // "tax $3.50. An escaped \$x$" is maths to md4c (as to pandoc): the escaped
+  // dollar inside is what says it was money. Such a span stays text, which is
+  // also what the editor's highlighter reads (APP-312).
+  if(type == MD_SPAN_LATEXMATH) {
+    MdInline& node = m_ast.inlines[index];
+    QString body;
+    for(const int child : node.children) {
+      body += m_ast.inlines.at(child).text;
+    }
+    if(body.contains(QLatin1String("\\$"))) {
+      node.type = InlineType::Text;
+      node.text = QLatin1Char('$') + QString(body).replace(QLatin1String("\\$"), QLatin1String("$")) + QLatin1Char('$');
+      node.children.clear();
+    }
   }
   return 0;
 }

@@ -100,6 +100,19 @@ class MdHighlighter : public QSyntaxHighlighter {
   // Fenced code and tables are revealed as a whole, the rest line by line.
   Q_INVOKABLE static QVariantList decorations(const QString& text);
 
+  // The maths spans of one line, as md4c reads them (APP-312): $ opens
+  // only before a non-space, closes only after one and not before a digit,
+  // so "$5 and $10" is money; \$ is a dollar; nothing inside `code` counts.
+  // $$ … $$ on one line is display maths.
+  struct MathSpan {
+    int start = 0;   // the opening $
+    int length = 0;  // through the closing $
+    QString tex;
+    bool display = false;
+  };
+
+  static QList<MathSpan> mathSpans(const QString& line);
+
  signals:
   void targetChanged();
   void paletteChanged();
@@ -129,6 +142,11 @@ class MdHighlighter : public QSyntaxHighlighter {
   void revealMoved(int oldStart, int oldEnd);
   void hideMarkup(const QString& text);
   void ghost(int start, int length);
+  // Invisible like ghost(), with the letter spacing that makes the span as
+  // wide as `width`: a formula drawn over its source takes its own room,
+  // and the line does not jump when it is drawn or shown.
+  void ghostTo(int start, int length, qreal width);
+  void hideMaths(const QString& text);
   // The first and last line of the table or fence a line belongs to; the
   // line itself when it is in neither.
   QPair<QTextBlock, QTextBlock> revealUnit(const QTextBlock& block) const;

@@ -318,12 +318,14 @@ TEST(MdHtmlTest, ResolveImage_RelativePathsNeedABaseAndCannotClimbOut) {
 
 // ── Maths and plain text ────────────────────────────────────────────
 
-TEST(MdHtmlTest, ShowsMathSourceInItsOwnColour) {
-  // Nothing typesets maths in this build; showing the source beats dropping it
-  // or rendering it wrongly.
+TEST(MdHtmlTest, TypesetsMathInItsOwnColour) {
+  // MdMath (APP-312): set, in the maths colour; what it cannot set stays its
+  // source rather than being dropped or drawn wrongly.
   const QString html = renderParagraph(QStringLiteral("inline $x^2$ here\n"));
   EXPECT_TRUE(html.contains(QStringLiteral("#aa00aa")));
-  EXPECT_TRUE(html.contains(QStringLiteral("x^2")));
+  EXPECT_TRUE(html.contains(QStringLiteral("<i>x</i><sup>2</sup>"))) << html.toStdString();
+  const QString unknown = renderParagraph(QStringLiteral("inline $\\begin{x}$ here\n"));
+  EXPECT_TRUE(unknown.contains(QStringLiteral("\\begin{x}"))) << unknown.toStdString();
 }
 
 TEST(MdHtmlTest, PlainTextDropsMarkup) {
@@ -426,4 +428,33 @@ TEST(MdRender, InternalLinksAreUnderlined) {
   EXPECT_TRUE(styleOf(QStringLiteral("heap://task/APP-1")).contains(QStringLiteral("text-decoration:underline"))) << html.toStdString();
   EXPECT_TRUE(styleOf(QStringLiteral("heap://tag/topic")).contains(QStringLiteral("text-decoration:none"))) << html.toStdString();
   EXPECT_TRUE(styleOf(QStringLiteral("heap://person/alice")).contains(QStringLiteral("text-decoration:none"))) << html.toStdString();
+}
+
+// ── Maths typeset (APP-312) ────────────────────────────────────────────
+
+#include "markdown/MdMath.h"
+
+TEST(MdMathTest, SetsWhatNotesHold) {
+  using heap::md::renderMath;
+  EXPECT_EQ(renderMath(QStringLiteral("x^2")).html, QStringLiteral("<i>x</i><sup>2</sup>"));
+  EXPECT_EQ(renderMath(QStringLiteral("\\alpha_i")).html, QStringLiteral("α<sub><i>i</i></sub>"));
+  EXPECT_EQ(renderMath(QStringLiteral("a \\le b")).plain, QStringLiteral("a ≤ b"));
+  EXPECT_EQ(renderMath(QStringLiteral("\\frac{a+b}{2}")).plain, QStringLiteral("(a + b)/2"));
+  EXPECT_EQ(renderMath(QStringLiteral("\\sqrt{x}")).plain, QStringLiteral("√x"));
+  EXPECT_EQ(renderMath(QStringLiteral("\\mathbb{R}^n")).plain, QStringLiteral("ℝ^n"));
+  EXPECT_EQ(renderMath(QStringLiteral("\\sin \\theta")).plain, QStringLiteral("sinθ"));
+  EXPECT_EQ(renderMath(QStringLiteral("\\text{if } x")).plain, QStringLiteral("if x"));
+  EXPECT_EQ(renderMath(QStringLiteral("E = mc^2")).plain, QStringLiteral("E = mc^2"));
+  EXPECT_EQ(renderMath(QStringLiteral("12.5x")).html, QStringLiteral("12.5<i>x</i>"));
+  EXPECT_TRUE(renderMath(QStringLiteral("\\sum_{i=1}^{n} i")).ok);
+}
+
+TEST(MdMathTest, WhatItCannotSetStaysSource) {
+  using heap::md::renderMath;
+  for(const char* tex : {"\\begin{matrix} a & b \\end{matrix}", "\\unknowncommand x", "{a", "a}", "x^", "a & b"}) {
+    const auto r = renderMath(QString::fromUtf8(tex));
+    EXPECT_FALSE(r.ok) << tex;
+    EXPECT_TRUE(r.html.startsWith(QStringLiteral("<code>"))) << tex;
+  }
+  EXPECT_EQ(renderMath(QStringLiteral("a < b")).html, QStringLiteral("<i>a</i> &lt; <i>b</i>")) << "html escaped";
 }
