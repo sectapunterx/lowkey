@@ -11,6 +11,7 @@
 #include "profile/ProfileMove.h"
 #include "safety/EndOfDay.h"
 #include "undo/UndoStack.h"
+#include "update/FeatureBuild.h"
 
 #include <QDate>
 #include <QHash>
@@ -189,6 +190,8 @@ class AppController : public QObject {
   Q_PROPERTY(QString updatePhase READ updatePhase NOTIFY updateStatusChanged)
   Q_PROPERTY(double updateProgress READ updateProgress NOTIFY updateProgressChanged)
   Q_PROPERTY(QString updateSha256 READ updateSha256 NOTIFY updateStatusChanged)
+  // The feature build beside this one: download, open, update, remove.
+  Q_PROPERTY(heap::update::FeatureBuild* featureBuild READ featureBuild CONSTANT)
 
   // Per tracker: { offline: bool, outOfScope: int }. `offline` is set while
   // the token endpoint or the tracker cannot be reached and heap is retrying
@@ -1092,6 +1095,10 @@ class AppController : public QObject {
 
   QString updateSha256() const {
     return m_updateSha256;
+  }
+
+  heap::update::FeatureBuild* featureBuild() const {
+    return m_featureBuild;
   }
 
   // ---- Diagnostics (HEAP-64) ----
@@ -2806,6 +2813,7 @@ class AppController : public QObject {
 
   // ---- Auto-update (HEAP-63) ----
   std::unique_ptr<heap::update::Updater> m_updater;
+  heap::update::FeatureBuild* m_featureBuild = nullptr;  // parented to this
   QString m_updateStatus;  // a tr_() key, "" before the first check
   QString m_updateStatusArg;
   QString m_latestReleaseUrl;

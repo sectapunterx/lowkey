@@ -5,6 +5,7 @@
 
 #include "FakeHttpServer.h"
 
+#include "update/FeatureBuild.h"
 #include "update/UpdateInstall.h"
 #include "update/Updater.h"
 #include "updater/BundleSwap.h"
@@ -335,4 +336,82 @@ TEST(UpdateBundleSwap, AFailedSwapLeavesTheOldVersion) {
   EXPECT_FALSE(heap::updater::swapBundle(root / "nothing-here", target, error));
   EXPECT_FALSE(error.empty());
   EXPECT_EQ(readFile(target / "heap.exe"), "old exe");
+}
+
+// ─── The feature build beside stable (APP-309) ───────────────────────
+
+TEST(FeatureBuild, PicksThisPlatformsFeaturePackageNotStables) {
+  const QStringList assets = {
+      QStringLiteral("tabless-v0.9.2-windows-setup.exe"),
+      QStringLiteral("tabless-v0.9.2-windows-portable.zip"),
+      QStringLiteral("tabless-v0.9.2-macos.dmg"),
+      QStringLiteral("SHA256SUMS"),
+      QStringLiteral("tabless-v0.9.3-feature-abc1234-windows-portable.zip"),
+      QStringLiteral("tabless-v0.9.3-feature-abc1234-macos.dmg"),
+      QStringLiteral("tabless-v0.9.3-feature-abc1234-linux-x86_64.AppImage"),
+      QStringLiteral("SHA256SUMS-feature"),
+  };
+  using heap::update::featureAssetFor;
+  EXPECT_EQ(featureAssetFor(QStringLiteral("windows"), assets), QStringLiteral("tabless-v0.9.3-feature-abc1234-windows-portable.zip"));
+  EXPECT_EQ(featureAssetFor(QStringLiteral("macos"), assets), QStringLiteral("tabless-v0.9.3-feature-abc1234-macos.dmg"));
+  EXPECT_EQ(featureAssetFor(QStringLiteral("linux"), assets), QStringLiteral("tabless-v0.9.3-feature-abc1234-linux-x86_64.AppImage"));
+  EXPECT_TRUE(featureAssetFor(QStringLiteral("windows"), {QStringLiteral("tabless-v0.9.2-windows-portable.zip")}).isEmpty())
+      << "no feature package: nothing, never the stable one";
+  EXPECT_EQ(heap::update::featureVersionOf(QStringLiteral("tabless-v0.9.3-feature-abc1234-macos.dmg")),
+            QStringLiteral("v0.9.3-feature-abc1234"));
+  // The stable updater still finds its own package by its exact name.
+  EXPECT_TRUE(assets.contains(heap::update::assetNameFor(heap::update::PackageKind::WindowsPortable, QStringLiteral("v0.9.2"))));
+}
+
+TEST(FeatureBuild, FindsTheProgramInAnUnpackedBuild) {
+  QTemporaryDir tmp;
+  ASSERT_TRUE(QDir(tmp.path()).mkpath(QStringLiteral("Tabless/plugins")));
+  QFile exe(QDir(tmp.path()).filePath(QStringLiteral("Tabless/tabless.exe")));
+  ASSERT_TRUE(exe.open(QIODevice::WriteOnly));
+  exe.close();
+  EXPECT_EQ(QFileInfo(heap::update::featureExecutableIn(tmp.path(), QStringLiteral("windows"))).fileName(), QStringLiteral("tabless.exe"));
+  ASSERT_TRUE(QDir(tmp.path()).mkpath(QStringLiteral("Tabless.app/Contents/MacOS")));
+  EXPECT_TRUE(heap::update::featureExecutableIn(tmp.path(), QStringLiteral("macos")).endsWith(QStringLiteral("Tabless.app")));
+  EXPECT_TRUE(heap::update::featureExecutableIn(tmp.path(), QStringLiteral("linux")).isEmpty());
+}
+
+TEST_F(UpdateDownload, TheFeatureBuildIsCheckedAgainstItsOwnSums) {
+  ensureApp();
+  const QByteArray package(4000, 'f');
+  const QString base = m_server->base();
+#if defined(Q_OS_WIN)
+  const QString name = QStringLiteral("tabless-v9.1.0-feature-abc1234-windows-portable.zip");
+#elif defined(Q_OS_MACOS)
+  const QString name = QStringLiteral("tabless-v9.1.0-feature-abc1234-macos.dmg");
+#else
+  const QString name = QStringLiteral("tabless-v9.1.0-feature-abc1234-linux-x86_64.AppImage");
+#endif
+  const QByteArray release = QStringLiteral(
+                                 "{\"tag_name\":\"v9.0.0\",\"html_url\":\"%1/r\",\"assets\":["
+                                 "{\"name\":\"%2\",\"browser_download_url\":\"%1/dl/pkg\"},"
+                                 "{\"name\":\"SHA256SUMS\",\"browser_download_url\":\"%1/dl/sums\"},"
+                                 "{\"name\":\"SHA256SUMS-feature\",\"browser_download_url\":\"%1/dl/fsums\"}]}")
+                                 .arg(base, name)
+                                 .toUtf8();
+  m_server->route("GET /latest", {200, release});
+  m_server->route("GET /dl/pkg", {200, package});
+  // The stable sums list it; the feature sums do not: it must not pass.
+  m_server->route("GET /dl/sums", {200, hexSha256(package).toLatin1() + "  " + name.toLatin1() + "\n"});
+  m_server->route("GET /dl/fsums", {200, QByteArray(64, '0') + "  " + name.toLatin1() + "\n"});
+  heap::update::FeatureBuild fb;
+  fb.setRootDir(m_dir.path());
+  fb.setLatestReleaseUrl(base + QStringLiteral("/latest"));
+  fb.check();
+  heap::testing::waitUntil([&fb]() {
+    return fb.phase() != QStringLiteral("checking");
+  });
+  EXPECT_EQ(fb.remoteVersion(), QStringLiteral("v9.1.0-feature-abc1234"));
+  EXPECT_FALSE(fb.installed());
+  fb.install();
+  heap::testing::waitUntil([&fb]() {
+    return fb.phase() == QStringLiteral("error") || fb.phase().isEmpty();
+  });
+  EXPECT_EQ(fb.phase(), QStringLiteral("error"));
+  EXPECT_EQ(fb.error(), QStringLiteral("checksum"));
+  EXPECT_FALSE(fb.installed());
 }

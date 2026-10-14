@@ -3995,6 +3995,69 @@ Item {
                         onPicked: (v) => root.set("updates", "autoCheck", v === "auto")
                     }
                 }
+                // The feature build beside this one (APP-309): downloaded,
+                // opened, updated and removed from here, so trying what is
+                // coming never means uninstalling stable.
+                SettingsRow {
+                    id: featureRow
+                    objectName: "settings-feature-build"
+                    readonly property var fb: AppController.featureBuild
+                    readonly property bool busy: fb.phase === "downloading" || fb.phase === "installing"
+                    visible: fb.supported
+                    label: I18n.t("settings.about.feature")
+                    hint: fb.phase === "error" ? I18n.t("settings.about.feature.err." + fb.error)
+                        : fb.phase === "checking" ? I18n.t("settings.about.feature.checking")
+                        : fb.phase === "installing" ? I18n.t("settings.about.feature.installing")
+                        : fb.installed && fb.updateAvailable ? I18n.t("settings.about.feature.newer").arg(fb.installedVersion).arg(fb.remoteVersion)
+                        : fb.installed ? I18n.t("settings.about.feature.installed").arg(fb.installedVersion)
+                        : fb.remoteVersion.length > 0 ? I18n.t("settings.about.feature.available").arg(fb.remoteVersion)
+                        : I18n.t("settings.about.feature.hint")
+                    Component.onCompleted: if (fb.supported) fb.check()
+                    LinkText {
+                        objectName: "settings-feature-check"
+                        visible: !featureRow.busy && featureRow.fb.phase !== "checking"
+                        text: I18n.t("settings.about.feature.check")
+                        onActivated: featureRow.fb.check()
+                    }
+                    ActionButton {
+                        objectName: "settings-feature-get"
+                        visible: !featureRow.busy && (!featureRow.fb.installed || featureRow.fb.updateAvailable)
+                        text: featureRow.fb.installed ? I18n.t("settings.about.feature.update") : I18n.t("settings.about.feature.get")
+                        onActivated: featureRow.fb.install()
+                    }
+                    ActionButton {
+                        objectName: "settings-feature-open"
+                        visible: !featureRow.busy && featureRow.fb.installed
+                        text: I18n.t("settings.about.feature.open")
+                        onActivated: featureRow.fb.open()
+                    }
+                    ActionButton {
+                        objectName: "settings-feature-remove"
+                        visible: !featureRow.busy && featureRow.fb.installed
+                        text: I18n.t("settings.about.feature.remove")
+                        onActivated: featureRow.fb.remove()
+                    }
+                    ActionButton {
+                        objectName: "settings-feature-cancel"
+                        visible: featureRow.fb.phase === "downloading"
+                        text: I18n.t("settings.about.cancelUpdate")
+                        onActivated: featureRow.fb.cancel()
+                    }
+                    Rectangle {
+                        objectName: "settings-feature-progress"
+                        visible: featureRow.fb.phase === "downloading"
+                        Layout.preferredWidth: Theme.px(160)
+                        Layout.preferredHeight: Theme.spSm
+                        radius: height / 2
+                        color: Theme.panel3
+                        Rectangle {
+                            width: parent.width * Math.max(0, Math.min(1, featureRow.fb.progress))
+                            height: parent.height
+                            radius: parent.radius
+                            color: root.quiet ? Theme.textDim : Theme.accent
+                        }
+                    }
+                }
                 ActRow {
                     objectName: "settings-whats-new"
                     label: I18n.t("settings.about.whatsNew")

@@ -1361,6 +1361,7 @@ AppController::AppController(QObject* parent) :
   }  // !s_headless
 
   // ---- Auto-update (HEAP-63) ----
+  m_featureBuild = new heap::update::FeatureBuild(this);
   m_updater = std::make_unique<heap::update::Updater>(appVersion(), this);
   connect(m_updater.get(), &heap::update::Updater::updateAvailable, this, [this](const QString& version, const QString& url) {
     m_latestReleaseUrl = url;

@@ -28,7 +28,6 @@ constexpr int kCheckTimeoutMs = 15 * 1000;
 // A download that has gone this long without a byte has stalled. (The
 // transfer timeout counts silence, not the whole transfer.)
 constexpr int kDownloadStallMs = 60 * 1000;
-constexpr auto kSumsAsset = "SHA256SUMS";
 
 struct ParsedVersion {
   QList<int> parts;
@@ -328,10 +327,10 @@ void Updater::downloadAsset(const QString& assetName, const QString& dir) {
     emit downloadFailed(static_cast<int>(DownloadFailure::NoAsset), assetName);
     return;
   }
-  if(!m_assets.contains(QLatin1String(kSumsAsset))) {
+  if(!m_assets.contains(m_sumsAsset)) {
     // Without the published checksum there is nothing to check the file
     // against, so it is not worth fetching.
-    emit downloadFailed(static_cast<int>(DownloadFailure::NoChecksum), QLatin1String(kSumsAsset));
+    emit downloadFailed(static_cast<int>(DownloadFailure::NoChecksum), m_sumsAsset);
     return;
   }
   QDir().mkpath(dir);
@@ -383,7 +382,7 @@ void Updater::downloadAsset(const QString& assetName, const QString& dir) {
 }
 
 void Updater::fetchSums(const QString& path, const QString& assetName) {
-  QNetworkRequest req{QUrl(m_assets.value(QLatin1String(kSumsAsset)))};
+  QNetworkRequest req{QUrl(m_assets.value(m_sumsAsset))};
   req.setRawHeader("Accept", "application/octet-stream");
   req.setRawHeader("User-Agent", "tabless-updater");
   req.setTransferTimeout(kCheckTimeoutMs);
