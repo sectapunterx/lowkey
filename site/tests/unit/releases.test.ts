@@ -45,6 +45,21 @@ describe('the committed release snapshot', () => {
   });
 });
 
+describe('a release carrying the feature build', () => {
+  const stable = ['windows-setup.exe', 'windows-portable.zip', 'macos.dmg', 'linux-x86_64.AppImage'].map((s) => asset(`tabless-v0.9.2-${s}`));
+  const feature = ['windows-portable.zip', 'macos.dmg', 'linux-x86_64.AppImage'].map((s) => asset(`tabless-v0.9.2-feature-a29c58a-${s}`));
+  const release: Release = { tag: 'v0.9.2', name: 'Tabless v0.9.2', date: '2026-10-14T00:00:00Z', body: '', url: '', prerelease: false,
+    assets: [...feature, ...stable, asset('SHA256SUMS-feature')] };
+
+  it('offers only the release files, never the feature build', () => {
+    const by = assetsByOS(release);
+    const names = Object.values(by).flat().map((a) => a.name);
+    expect(names).toHaveLength(4);
+    for (const n of names) expect(n).not.toMatch(/-feature-/);
+    expect(primaryAssets(release).windows?.name).toBe('tabless-v0.9.2-windows-setup.exe');
+  });
+});
+
 describe('a release made during a rename', () => {
   const files = (prefix: string) =>
     ['windows-setup.exe', 'windows-portable.zip', 'macos.dmg', 'linux-x86_64.AppImage'].map((s) => asset(`${prefix}-v0.9.0-${s}`));
