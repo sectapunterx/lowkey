@@ -73,9 +73,19 @@ TestCase {
         tryVerify(function () { return !ca.ToolTip.visible; }, 2000, "and leaving closes it");
     }
 
+    // Every column open: an empty one folds by itself (APP-314), and these
+    // cases are about the open column's header and the board's width.
+    function openEmptyColumns(board) {
+        const open = {};
+        for (const s of AppController.statuses) open[s.id] = true;
+        board.emptyOpen = open;
+        wait(0);
+        return board;
+    }
+
     // The board's column-header icons (‹ › × ⇤) fade in on hover.
     function test_column_header_icons_show_on_keyboard_focus() {
-        const board = createTemporaryQmlObject('import TodoCpp; KanbanBoard { anchors.fill: parent }', host);
+        const board = openEmptyColumns(createTemporaryQmlObject('import TodoCpp; KanbanBoard { anchors.fill: parent }', host));
         verify(board !== null);
         wait(50);
         const icon = findChild(board, "column-fold");

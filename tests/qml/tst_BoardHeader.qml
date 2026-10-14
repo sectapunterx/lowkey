@@ -49,8 +49,18 @@ TestCase {
         compare(icons[0].opacity, 0, "hover icons show at rest");
     }
 
+    // Every column open: an empty one folds by itself (APP-314), and these
+    // cases are about the open column's header and the board's width.
+    function openEmptyColumns(board) {
+        const open = {};
+        for (const s of AppController.statuses) open[s.id] = true;
+        board.emptyOpen = open;
+        wait(0);
+        return board;
+    }
+
     function test_the_scrollbar_shows_while_columns_overflow() {
-        const board = createTemporaryQmlObject('import TodoCpp; KanbanBoard { width: 600; height: 500 }', host);
+        const board = openEmptyColumns(createTemporaryQmlObject('import TodoCpp; KanbanBoard { width: 600; height: 500 }', host));
         wait(50);
         const flick = all(board, "board-hscroll", [])[0];
         verify(flick.contentWidth > flick.width, "setup: 600px must overflow");

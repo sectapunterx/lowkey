@@ -41,8 +41,19 @@ TestCase {
         AppController.clearSelection();
     }
 
+    // Every column open: an empty one folds by itself (APP-314), and these
+    // cases are about the open column's header and the board's width.
+    function openEmptyColumns(board) {
+        const open = {};
+        for (const s of AppController.statuses) open[s.id] = true;
+        board.emptyOpen = open;
+        wait(0);
+        return board;
+    }
+
     function makeBoard(parentItem) {
         const b = make('import TodoCpp; KanbanBoard { anchors.fill: parent }', parentItem);
+        openEmptyColumns(b);
         b.searchText = tc.probe;
         wait(0);
         return b;

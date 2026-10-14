@@ -316,7 +316,7 @@ var HEAP_INK = {
         danger: "#ef6b63", warning: "#f2a65a", success: "#6fcf97", info: "#7aa7ff",
         toastBg: "#212121", toastBorder: "#333333", toastText: "#ececec",
         scrim: "#99000000",
-        p0: "#ef6b63", p1: "#f2a65a", p2: "#959595", p3: "#8a8a8a",
+        p0: "#ef6b63", p1: "#f2a65a", p2: "#959595", p3: "#8e8e8e",
         stBacklog: "#888888", stTodo: "#b4b4b4", stProg: "#c8c8c8", stHalf: "#c8c8c8",
         stBlocked: "#ef6b63", stReview: "#c8c8c8", stDone: "#6fcf97",
         mStandup: "#7aa7ff", mOneone: "#7aa7ff", mSync: "#7aa7ff", mFocus: "#7aa7ff", nowLine: "#f2a65a",

@@ -117,10 +117,20 @@ TestCase {
         tryCompare(dp, "opened", false);
     }
 
+    // Every column open: an empty one folds by itself (APP-314), and these
+    // cases are about the open column's header and the board's width.
+    function openEmptyColumns(board) {
+        const open = {};
+        for (const s of AppController.statuses) open[s.id] = true;
+        board.emptyOpen = open;
+        wait(0);
+        return board;
+    }
+
     // The header icons are hidden at rest and show while the keyboard is on
     // one of them; Return runs it.
     function test_kanban_header_icon_reveals_on_focus_and_runs_on_return() {
-        const board = make('import TodoCpp; KanbanBoard { anchors.fill: parent }');
+        const board = openEmptyColumns(make('import TodoCpp; KanbanBoard { anchors.fill: parent }'));
         wait(50);
         const icon = byName(board, "column-move-right");
         verify(icon !== null);
@@ -143,7 +153,7 @@ TestCase {
     }
 
     function test_kanban_column_add_is_reachable() {
-        const board = make('import TodoCpp; KanbanBoard { anchors.fill: parent }');
+        const board = openEmptyColumns(make('import TodoCpp; KanbanBoard { anchors.fill: parent }'));
         wait(50);
         const add = byName(board, "column-add");
         verify(add !== null);
