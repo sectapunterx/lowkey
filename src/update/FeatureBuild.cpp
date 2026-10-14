@@ -1,6 +1,5 @@
-#include "update/FeatureBuild.h"
-
 #include "platform/Brand.h"
+#include "update/FeatureBuild.h"
 #include "update/Updater.h"
 
 #include <QDir>
@@ -12,7 +11,6 @@
 #include <QProcess>
 #include <QStandardPaths>
 
-#include <algorithm>
 #include <algorithm>
 #include <functional>
 
@@ -115,14 +113,14 @@ QString featureExecutableIn(const QString& dir, const QString& os) {
     QDirIterator it(dir, {QStringLiteral("*.app")}, QDir::Dirs | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
     return it.hasNext() ? it.next() : QString();
   }
-  const QString name = os == QLatin1String("windows") ? QLatin1String(heap::brand::kCommand) + QStringLiteral(".exe")
-                                                       : QStringLiteral("*.AppImage");
+  const QString name =
+      os == QLatin1String("windows") ? QLatin1String(heap::brand::kCommand) + QStringLiteral(".exe") : QStringLiteral("*.AppImage");
   QDirIterator it(dir, {name}, QDir::Files, QDirIterator::Subdirectories);
   return it.hasNext() ? it.next() : QString();
 }
 
-FeatureBuild::FeatureBuild(QObject* parent)
-    : QObject(parent), m_updater(std::make_unique<Updater>(QStringLiteral("0.0.0"), this)), m_root(rootDir()) {
+FeatureBuild::FeatureBuild(QObject* parent) :
+    QObject(parent), m_updater(std::make_unique<Updater>(QStringLiteral("0.0.0"), this)), m_root(rootDir()) {
   m_updater->setSumsAsset(QLatin1String(kSums));
   const auto found = [this]() {
     m_checked = true;
@@ -152,7 +150,9 @@ FeatureBuild::FeatureBuild(QObject* parent)
     static const char* kinds[] = {"network", "noasset", "checksum", "checksum", "disk"};
     fail(QLatin1String(kinds[std::clamp(kind, 0, 4)]), why);
   });
-  connect(m_updater.get(), &Updater::downloadVerified, this, [this](const QString& path, const QString&) { unpack(path); });
+  connect(m_updater.get(), &Updater::downloadVerified, this, [this](const QString& path, const QString&) {
+    unpack(path);
+  });
   readInstalled();
 }
 
@@ -171,8 +171,7 @@ bool FeatureBuild::updateAvailable() const {
 }
 
 QString FeatureBuild::rootDir() {
-  return QDir(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation))
-      .filePath(QStringLiteral("Tabless/channels/feature"));
+  return QDir(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)).filePath(QStringLiteral("Tabless/channels/feature"));
 }
 
 void FeatureBuild::setLatestReleaseUrl(const QString& url) {
@@ -214,8 +213,8 @@ void FeatureBuild::readInstalled() {
 }
 
 void FeatureBuild::check() {
-  if(!supported() || m_phase == QLatin1String("checking") || m_phase == QLatin1String("downloading")
-     || m_phase == QLatin1String("installing")) {
+  if(!supported() || m_phase == QLatin1String("checking") || m_phase == QLatin1String("downloading") ||
+     m_phase == QLatin1String("installing")) {
     return;
   }
   setPhase(QStringLiteral("checking"));
@@ -265,15 +264,21 @@ void FeatureBuild::unpack(const QString& package) {
   if(os == QLatin1String("windows")) {
     // The portable zip, unpacked by the tar every Windows 10+ has, as
     // tabless-updater does it.
-    const QString tar = QDir(qEnvironmentVariable("SystemRoot", QStringLiteral("C:\\Windows"))).filePath(QStringLiteral("System32/tar.exe"));
+    const QString tar =
+        QDir(qEnvironmentVariable("SystemRoot", QStringLiteral("C:\\Windows"))).filePath(QStringLiteral("System32/tar.exe"));
     runSteps(this, {{tar, {QStringLiteral("-xf"), package, QStringLiteral("-C"), staging}}}, done);
   } else if(os == QLatin1String("macos")) {
     const QString mount = QDir(m_root).filePath(QStringLiteral("mnt"));
     QDir().mkpath(mount);
     runSteps(this,
              {{QStringLiteral("hdiutil"),
-               {QStringLiteral("attach"), QStringLiteral("-nobrowse"), QStringLiteral("-readonly"), QStringLiteral("-noautoopen"),
-                QStringLiteral("-mountpoint"), mount, package}}},
+               {QStringLiteral("attach"),
+                QStringLiteral("-nobrowse"),
+                QStringLiteral("-readonly"),
+                QStringLiteral("-noautoopen"),
+                QStringLiteral("-mountpoint"),
+                mount,
+                package}}},
              [this, mount, staging, done](bool ok, const QString& why) {
                if(!ok) {
                  done(false, why);
@@ -282,14 +287,17 @@ void FeatureBuild::unpack(const QString& package) {
                const QString app = featureExecutableIn(mount, QStringLiteral("macos"));
                const QString target = QDir(staging).filePath(QFileInfo(app).fileName());
                runSteps(this, {{QStringLiteral("ditto"), {app, target}}}, [this, mount, done](bool copied, const QString& copyWhy) {
-                 runSteps(this, {{QStringLiteral("hdiutil"), {QStringLiteral("detach"), mount, QStringLiteral("-quiet")}}},
-                          [done, copied, copyWhy](bool, const QString&) { done(copied, copyWhy); });
+                 runSteps(this,
+                          {{QStringLiteral("hdiutil"), {QStringLiteral("detach"), mount, QStringLiteral("-quiet")}}},
+                          [done, copied, copyWhy](bool, const QString&) {
+                            done(copied, copyWhy);
+                          });
                });
              });
   } else {
     const QString target = QDir(staging).filePath(QFileInfo(package).fileName());
-    const bool ok = QFile::copy(package, target)
-                    && QFile::setPermissions(target, QFile::permissions(target) | QFileDevice::ExeOwner | QFileDevice::ExeUser);
+    const bool ok = QFile::copy(package, target) &&
+                    QFile::setPermissions(target, QFile::permissions(target) | QFileDevice::ExeOwner | QFileDevice::ExeUser);
     done(ok, ok ? QString() : QStringLiteral("copy to %1 failed").arg(target));
   }
 }

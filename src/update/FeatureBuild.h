@@ -1,7 +1,7 @@
 #pragma once
 
-#include <qqmlregistration.h>
 #include <QObject>
+#include <qqmlregistration.h>
 #include <QString>
 #include <QStringList>
 
