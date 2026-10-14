@@ -1099,6 +1099,9 @@ Popup {
                     onCursorPositionChanged: if (root.isNew) titleAc.refresh()
                     onTextChanged: {
                         titleReadTimer.restart();
+                        // "Give the task a title" is answered by typing one
+                        // (EYE-11); it stayed red until the next save.
+                        if (root._error === I18n.t("editor.err.title") && text.trim().length > 0) root._error = "";
                         if (root.isNew) titleAc.refresh();
                         if (!/[\r\n\t]/.test(text)) return;
                         const at = cursorPosition;

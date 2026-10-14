@@ -3,7 +3,7 @@
 The keymap of Tabless is Vim-based. `?` (or `Ctrl+/`) opens the cheat sheet:
 every key by area, in columns, with a search by action or by key. The cheat
 sheet is read-only; **Change shortcuts…** at its foot (or **Settings →
-Shortcuts**) opens the panel that rebinds. There, `Enter` on a binding starts
+Keys**) opens the panel that rebinds. There, `Enter` on a binding starts
 recording, the new key (or two keys in a row, like `g` then `b`) and `Enter`
 save it, `Esc` cancels, `Backspace` clears. A key another action has is
 handed over (a toast names what was freed); a key that is the start of
@@ -364,5 +364,5 @@ Every one of these is a single undo step.
   notification confirms what was created.
 - **Task editor:** `Ctrl+Return` saves; in a new task's title `Return` creates
   it. `Esc` (or a click on the backdrop) closes
-  a task with no changes; with changes it asks — `Return` saves, `D` discards,
+  a task with no changes; with changes it asks — `Return` saves, `Ctrl+D` discards,
   `Esc` keeps editing.

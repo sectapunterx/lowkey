@@ -29,9 +29,17 @@ Popup {
 
     // The slot it was opened on: { date, start, end } (hours).
     property var slot: ({ date: new Date(), start: 9, end: 10 })
-    readonly property var parsed: root.read(input.text)
+    // Set, not bound: the tint re-formats the text document, which re-ran a
+    // binding on input.text — 44 "Binding loop detected" per few lines,
+    // shown verbatim in Report a problem (EYE-25). Quick capture does the same.
+    property var parsed: root.read("")
     // The recognised words as offsets into the line, for the tint.
-    readonly property var marks: root.markWords(input.text, root.parsed.words)
+    property var marks: []
+    function _reparse() {
+        root.parsed = root.read(input.text);
+        root.marks = root.markWords(input.text, root.parsed.words);
+    }
+    onSlotChanged: root._reparse()
 
     function openAt(draft) {
         const d = draft || {};
@@ -189,7 +197,10 @@ Popup {
             Keys.onReturnPressed: (event) => { event.accepted = true; root.submit(); }
             Keys.onEnterPressed: (event) => { event.accepted = true; root.submit(); }
             // A paste keeps to one line.
-            onTextChanged: if (input.text.indexOf("\n") >= 0) input.text = input.text.replace(/\n+/g, " ")
+            onTextChanged: {
+                if (input.text.indexOf("\n") >= 0) { input.text = input.text.replace(/\n+/g, " "); return; }
+                root._reparse();
+            }
             SpanHighlighter {
                 target: input.textDocument
                 spans: root.marks

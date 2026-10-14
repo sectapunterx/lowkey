@@ -185,9 +185,12 @@ TEST(TaskQuery, EmptyInputIsNeitherQueryNorFilter) {
 
 TEST(TaskQuery, TheFieldListIsWhatTheParserAccepts) {
   const QStringList fields = heap::query::queryFields();
-  for(const char* f : {"status", "priority", "deadline", "tag", "mention", "profile", "sort", "limit"}) {
+  for(const char* f : {"status", "priority", "due", "tag", "mention", "profile", "sort", "limit"}) {
     EXPECT_TRUE(fields.contains(QLatin1String(f))) << f << " is missing from the advertised field list";
   }
+  // The old name still parses but is not offered (EYE-28).
+  EXPECT_FALSE(fields.contains(QLatin1String("deadline")));
+  EXPECT_TRUE(heap::query::TaskQuery::compile(QStringLiteral("deadline:today"), QDate(2026, 10, 14), {}).unknownClauses().isEmpty());
 }
 
 // ─── The audit's TASKS-21: the query speaks the board's language ───

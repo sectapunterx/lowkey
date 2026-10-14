@@ -225,7 +225,13 @@ FocusScope {
         // Planned for the day with no time, under the all-day row (IDIOT-CAL-10).
         for (const b of d.dayOnly || []) out.push({ kind: "task", start: -0.5, block: b });
         for (const b of d.blocks) out.push({ kind: b.kind, start: b.start, block: b });
-        for (const g of d.free || []) out.push({ kind: "free", start: g.start, end: g.end });
+        // Today, a window counts from now: "Free 10 h" at 16:56 counted the
+        // morning already gone (EYE-21). It sorts just under the "now" line.
+        for (const g of d.free || []) {
+            if (root.isToday && g.end <= root.nowHour) continue;
+            const clipped = root.isToday && g.start < root.nowHour;
+            out.push({ kind: "free", start: clipped ? root.nowHour + 0.0001 : g.start, end: g.end });
+        }
         if (root.isToday && root.nowHour >= d.fromHour && root.nowHour <= Math.max(d.toHour, d.workEnd))
             out.push({ kind: "now", start: root.nowHour });
         if (d.workday) out.push({ kind: "end", start: d.workEnd });
@@ -441,8 +447,14 @@ FocusScope {
                     spacing: Theme.spXs
                     Text {
                         objectName: "today-label"
+                        // Another day said its date twice, small over big (EYE-21):
+                        // the small line says how far it is, or nothing.
+                        readonly property int _offset: Math.round((new Date(root.day.getFullYear(), root.day.getMonth(), root.day.getDate())
+                            - new Date(AppController.today.getFullYear(), AppController.today.getMonth(), AppController.today.getDate())) / 86400000)
+                        visible: text.length > 0
                         text: root.isToday ? I18n.t("sidebar.today")
-                             : root.dayData.workday === false ? I18n.t("today.dayOff") : I18n.fmtDate(root.day, "longWeekday")
+                             : root.dayData.workday === false ? I18n.t("today.dayOff")
+                             : _offset === 1 ? I18n.t("common.tomorrow") : _offset === -1 ? I18n.t("common.yesterday") : ""
                         color: Theme.textDim
                         font.family: Theme.fontUi
                         font.pixelSize: Theme.fsMd
@@ -491,12 +503,15 @@ FocusScope {
                 // The key as bound now (A1-6): a literal "(T)" outlived the
                 // move of cal.today to 0, and T is the timer.
                 readonly property string keys: AppController.shortcuts.length >= 0 ? AppController.shortcutText("cal.today") : ""
-                text: I18n.t("today.backToToday") + (keys.length > 0 ? " (" + keys + ")" : "")
+                // The key in the mono face, as every hint writes keys: "(0)"
+                // read as a count of nothing (EYE-21).
+                textFormat: Text.StyledText
+                text: I18n.t("today.backToToday") + (keys.length > 0 ? "&nbsp;&nbsp;<font face=\"" + Theme.fontMono + "\">" + keys + "</font>" : "")
                 color: Theme.textMuted
                 font.family: Theme.fontUi
                 font.pixelSize: Theme.fsSm
                 font.underline: backCA.hovered
-                ClickArea { id: backCA; label: parent.text; shortcutId: "cal.today"; onActivated: AppController.selectedDate = AppController.today }
+                ClickArea { id: backCA; label: I18n.t("today.backToToday"); shortcutId: "cal.today"; onActivated: AppController.selectedDate = AppController.today }
             }
             // ‹ › at the far right (DG-011): boxed in bold, bare in quiet;
             // not on the first run and not in a small window, where the

@@ -284,6 +284,9 @@ bool TaskQuery::mergeSingleValued(QVector<Clause>& group, const Clause& cl) {
 
 QStringList queryFields() {
   QStringList out(knownFields().cbegin(), knownFields().cend());
+  // "deadline:" still reads (saved views use it), but 0.9.1 calls it Due
+  // everywhere, so the list the filter field offers says due (EYE-28).
+  out.removeAll(QStringLiteral("deadline"));
   out.sort();
   return out;
 }

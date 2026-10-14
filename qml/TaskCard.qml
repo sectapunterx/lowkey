@@ -351,7 +351,12 @@ Rectangle {
         // Code blocks out first: their fences would be a line of their own.
         const lines = String((card.task && card.task.desc) || "").replace(/```[\s\S]*?```/g, " ").split("\n");
         for (let i = 0; i < lines.length; i++) {
-            const p = MdPlain.plain(lines[i], 160).trim();
+            // A heading ("## Description", Jira's "h2. Description") names a
+            // section, it says nothing; a Jira image ("!image-….png|thumbnail!")
+            // is markup, not prose (EYE-7).
+            const raw = lines[i].trim();
+            if (/^(#{1,6}\s|h[1-6]\.\s)/i.test(raw)) continue;
+            const p = MdPlain.plain(raw.replace(/![^\s!|]+\.(?:png|jpe?g|gif|webp|svg|bmp)(?:\|[^!]*)?!/gi, " "), 160).trim();
             if (p.length > 0) return p;
         }
         return "";
@@ -569,6 +574,11 @@ Rectangle {
                 readonly property string label: (AppController.today, I18n.lang, card._schedLabel())
                 visible: label.length > 0 && !dueT.visible
                 text: label
+                // Inside the card's padding, as the due line is: "tomorrow
+                // 15:00" ran to the card's edge (EYE-13).
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                elide: Text.ElideRight
                 color: Theme.textDim
                 font.family: Theme.fontUi
                 font.features: Theme.tabularNums
