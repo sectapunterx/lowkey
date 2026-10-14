@@ -12,26 +12,38 @@ import "Mention.js" as Mention
 Item {
     id: root
 
-    // ── Mode: "split" | "edit" | "live" ─────────────────────────────
-    // A note is its source on the left and the drawn note beside it
-    // ("split"); Ctrl+Shift+M gives the source alone ("edit") and back. The
-    // in-place block editor ("live", APP-269) lost clicks on tables, put the
-    // caret at a block's end and could not select or edit past a block, so it
-    // is no longer where a note opens (0.9.2). Stored as settings.notes.view;
-    // the old settings.notes.mode is read only for "source", so a "live"
-    // stored by 0.9.1 does not keep anyone in it.
-    property string viewMode: "split"
+    // ── Mode: "rich" | "split" | "edit" | "live" ────────────────────
+    // "rich" (the default, as Obsidian's live preview): one editor holding
+    // the whole note, its markup hidden on every line the caret is not on, so
+    // it reads as drawn and is still one text to select, copy and edit across
+    // lines. "split": the source beside the drawn note (0.9.2). "edit": the
+    // source alone. Ctrl+Shift+M steps rich -> split -> edit. "live", the
+    // in-place block editor (APP-269), is only opened on request (tests).
+    // Stored as settings.notes.view; the old settings.notes.mode is read only
+    // for "source".
+    property string viewMode: "rich"
+    readonly property var _liveDecor: root.viewMode === "rich" ? highlighter.decorations(editor.text) : []
+
+    // The note's text without its title: past a "# " heading on the first
+    // line and the blank lines under it. {start: 0, end} when there is none.
+    function _bodyRange(t: string): var {
+        const first = t.indexOf("\n");
+        if (first < 0 || !/^#\s+\S/.test(t.substring(0, first))) return { start: 0, end: t.length };
+        let at = first + 1;
+        while (at < t.length && t.charAt(at) === "\n") at++;
+        return { start: at, end: t.length };
+    }
 
     function _readViewMode() {
         const raw = AppController.appSettingsJson || "";
-        if (!raw.length) return "split";
+        if (!raw.length) return "rich";
         try {
             const s = JSON.parse(raw);
             const n = (s && s.notes) || {};
-            if (n.view === "edit" || n.view === "split" || n.view === "live") return n.view;
+            if (n.view === "rich" || n.view === "edit" || n.view === "split" || n.view === "live") return n.view;
             if (n.mode === "source") return "edit";
         } catch (e) {}
-        return "split";
+        return "rich";
     }
     function _writeViewMode(mode) {
         const raw = AppController.appSettingsJson || "";
@@ -1088,7 +1100,7 @@ Item {
                 // Editor pane — visible in edit + split modes.
                 Flickable {
                     id: notesScroll
-                    visible: (root.viewMode === "edit" || root.viewMode === "split") && root._noteShown
+                    visible: (root.viewMode === "rich" || root.viewMode === "edit" || root.viewMode === "split") && root._noteShown
                     // Halves of equal weight in split: one fill alone took
                     // the whole row and left the other at zero.
                     Layout.preferredWidth: 1
@@ -1126,12 +1138,35 @@ Item {
                         }
                     }
 
+                    // Rich (live preview): what is drawn over the hidden source -
+                    // the code box under the text, bullets, boxes, bars, rules
+                    // and tables over it.
+                    MdLiveDecorations {
+                        editor: editor
+                        under: true
+                        z: -1
+                        visible: root.viewMode === "rich"
+                        decorations: root._liveDecor
+                        revealStart: highlighter.revealStart
+                        revealEnd: highlighter.revealEnd
+                    }
+                    MdLiveDecorations {
+                        objectName: "notes-live-decorations"
+                        editor: editor
+                        z: 2
+                        visible: root.viewMode === "rich"
+                        decorations: root._liveDecor
+                        revealStart: highlighter.revealStart
+                        revealEnd: highlighter.revealEnd
+                    }
+
                     TextArea {
                         id: editor
                         ContextMenu.menu: TextEditMenu { editor: editor }
                         objectName: "notesEditor"
                         x: 24; y: 16
-                        width: notesScroll.width - 48
+                        // A note's text column in rich, as the drawn note has it.
+                        width: root.viewMode === "rich" ? Math.min(notesScroll.width - 48, Theme.px(720)) : notesScroll.width - 48
                         // Always fill at least the visible viewport so the user can
                         // click anywhere on the canvas to start typing; grow with
                         // content otherwise.
@@ -1141,8 +1176,10 @@ Item {
                         placeholderText: I18n.t("notes.placeholderBody")
                         placeholderTextColor: Theme.textDim
                         color: Theme.text
-                        font.family: Theme.fontMono
-                        font.pixelSize: Theme.fsMd
+                        // The note's own face in rich, where it reads as drawn;
+                        // the source in mono in split and edit.
+                        font.family: root.viewMode === "rich" ? Theme.fontUi : Theme.fontMono
+                        font.pixelSize: root.viewMode === "rich" ? Theme.fsLg : Theme.fsMd
                         background: Item {}
                         onTextChanged: {
                             root._scheduleSave();
@@ -1175,6 +1212,18 @@ Item {
                             if (root._leaveEditorKey(editor, event.key, event.modifiers)) {
                                 event.accepted = true;
                                 return;
+                            }
+
+                            // Ctrl+A in rich takes the note's text, not its title
+                            // (the "# " heading on the first line); pressed again
+                            // over that, everything.
+                            if (root.viewMode === "rich" && event.matches(StandardKey.SelectAll)) {
+                                const r = root._bodyRange(editor.text);
+                                if (r.start > 0 && !(editor.selectionStart === r.start && editor.selectionEnd === r.end)) {
+                                    editor.select(r.start, r.end);
+                                    event.accepted = true;
+                                    return;
+                                }
                             }
 
                             // A file or a bare image on the clipboard is attached
@@ -1601,7 +1650,7 @@ Item {
         context: Qt.WindowShortcut
         enabled: root.visible
         onActivated: {
-            root.viewMode = root.viewMode === "edit" ? "split" : "edit";
+            root.viewMode = root.viewMode === "rich" ? "split" : root.viewMode === "split" ? "edit" : "rich";
         }
     }
 
@@ -1651,6 +1700,12 @@ Item {
     MdHighlighter {
         id: highlighter
         headingScale: 1.45
+        // Markup hidden away from the caret in rich; the line (or the lines
+        // of the selection) being edited shows its source. Nothing is
+        // revealed while the editor does not hold the keyboard.
+        livePreview: root.viewMode === "rich"
+        revealStart: editor.activeFocus ? editor.selectionStart : -1
+        revealEnd: editor.activeFocus ? editor.selectionEnd : -1
         palette: ({
             text:          Theme.text,
             dim:           Theme.textMuted,

@@ -438,6 +438,7 @@ qt_add_qml_module(heap_core
         qml/TaskSessions.qml
         qml/TaskCardLocal.qml
         qml/MdBlockEditor.qml
+        qml/MdLiveDecorations.qml
         qml/FilterBar.qml
         qml/KanbanBoard.qml
         qml/TaskCard.qml

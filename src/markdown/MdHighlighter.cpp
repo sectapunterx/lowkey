@@ -92,6 +92,331 @@ void MdHighlighter::setHeadingScale(qreal scale) {
   emit headingScaleChanged();
 }
 
+void MdHighlighter::setLivePreview(bool on) {
+  if(m_livePreview == on) {
+    return;
+  }
+  m_livePreview = on;
+  rehighlight();
+  emit livePreviewChanged();
+}
+
+void MdHighlighter::setRevealStart(int position) {
+  if(m_revealStart == position) {
+    return;
+  }
+  const int oldStart = m_revealStart;
+  m_revealStart = position;
+  revealMoved(oldStart, m_revealEnd);
+  emit revealChanged();
+}
+
+void MdHighlighter::setRevealEnd(int position) {
+  if(m_revealEnd == position) {
+    return;
+  }
+  const int oldEnd = m_revealEnd;
+  m_revealEnd = position;
+  revealMoved(m_revealStart, oldEnd);
+  emit revealChanged();
+}
+
+QPair<QTextBlock, QTextBlock> MdHighlighter::revealUnit(const QTextBlock& block) const {
+  // A table is drawn as one grid and a fence as one box: the caret on any of
+  // their lines shows all of their source.
+  const auto isTable = [](const QTextBlock& b) {
+    return b.isValid() && tableRowRx().match(b.text()).hasMatch();
+  };
+  if(isTable(block)) {
+    QTextBlock first = block;
+    QTextBlock last = block;
+    while(isTable(first.previous())) {
+      first = first.previous();
+    }
+    while(isTable(last.next())) {
+      last = last.next();
+    }
+    return {first, last};
+  }
+  const auto inFence = [](const QTextBlock& b) {
+    return b.isValid() && b.userState() == InFence;
+  };
+  const bool opens = fenceRx().match(block.text()).hasMatch() && !inFence(block.previous());
+  if(inFence(block) || inFence(block.previous()) || opens) {
+    QTextBlock first = block;
+    while(inFence(first.previous())) {
+      first = first.previous();
+    }
+    QTextBlock last = block;
+    while(inFence(last) && last.next().isValid()) {
+      last = last.next();
+    }
+    return {first, last};
+  }
+  return {block, block};
+}
+
+bool MdHighlighter::revealed(const QTextBlock& block) const {
+  if(m_revealStart < 0) {
+    return false;
+  }
+  const int from = std::min(m_revealStart, std::max(m_revealEnd, m_revealStart));
+  const int to = std::max(m_revealStart, m_revealEnd);
+  const auto [first, last] = revealUnit(block);
+  const int start = first.position();
+  const int end = last.position() + last.length() - 1;  // the line break belongs to it
+  return from <= end && to >= start;
+}
+
+bool MdHighlighter::hides() const {
+  return m_livePreview && !revealed(currentBlock());
+}
+
+void MdHighlighter::ghost(int start, int length) {
+  if(length <= 0) {
+    return;
+  }
+  QTextCharFormat f = format(start);
+  f.merge(m_ghost);
+  setFormat(start, length, f);
+}
+
+void MdHighlighter::revealMoved(int oldStart, int oldEnd) {
+  if(!m_livePreview || document() == nullptr) {
+    return;
+  }
+  // Only the lines entering or leaving the range change: a full pass on
+  // every caret move would be felt in a long note.
+  const auto range = [](int a, int b) {
+    return std::make_pair(std::min(a, std::max(a, b)), std::max(a, b));
+  };
+  const auto [oa, ob] = range(oldStart, oldEnd < 0 ? oldStart : oldEnd);
+  const auto [na, nb] = range(m_revealStart, m_revealEnd < 0 ? m_revealStart : m_revealEnd);
+  QTextDocument* doc = document();
+  const auto refresh = [&](int a, int b) {
+    if(a < 0) {
+      return;
+    }
+    QTextBlock block = revealUnit(doc->findBlock(a)).first;
+    const QTextBlock last = revealUnit(doc->findBlock(b)).second;
+    while(block.isValid()) {
+      rehighlightBlock(block);
+      if(block == last) {
+        break;
+      }
+      block = block.next();
+    }
+  };
+  refresh(oa, ob);
+  refresh(na, nb);
+}
+
+QList<QPair<int, int>> MdHighlighter::hiddenMarkup(const QString& line) {
+  QList<QPair<int, int>> out;
+  const auto add = [&out](qsizetype start, qsizetype length) {
+    if(length > 0) {
+      out.append({static_cast<int>(start), static_cast<int>(length)});
+    }
+  };
+  // "## " of a heading.
+  static const QRegularExpression headingRx(QStringLiteral("^(\\s{0,3}#{1,6}\\s+)"));
+  if(const auto m = headingRx.match(line); m.hasMatch()) {
+    add(m.capturedStart(1), m.capturedLength(1));
+  }
+  // Inline code first: what is inside backticks is not markup.
+  static const QRegularExpression codeRx(QStringLiteral("(`)([^`\\n]+)(`)"));
+  QList<QPair<int, int>> code;
+  for(auto it = codeRx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    add(m.capturedStart(1), 1);
+    add(m.capturedStart(3), 1);
+    code.append({static_cast<int>(m.capturedStart()), static_cast<int>(m.capturedEnd())});
+  }
+  const auto inCode = [&code](qsizetype at) {
+    for(const auto& [a, b] : code) {
+      if(at >= a && at < b) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  struct Pair {
+    QRegularExpression rx;
+    int open;
+    int close;
+  };
+
+  // The delimiters of a span: the opening and closing groups are hidden, the
+  // text between keeps its style.
+  static const Pair pairs[] = {
+      {QRegularExpression(QStringLiteral("(\\*\\*|__)(?=\\S)(.+?)(?<=\\S)\\1")), 1, 1},
+      {QRegularExpression(QStringLiteral("(?<![*\\w])(\\*)(?!\\s)([^*\\n]+?)(\\*)(?!\\w)")), 1, 3},
+      {QRegularExpression(QStringLiteral("(?<![_\\w])(_)(?!\\s)([^_\\n]+?)(_)(?!\\w)")), 1, 3},
+      {QRegularExpression(QStringLiteral("(~~)([^~\\n]+)(~~)")), 1, 3},
+      {QRegularExpression(QStringLiteral("(==)([^=\\n]+)(==)")), 1, 3},
+  };
+  for(const Pair& p : pairs) {
+    for(auto it = p.rx.globalMatch(line); it.hasNext();) {
+      const auto m = it.next();
+      if(inCode(m.capturedStart())) {
+        continue;
+      }
+      add(m.capturedStart(p.open), m.capturedLength(p.open));
+      // Group 1 doubles as the closing delimiter for ** and __.
+      add(m.capturedEnd() - m.capturedLength(p.close), m.capturedLength(p.close));
+    }
+  }
+  // [text](url): the brackets and the address go, the text stays as a link.
+  static const QRegularExpression linkRx(QStringLiteral("(?<!!)(\\[)([^\\]\\n]+)(\\]\\([^)\\n]*\\))"));
+  for(auto it = linkRx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    if(inCode(m.capturedStart())) {
+      continue;
+    }
+    add(m.capturedStart(1), 1);
+    add(m.capturedStart(3), m.capturedLength(3));
+  }
+  // [[target]] and [[target|alias]]: what is read is the target, or the alias.
+  static const QRegularExpression wikiRx(QStringLiteral("(\\[\\[)([^\\]|\\n]+\\|)?([^\\]\\n]+)(\\]\\])"));
+  for(auto it = wikiRx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    if(inCode(m.capturedStart())) {
+      continue;
+    }
+    add(m.capturedStart(1), 2);
+    if(m.capturedLength(2) > 0) {
+      add(m.capturedStart(2), m.capturedLength(2));
+    }
+    add(m.capturedStart(4), 2);
+  }
+  return out;
+}
+
+QVariantList MdHighlighter::decorations(const QString& text) {
+  QVariantList out;
+  const QStringList lines = text.split(QLatin1Char('\n'));
+  QVector<int> starts(lines.size());
+  int at = 0;
+  for(int i = 0; i < lines.size(); ++i) {
+    starts[i] = at;
+    at += static_cast<int>(lines.at(i).size()) + 1;
+  }
+  const auto lineEnd = [&](int i) {
+    return starts.at(i) + static_cast<int>(lines.at(i).size());
+  };
+  static const QRegularExpression separatorRx(QStringLiteral("^\\s*\\|?\\s*:?-+:?\\s*(\\|\\s*:?-+:?\\s*)*\\|?\\s*$"));
+  const auto cellsOf = [](const QString& line) {
+    QString l = line.trimmed();
+    if(l.startsWith(QLatin1Char('|'))) {
+      l.remove(0, 1);
+    }
+    if(l.endsWith(QLatin1Char('|'))) {
+      l.chop(1);
+    }
+    QStringList cells;
+    QString cur;
+    for(qsizetype k = 0; k < l.size(); ++k) {
+      if(l.at(k) == QLatin1Char('\\') && k + 1 < l.size() && l.at(k + 1) == QLatin1Char('|')) {
+        cur += QLatin1Char('|');
+        ++k;
+      } else if(l.at(k) == QLatin1Char('|')) {
+        cells << cur.trimmed();
+        cur.clear();
+      } else {
+        cur += l.at(k);
+      }
+    }
+    cells << cur.trimmed();
+    return cells;
+  };
+
+  int i = 0;
+  while(i < lines.size()) {
+    const QString& line = lines.at(i);
+    // Fenced code: one box from the opening fence to the closing one.
+    if(const auto f = fenceRx().match(line); f.hasMatch()) {
+      int j = i + 1;
+      while(j < lines.size() && !(fenceRx().match(lines.at(j)).hasMatch() && fenceRx().match(lines.at(j)).captured(2).isEmpty())) {
+        ++j;
+      }
+      const int last = std::min(j, static_cast<int>(lines.size()) - 1);
+      out.append(QVariantMap{{"kind", "code"}, {"start", starts.at(i)}, {"end", lineEnd(last)}, {"language", f.captured(2)}});
+      i = last + 1;
+      continue;
+    }
+    // A table: a header row, the |---| line, then rows.
+    if(tableRowRx().match(line).hasMatch() && i + 1 < lines.size() && separatorRx.match(lines.at(i + 1)).hasMatch()) {
+      int j = i;
+      while(j + 1 < lines.size() && tableRowRx().match(lines.at(j + 1)).hasMatch()) {
+        ++j;
+      }
+      QVariantList rows;
+      QVariantList align;
+      for(const QString& cell : cellsOf(lines.at(i + 1))) {
+        const bool l = cell.startsWith(QLatin1Char(':'));
+        const bool r = cell.endsWith(QLatin1Char(':'));
+        align << QString(l && r ? "c" : r ? "r" : l ? "l" : "");
+      }
+      for(int k = i; k <= j; ++k) {
+        if(k == i + 1) {
+          rows.append(QVariantMap{{"start", starts.at(k)}, {"separator", true}, {"cells", QStringList()}});
+          continue;
+        }
+        rows.append(QVariantMap{{"start", starts.at(k)}, {"header", k == i}, {"separator", false}, {"cells", cellsOf(lines.at(k))}});
+      }
+      out.append(QVariantMap{{"kind", "table"}, {"start", starts.at(i)}, {"end", lineEnd(j)}, {"rows", rows}, {"align", align}});
+      i = j + 1;
+      continue;
+    }
+    // "---" right under a plain line of text underlines it as a heading; under
+    // a blank line, a quote, a list item or a heading it is a rule.
+    const auto underText = [&]() {
+      if(i == 0 || !line.trimmed().startsWith(QLatin1Char('-'))) {
+        return false;
+      }
+      const QString& above = lines.at(i - 1);
+      return !above.trimmed().isEmpty() && !quoteRx().match(above).hasMatch() && !listMarkerRx().match(above).hasMatch() &&
+             !atxHeadingRx().match(above).hasMatch();
+    };
+    if(thematicBreakRx().match(line).hasMatch() && !underText()) {
+      out.append(QVariantMap{{"kind", "rule"}, {"start", starts.at(i)}, {"end", lineEnd(i)}});
+      ++i;
+      continue;
+    }
+    if(const auto q = quoteRx().match(line); q.hasMatch() && q.capturedLength() > 0) {
+      out.append(QVariantMap{{"kind", "quote"},
+                             {"start", starts.at(i)},
+                             {"end", lineEnd(i)},
+                             {"depth", static_cast<int>(q.captured(0).count(QLatin1Char('>')))}});
+    } else if(const auto m = listMarkerRx().match(line); m.hasMatch() && !m.captured(2).at(0).isDigit()) {
+      if(!m.captured(4).isEmpty()) {
+        out.append(QVariantMap{{"kind", "task"},
+                               {"start", starts.at(i)},
+                               {"end", lineEnd(i)},
+                               {"at", starts.at(i) + static_cast<int>(m.capturedStart(2))},
+                               {"box", starts.at(i) + static_cast<int>(m.capturedStart(4))},
+                               {"checked", m.captured(5).toLower() == QStringLiteral("x")}});
+      } else {
+        out.append(QVariantMap{{"kind", "bullet"},
+                               {"start", starts.at(i)},
+                               {"end", lineEnd(i)},
+                               {"at", starts.at(i) + static_cast<int>(m.capturedStart(2))},
+                               {"depth", static_cast<int>(m.captured(1).size()) / 2}});
+      }
+    }
+    ++i;
+  }
+  return out;
+}
+
+void MdHighlighter::hideMarkup(const QString& text) {
+  for(const auto& [start, length] : hiddenMarkup(text)) {
+    // Kept in the text, drawn as nothing: a hairline glyph in no colour.
+    setFormat(start, length, m_hidden);
+  }
+}
+
 void MdHighlighter::rebuildFormats() {
   const QColor text = colorAt(m_palette, "text", QColor(0xE6, 0xE6, 0xE6));
   const QColor dim = colorAt(m_palette, "dim", QColor(0x8A, 0x8E, 0x98));
@@ -148,6 +473,15 @@ void MdHighlighter::rebuildFormats() {
   m_codeComment.setForeground(dim);
   m_codeComment.setFontItalic(true);
   m_codeNumber.setForeground(colorAt(m_palette, "number", QColor(0xD8, 0xC2, 0x77)));
+
+  // Collapsed: a one-pixel, 1%-wide glyph in no colour. A fresh format, not
+  // a merge: a heading's size adjustment kept "## " a heading's width.
+  m_hidden = QTextCharFormat();
+  m_hidden.setForeground(QColor(0, 0, 0, 0));
+  m_hidden.setProperty(QTextFormat::FontPixelSize, 1);
+  m_hidden.setFontStretch(1);
+  m_ghost = QTextCharFormat();
+  m_ghost.setForeground(QColor(0, 0, 0, 0));
 }
 
 namespace {
@@ -391,6 +725,9 @@ void MdHighlighter::highlightBlock(const QString& text) {
       setFormat(0, length, m_codeFence);
       setCurrentBlockUserData(nullptr);
       setCurrentBlockState(Normal);
+      if(hides()) {
+        ghost(0, length);
+      }
       return;
     }
     setCurrentBlockUserData(new FenceLanguage(language));
@@ -411,6 +748,9 @@ void MdHighlighter::highlightBlock(const QString& text) {
     // The opening fence carries the language for every line that follows.
     setCurrentBlockUserData(new FenceLanguage(fence.captured(2)));
     setCurrentBlockState(InFence);
+    if(hides()) {
+      ghost(0, length);
+    }
     return;
   }
   if(text.trimmed() == QStringLiteral("$$")) {
@@ -437,10 +777,15 @@ void MdHighlighter::highlightBlock(const QString& text) {
     format.setProperty(QTextFormat::FontSizeAdjustment, static_cast<int>(std::round((m_headingScale - 1.0) * (7 - level))));
     setFormat(0, length, format);
     highlightInline(text);
+    if(m_livePreview && !revealed(currentBlock())) {
+      hideMarkup(text);
+    }
     return;
   }
 
-  if(setextRx().match(text).hasMatch() && currentBlock().blockNumber() > 0 && !currentBlock().previous().text().trimmed().isEmpty()) {
+  const QString above = currentBlock().blockNumber() > 0 ? currentBlock().previous().text() : QString();
+  if(setextRx().match(text).hasMatch() && !above.trimmed().isEmpty() && !quoteRx().match(above).hasMatch() &&
+     !listMarkerRx().match(above).hasMatch() && !atxHeadingRx().match(above).hasMatch()) {
     // The underline of a setext heading. The old highlighter saw nothing here
     // at all, so such a heading looked like ordinary text with a rule under it.
     setFormat(0, length, m_heading[0]);
@@ -449,12 +794,18 @@ void MdHighlighter::highlightBlock(const QString& text) {
 
   if(thematicBreakRx().match(text).hasMatch()) {
     setFormat(0, length, m_rule);
+    if(hides()) {
+      ghost(0, length);
+    }
     return;
   }
 
   if(tableRowRx().match(text).hasMatch()) {
     setFormat(0, length, m_table);
     highlightInline(text);
+    if(hides()) {
+      ghost(0, length);  // the grid is drawn over it
+    }
     return;
   }
 
@@ -463,6 +814,10 @@ void MdHighlighter::highlightBlock(const QString& text) {
     setFormat(0, length, m_quote);
     setFormat(0, static_cast<int>(quote.capturedLength()), m_marker);
     highlightInline(text);
+    if(hides()) {
+      hideMarkup(text);
+      ghost(0, static_cast<int>(quote.capturedLength()));  // the bar is drawn there
+    }
     return;
   }
 
@@ -480,6 +835,14 @@ void MdHighlighter::highlightBlock(const QString& text) {
   }
 
   highlightInline(text);
+  if(hides()) {
+    hideMarkup(text);
+    // The bullet or the box is drawn over its marker, which keeps its width.
+    if(list.hasMatch() && !list.captured(2).at(0).isDigit()) {
+      const int to = list.captured(4).isEmpty() ? static_cast<int>(list.capturedEnd(2)) : static_cast<int>(list.capturedEnd(4)) - 1;
+      ghost(static_cast<int>(list.capturedStart(2)), to - static_cast<int>(list.capturedStart(2)));
+    }
+  }
 }
 
 }  // namespace heap::md

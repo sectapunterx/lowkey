@@ -3,7 +3,9 @@
 #include <qqmlregistration.h>
 #include <QQuickTextDocument>
 #include <QSyntaxHighlighter>
+#include <QTextBlock>
 #include <QTextCharFormat>
+#include <QVariantList>
 #include <QVariantMap>
 
 namespace heap::md {
@@ -36,6 +38,14 @@ class MdHighlighter : public QSyntaxHighlighter {
   // Relative size of an H1, with the levels below it scaled down toward 1.0.
   // 1.0 turns the effect off for anyone who would rather have an even page.
   Q_PROPERTY(qreal headingScale READ headingScale WRITE setHeadingScale NOTIFY headingScaleChanged)
+  // Live preview (the notes editor, as Obsidian has it): the markup of a line
+  // the caret is not on is hidden - "**", "# ", "[", "](url)", "[[" - so the
+  // note reads as drawn while staying one plain text to select, copy and edit
+  // across lines. The lines between revealStart and revealEnd (the caret, or
+  // the selection) show their source.
+  Q_PROPERTY(bool livePreview READ livePreview WRITE setLivePreview NOTIFY livePreviewChanged)
+  Q_PROPERTY(int revealStart READ revealStart WRITE setRevealStart NOTIFY revealChanged)
+  Q_PROPERTY(int revealEnd READ revealEnd WRITE setRevealEnd NOTIFY revealChanged)
 
  public:
   explicit MdHighlighter(QObject* parent = nullptr);
@@ -58,10 +68,44 @@ class MdHighlighter : public QSyntaxHighlighter {
 
   void setHeadingScale(qreal scale);
 
+  bool livePreview() const {
+    return m_livePreview;
+  }
+
+  void setLivePreview(bool on);
+
+  int revealStart() const {
+    return m_revealStart;
+  }
+
+  void setRevealStart(int position);
+
+  int revealEnd() const {
+    return m_revealEnd;
+  }
+
+  void setRevealEnd(int position);
+
+  // The markup ranges of one line that live preview hides, as (start, length)
+  // pairs. Public for the tests; the highlighter applies them itself.
+  static QList<QPair<int, int>> hiddenMarkup(const QString& line);
+
+  // What live preview draws over the hidden source, one map per element:
+  // {kind, start, end} with start/end the document positions of the lines
+  // it covers (a reveal range touching them shows the source instead), and
+  //   bullet: at (the marker)            task: at (the "["), checked
+  //   quote: depth                       rule: -
+  //   code: language                     table: rows [{start, cells, header}],
+  //                                             align ["l"|"c"|"r"|""]
+  // Fenced code and tables are revealed as a whole, the rest line by line.
+  Q_INVOKABLE static QVariantList decorations(const QString& text);
+
  signals:
   void targetChanged();
   void paletteChanged();
   void headingScaleChanged();
+  void livePreviewChanged();
+  void revealChanged();
 
  protected:
   void highlightBlock(const QString& text) override;
@@ -78,10 +122,26 @@ class MdHighlighter : public QSyntaxHighlighter {
   void rebuildFormats();
   void highlightInline(const QString& text);
   void highlightCodeLine(const QString& text, const QString& language);
+  // Whether the line holds the caret or part of the selection.
+  bool revealed(const QTextBlock& block) const;
+  // Re-highlights the lines whose revealed state changes when the reveal
+  // range moves from [oldStart, oldEnd] to the current one.
+  void revealMoved(int oldStart, int oldEnd);
+  void hideMarkup(const QString& text);
+  void ghost(int start, int length);
+  // The first and last line of the table or fence a line belongs to; the
+  // line itself when it is in neither.
+  QPair<QTextBlock, QTextBlock> revealUnit(const QTextBlock& block) const;
+  bool hides() const;
 
   QQuickTextDocument* m_target = nullptr;
   QVariantMap m_palette;
   qreal m_headingScale = 1.45;
+  bool m_livePreview = false;
+  int m_revealStart = -1;
+  int m_revealEnd = -1;
+  QTextCharFormat m_hidden;  // collapsed: "## ", "**", "[", "](url)"
+  QTextCharFormat m_ghost;   // invisible, keeping its width: what a drawn element sits on
 
   QTextCharFormat m_heading[6];
   QTextCharFormat m_code;

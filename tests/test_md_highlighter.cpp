@@ -146,6 +146,94 @@ TEST(MdHighlighter, ProseAfterAFenceIsNotTreatedAsCode) {
   EXPECT_FALSE(h.colorAt(3, 0).isValid() && looksLikeComment(h, 3, 6)) << "a line outside the fence is prose, not python";
 }
 
+// ── Live preview: the markup of lines away from the caret is hidden ──
+
+namespace {
+
+// The hidden spans of a line as the source text they cover, joined by "|".
+QString hiddenOf(const QString& line) {
+  QStringList parts;
+  for(const auto& [start, length] : heap::md::MdHighlighter::hiddenMarkup(line)) {
+    parts << line.mid(start, length);
+  }
+  return parts.join(QLatin1Char('|'));
+}
+
+}  // namespace
+
+TEST(MdHighlighterLive, HidesTheDelimitersNotTheText) {
+  EXPECT_EQ(hiddenOf(QStringLiteral("## Title")), QStringLiteral("## "));
+  EXPECT_EQ(hiddenOf(QStringLiteral("a **bold** b")), QStringLiteral("**|**"));
+  EXPECT_EQ(hiddenOf(QStringLiteral("an *em* word")), QStringLiteral("*|*"));
+  EXPECT_EQ(hiddenOf(QStringLiteral("~~gone~~")), QStringLiteral("~~|~~"));
+  EXPECT_EQ(hiddenOf(QStringLiteral("see [docs](https://x.test/a)")), QStringLiteral("[|](https://x.test/a)"));
+  EXPECT_EQ(hiddenOf(QStringLiteral("[[Note]] and [[Target|alias]]")), QStringLiteral("[[|]]|[[|Target||]]"));
+  EXPECT_EQ(hiddenOf(QStringLiteral("run `a **b**` now")), QStringLiteral("`|`")) << "nothing inside code is markup";
+  EXPECT_EQ(hiddenOf(QStringLiteral("2 * 3 * 4")), QString()) << "loose asterisks are not emphasis";
+  EXPECT_EQ(hiddenOf(QStringLiteral("snake_case_name")), QString());
+}
+
+TEST(MdHighlighterLive, TheCaretLineShowsItsSource) {
+  QTextDocument doc;
+  heap::md::MdHighlighter hl;
+  hl.setDocument(&doc);
+  doc.setPlainText(QStringLiteral("a **bold** one\n\nb **bold** two\n"));
+  doc.documentLayout();
+  hl.setLivePreview(true);
+  hl.setRevealStart(0);
+  hl.setRevealEnd(0);
+  const auto hiddenAt = [&doc](int line, int column) {
+    const QTextBlock block = doc.findBlockByNumber(line);
+    for(const QTextLayout::FormatRange& range : block.layout()->formats()) {
+      if(column >= range.start && column < range.start + range.length) {
+        return range.format.foreground().color().alpha() == 0;
+      }
+    }
+    return false;
+  };
+  EXPECT_FALSE(hiddenAt(0, 2)) << "the caret's line keeps its **";
+  EXPECT_TRUE(hiddenAt(2, 2)) << "another line hides them";
+  // The caret moves to the last line: the first hides, the last shows.
+  const int third = doc.findBlockByNumber(2).position();
+  hl.setRevealStart(third);
+  hl.setRevealEnd(third);
+  EXPECT_TRUE(hiddenAt(0, 2));
+  EXPECT_FALSE(hiddenAt(2, 2));
+  hl.setLivePreview(false);
+  EXPECT_FALSE(hiddenAt(0, 2)) << "the plain source mode hides nothing";
+}
+
+TEST(MdHighlighterLive, DecorationsNameWhatIsDrawn) {
+  const QString text = QStringLiteral(
+      "- one\n"
+      "  - [x] done\n"
+      "> quote\n"
+      "---\n"
+      "\n"
+      "```js\nx\n```\n"
+      "| a | b |\n|:--|--:|\n| 1 | 2 |\n");
+  const QVariantList d = heap::md::MdHighlighter::decorations(text);
+  QStringList kinds;
+  for(const QVariant& v : d) {
+    kinds << v.toMap().value(QStringLiteral("kind")).toString();
+  }
+  EXPECT_EQ(kinds.join(QLatin1Char(',')), QStringLiteral("bullet,task,quote,rule,code,table"));
+  const QVariantMap task = d.at(1).toMap();
+  EXPECT_TRUE(task.value(QStringLiteral("checked")).toBool());
+  EXPECT_EQ(text.mid(task.value(QStringLiteral("box")).toInt(), 3), QStringLiteral("[x]"));
+  const QVariantMap code = d.at(4).toMap();
+  EXPECT_EQ(text.mid(code.value(QStringLiteral("start")).toInt(), 5), QStringLiteral("```js"));
+  EXPECT_EQ(code.value(QStringLiteral("end")).toInt(), static_cast<int>(text.indexOf(QStringLiteral("```\n|"))) + 3);
+  const QVariantMap table = d.at(5).toMap();
+  EXPECT_EQ(table.value(QStringLiteral("align")).toList(), (QVariantList{QStringLiteral("l"), QStringLiteral("r")}));
+  const QVariantList rows = table.value(QStringLiteral("rows")).toList();
+  ASSERT_EQ(rows.size(), 3);
+  EXPECT_TRUE(rows.at(1).toMap().value(QStringLiteral("separator")).toBool());
+  EXPECT_EQ(rows.at(2).toMap().value(QStringLiteral("cells")).toStringList(), (QStringList{QStringLiteral("1"), QStringLiteral("2")}));
+  // A "---" under a line of text is a setext heading, not a rule.
+  EXPECT_TRUE(heap::md::MdHighlighter::decorations(QStringLiteral("Title\n---\n")).isEmpty());
+}
+
 int main(int argc, char** argv) {
   qputenv("QT_QPA_PLATFORM", "offscreen");
   QGuiApplication app(argc, argv);
