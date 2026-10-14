@@ -1341,12 +1341,25 @@ Popup {
                             // type a tab character and trap focus here. On a
                             // list line Tab / Shift+Tab indent and outdent the
                             // item, and Ctrl+Tab always inserts indentation.
+                            // Ctrl+B / I / E / K format here, as in a note.
+                            Keys.onShortcutOverride: (event) => {
+                                if (descMd.claimsShortcut(event.key, event.modifiers)) event.accepted = true;
+                            }
                             Keys.onPressed: (event) => {
                                 if (event.matches(StandardKey.Paste) && root.pasteAttachment(descField)) {
                                     event.accepted = true;
                                     return;
                                 }
-                                if (event.key !== Qt.Key_Tab && event.key !== Qt.Key_Backtab) return;
+                                if (event.key !== Qt.Key_Tab && event.key !== Qt.Key_Backtab) {
+                                    // Enter goes on with the list, the box, the quote
+                                    // (as in a note). Ctrl+Enter is the dialog's
+                                    // Create, never the box toggle it is in a note.
+                                    const enter = event.key === Qt.Key_Return || event.key === Qt.Key_Enter;
+                                    if (enter && (event.modifiers & ~Qt.KeypadModifier) !== Qt.NoModifier) return;
+                                    descMd.setSelection(descField.selectionStart, descField.selectionEnd);
+                                    if (descMd.handleKey(event.key, event.modifiers)) event.accepted = true;
+                                    return;
+                                }
                                 const back = event.key === Qt.Key_Backtab || (event.modifiers & Qt.ShiftModifier);
                                 if (event.modifiers & Qt.ControlModifier) {
                                     descField.insert(descField.cursorPosition, "  ");
@@ -2100,6 +2113,18 @@ Popup {
     MdLivePreview {
         editor: descField
         headingScale: 1.3
+    }
+    // The description's markdown keys (MdEditOps), shared with Notes.
+    MarkdownEditorController {
+        id: descMd
+        target: descField.textDocument
+        cursorPosition: descField.cursorPosition
+        selectionStart: descField.selectionStart
+        selectionEnd: descField.selectionEnd
+        onSelectionRequested: (start, end) => {
+            if (start === end) descField.cursorPosition = start;
+            else descField.select(start, end);
+        }
     }
 
     component FieldLabel: Text {

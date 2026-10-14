@@ -235,9 +235,16 @@ QList<QPair<int, int>> MdHighlighter::hiddenMarkup(const QString& line) {
     }
   };
   // "## " of a heading.
-  static const QRegularExpression headingRx(QStringLiteral("^(\\s{0,3}#{1,6}\\s+)"));
+  // A bare "#" is an empty heading, and "1. # Title" a heading in a list
+  // item: their "#" is markup too, not a character of the text.
+  static const QRegularExpression headingRx(QStringLiteral("^(\\s{0,3}#{1,6}(?:\\s+|$))"));
   if(const auto m = headingRx.match(line); m.hasMatch()) {
     add(m.capturedStart(1), m.capturedLength(1));
+  } else if(const auto item = listMarkerRx().match(line); item.hasMatch()) {
+    static const QRegularExpression itemHeadingRx(QStringLiteral("\\G#{1,6}(?:\\s+|$)"));
+    if(const auto h = itemHeadingRx.match(line, item.capturedEnd()); h.hasMatch()) {
+      add(h.capturedStart(), h.capturedLength());
+    }
   }
   // Inline code first: what is inside backticks is not markup.
   static const QRegularExpression codeRx(QStringLiteral("(`)([^`\\n]+)(`)"));
@@ -291,6 +298,17 @@ QList<QPair<int, int>> MdHighlighter::hiddenMarkup(const QString& line) {
       continue;
     }
     add(m.capturedStart(1), 1);
+    add(m.capturedStart(3), m.capturedLength(3));
+  }
+  // ![alt](src): the alt text stays, read as the image's name (rich mode
+  // draws no picture in the source).
+  static const QRegularExpression imageRx(QStringLiteral("(!\\[)([^\\]\\n]*)(\\]\\([^)\\n]*\\))"));
+  for(auto it = imageRx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    if(inCode(m.capturedStart())) {
+      continue;
+    }
+    add(m.capturedStart(1), 2);
     add(m.capturedStart(3), m.capturedLength(3));
   }
   // [[target]] and [[target|alias]]: what is read is the target, or the alias.

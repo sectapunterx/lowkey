@@ -1071,7 +1071,9 @@ FocusScope {
                     Layout.fillWidth: true
                     Layout.leftMargin: -Theme.px(24)
                     Layout.rightMargin: -Theme.px(24)
-                    Layout.preferredHeight: Math.min(Theme.px(220), trackerBody.contentHeight)
+                    // Half the document at most (a long ticket scrolls inside),
+                    // never shorter than a screenful of a few paragraphs.
+                    Layout.preferredHeight: Math.min(Math.max(Theme.px(320), root.height * 0.45), trackerBody.contentHeight)
                     clip: true
                     text: root._trackerText
                     readOnly: true
@@ -1080,6 +1082,7 @@ FocusScope {
                     wholeDocument: true
                     rich: true
                     tailRoom: false
+                    scrollCue: true
                     menuTitle: I18n.t("taskdoc.fromTracker").arg(root._badge.name || root._ticket.provider || "")
                     onInternalLinkActivated: (kind, target) => root.internalLinkActivated(kind, target)
                 }

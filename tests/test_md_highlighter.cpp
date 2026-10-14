@@ -173,6 +173,11 @@ TEST(MdHighlighterLive, HidesTheDelimitersNotTheText) {
   EXPECT_EQ(hiddenOf(QStringLiteral("snake_case_name")), QString());
   EXPECT_EQ(hiddenOf(QStringLiteral("an escaped \\$x$ costs")), QStringLiteral("\\")) << "the backslash of an escape goes";
   EXPECT_EQ(hiddenOf(QStringLiteral("`a \\$ b`")), QStringLiteral("`|`"));
+  EXPECT_EQ(hiddenOf(QStringLiteral("#")), QStringLiteral("#")) << "an empty heading's # is markup";
+  EXPECT_EQ(hiddenOf(QStringLiteral("1. #")), QStringLiteral("#"));
+  EXPECT_EQ(hiddenOf(QStringLiteral("- ## Title")), QStringLiteral("## "));
+  EXPECT_EQ(hiddenOf(QStringLiteral("#tag here")), QString()) << "a tag is not a heading";
+  EXPECT_EQ(hiddenOf(QStringLiteral("see ![shot.png](shot.png)")), QStringLiteral("![|](shot.png)"));
 }
 
 TEST(MdHighlighterLive, TheCaretLineShowsItsSource) {

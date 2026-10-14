@@ -41,6 +41,10 @@ Item {
     // a box (the tracker's).
     property bool tailRoom: true
     readonly property real contentHeight: view.contentHeight
+    // The scroll bar shows at rest while the text runs past the box (a
+    // short box of read-only text, where nothing else says there is more).
+    property bool scrollCue: false
+
     // A printable key on the drawn document opens the block the caret was
     // last in and is typed there (the Knowledge editors).
     property bool typeToEdit: false
@@ -529,6 +533,7 @@ Item {
         objectName: "md-block-view"
         anchors.fill: parent
         headingRules: root.headingRules
+        scrollCue: root.scrollCue
         noteType: root.noteType
         paragraphLineHeight: root.paragraphLineHeight
         document: doc
@@ -640,6 +645,18 @@ Item {
             }
             QQC.ContextMenu.menu: TextEditMenu { editor: field; context: root.menuTitle; taskLink: true }
             onTextChanged: if (!root._fieldLoading && root.editing) commitTimer.restart()
+            // The whole document's field lies over the view, not in it: the
+            // wheel over the text scrolls the view under it, or it went nowhere.
+            WheelHandler {
+                enabled: root.wholeDocument
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                onWheel: (event) => {
+                    const dy = event.pixelDelta.y !== 0 ? event.pixelDelta.y : event.angleDelta.y / 120 * Theme.px(60);
+                    const top = view.originY;
+                    const bottom = Math.max(top, view.originY + view.contentHeight - view.height);
+                    view.contentY = Math.max(top, Math.min(bottom, view.contentY - dy));
+                }
+            }
             // Not while the "/" menu or its file picker holds the keyboard.
             onActiveFocusChanged: if (!activeFocus && !slashMenu.opened && slashMenu.slashAt < 0) root._leave(true)
 

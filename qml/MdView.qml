@@ -67,7 +67,9 @@ ListView {
     clip: true
     spacing: 0
     boundsBehavior: Flickable.StopAtBounds
-    ScrollBar.vertical: ThinScrollBar {}
+    // The bar shows at rest while the text runs past the box (ThinScrollBar.cue).
+    property bool scrollCue: false
+    ScrollBar.vertical: ThinScrollBar { cue: view.scrollCue }
 
     // Row types, mirroring MdBlockModel::RowType. QML has no access to the
     // C++ enum without registering it, and these never change independently.

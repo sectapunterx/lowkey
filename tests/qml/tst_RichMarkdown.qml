@@ -122,6 +122,25 @@ TestCase {
         doc.close();
     }
 
+    // A long tracker text scrolls inside its box under the wheel, over the
+    // text itself (the field lies over the view, not in it).
+    function test_a_long_tracker_text_scrolls_under_the_wheel() {
+        let long = "";
+        for (let i = 1; i <= 60; i++) long += "Paragraph " + i + " with some words.\n\n";
+        const id = importTicket(long);
+        const doc = make();
+        doc.open(id);
+        const tracker = findChild(doc, "task-doc-tracker-body");
+        const field = findChild(tracker, "md-block-field");
+        const view = findChild(tracker, "md-block-view");
+        tryVerify(() => field.visible && view.contentHeight > tracker.height, 2000, "the text does not overflow its box");
+        verify(tracker.height < field.height, "the box grew to the whole text");
+        const before = view.contentY;
+        mouseWheel(field, 40, 40, 0, -360);
+        tryVerify(() => view.contentY > before, 1000, "the wheel over the text did not scroll it");
+        doc.close();
+    }
+
     function test_the_task_dialog_draws_its_description() {
         const id = mkTask("dialog probe", "a **bold** line");
         const te = createTemporaryQmlObject('import TodoCpp; TaskEditor {}', host);
@@ -131,6 +150,12 @@ TestCase {
         tryCompare(desc, "text", "a **bold** line");
         verify(findChild(te, "desc-mode-preview") === null, "Text / Preview tabs are still there");
         verify(findChild(te, "md-live-decorations") !== null, "the description is not drawn");
+        // Enter goes on with the list, as in a note.
+        desc.text = "- one";
+        desc.forceActiveFocus();
+        desc.cursorPosition = desc.length;
+        keyClick(Qt.Key_Return);
+        compare(desc.text, "- one\n- ");
         te.close();
     }
 }
