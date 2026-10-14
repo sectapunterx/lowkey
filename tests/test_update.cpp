@@ -402,11 +402,15 @@ TEST_F(UpdateDownload, TheFeatureBuildIsCheckedAgainstItsOwnSums) {
   fb.setRootDir(m_dir.path());
   fb.setLatestReleaseUrl(base + QStringLiteral("/latest"));
   fb.check();
-  heap::testing::waitUntil([&fb]() { return fb.phase() != QStringLiteral("checking"); });
+  heap::testing::waitUntil([&fb]() {
+    return fb.phase() != QStringLiteral("checking");
+  });
   EXPECT_EQ(fb.remoteVersion(), QStringLiteral("v9.1.0-feature-abc1234"));
   EXPECT_FALSE(fb.installed());
   fb.install();
-  heap::testing::waitUntil([&fb]() { return fb.phase() == QStringLiteral("error") || fb.phase().isEmpty(); });
+  heap::testing::waitUntil([&fb]() {
+    return fb.phase() == QStringLiteral("error") || fb.phase().isEmpty();
+  });
   EXPECT_EQ(fb.phase(), QStringLiteral("error"));
   EXPECT_EQ(fb.error(), QStringLiteral("checksum"));
   EXPECT_FALSE(fb.installed());
