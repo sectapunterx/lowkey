@@ -843,7 +843,12 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -eu
-          mv dist/SHA256SUMS dist/SHA256SUMS-feature
+          # The app takes the portable zip, the dmg and the AppImage
+          # (FeatureBuild); an installer would only sit beside them.
+          rm -f dist/*-windows-setup.exe
+          sums=$(grep -v -- '-windows-setup\.exe$' dist/SHA256SUMS)
+          printf '%s\n' "$sums" > dist/SHA256SUMS-feature
+          rm dist/SHA256SUMS
           latest=$(gh release view --repo "$REPO" --json tagName --jq .tagName)
           echo "latest release: $latest"
           gh release list --repo "$REPO" --limit 10 --json tagName --jq '.[].tagName' |
