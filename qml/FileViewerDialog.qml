@@ -232,7 +232,7 @@ QQC.Dialog {
                 font.pixelSize: Theme.fsSm
                 background: Rectangle { color: Theme.bg; border.color: Theme.border; border.width: 1; radius: Theme.radiusMd }
                 CodeHighlighter {
-                    target: textView.textDocument
+                    target: textView.textDocument // qmllint disable missing-type
                     language: String(root.preview.language || "")
                     palette: Theme.codePalette
                 }
