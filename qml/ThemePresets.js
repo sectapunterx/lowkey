@@ -297,7 +297,9 @@ var MINIMAL_DARK = {
 
 // Tabless (heap. ink until 0.8.0, lowkey until APP-283; the id stays,
 // saved settings name it) — the
-// heap 2 palette (APP-259, mockups in "New heap design"): near-black ground,
+// heap 2 palette (APP-259, mockups in "New heap design"): a dark ground,
+// lifted off near-black in 0.9.3 and made neutral grey (APP-314: bright
+// titles haloed on #0c0e11 and the blue-black read cold; owner's pick),
 // one lavender accent for cursor, focus and selection, hierarchy from type
 // and spacing rather than boxes. Status is shape (StatusRing), so the st*
 // greys stay quiet; colour is a signal: amber "now", red P0 / blocked /
@@ -306,25 +308,25 @@ var MINIMAL_DARK = {
 var HEAP_INK = {
     id: "heap-ink", name: "Tabless", base: "dark", contrast: "high", builtin: true,
     colors: {
-        bg: "#0c0e11", bg2: "#0f1216", panel: "#14181d", panel2: "#1a1f26", panel3: "#1f252d",
-        border: "#1f252d", borderStrong: "#2a313b",
-        text: "#e9edf2", textMuted: "#c4ccd6", textDim: "#8f99a6",
-        textOnAccent: "#0c0e11", textOnDanger: "#0c0e11", textOnBadge: "#0c0e11",
-        accent: "#b1a7f0", accentStrong: "#c4bcf5", accentSoft: "#26b1a7f0", knob: "#e9edf2",
+        bg: "#141414", bg2: "#181818", panel: "#1b1b1b", panel2: "#212121", panel3: "#272727",
+        border: "#272727", borderStrong: "#333333",
+        text: "#ececec", textMuted: "#c8c8c8", textDim: "#959595",
+        textOnAccent: "#111111", textOnDanger: "#111111", textOnBadge: "#111111",
+        accent: "#b1a7f0", accentStrong: "#c4bcf5", accentSoft: "#26b1a7f0", knob: "#ececec",
         danger: "#ef6b63", warning: "#f2a65a", success: "#6fcf97", info: "#7aa7ff",
-        toastBg: "#1a1f26", toastBorder: "#2a313b", toastText: "#e9edf2",
+        toastBg: "#212121", toastBorder: "#333333", toastText: "#ececec",
         scrim: "#99000000",
-        p0: "#ef6b63", p1: "#f2a65a", p2: "#8f99a6", p3: "#858e9b",
-        stBacklog: "#7a8390", stTodo: "#aeb7c2", stProg: "#c4ccd6", stHalf: "#c4ccd6",
-        stBlocked: "#ef6b63", stReview: "#c4ccd6", stDone: "#6fcf97",
+        p0: "#ef6b63", p1: "#f2a65a", p2: "#959595", p3: "#8a8a8a",
+        stBacklog: "#888888", stTodo: "#b4b4b4", stProg: "#c8c8c8", stHalf: "#c8c8c8",
+        stBlocked: "#ef6b63", stReview: "#c8c8c8", stDone: "#6fcf97",
         mStandup: "#7aa7ff", mOneone: "#7aa7ff", mSync: "#7aa7ff", mFocus: "#7aa7ff", nowLine: "#f2a65a",
-        synKeyword: "#7aa7ff", synString: "#6fcf97", synNumber: "#f2a65a", synComment: "#7a8390",
-        synType: "#aeb7c2", synBuiltin: "#e9edf2", codeBg: "#14181d", code: "#c4ccd6",
-        mention: "#7aa7ff", ticket: "#c4ccd6", tag: "#de8fbd", math: "#f2a65a", heading: "#c4ccd6",
+        synKeyword: "#7aa7ff", synString: "#6fcf97", synNumber: "#f2a65a", synComment: "#888888",
+        synType: "#b4b4b4", synBuiltin: "#ececec", codeBg: "#1b1b1b", code: "#c8c8c8",
+        mention: "#7aa7ff", ticket: "#c8c8c8", tag: "#de8fbd", math: "#f2a65a", heading: "#c8c8c8",
         highlightBg: "#4df2a65a",
-        mdLink: "#e9edf2", mdCode: "#e9edf2", mdCodeBg: "#14181d", mdMention: "#7aa7ff",
-        mdTicket: "#e9edf2", mdTag: "#de8fbd", mdMath: "#f2a65a", mdHighlight: "#4df2a65a",
-        card: "#13161b", cardHover: "#181c22", nav: "#0f1216", meetingBg: "#172131"
+        mdLink: "#ececec", mdCode: "#ececec", mdCodeBg: "#1b1b1b", mdMention: "#7aa7ff",
+        mdTicket: "#ececec", mdTag: "#de8fbd", mdMath: "#f2a65a", mdHighlight: "#4df2a65a",
+        card: "#1c1c1c", cardHover: "#212121", nav: "#181818", meetingBg: "#172131"
     }
 };
 

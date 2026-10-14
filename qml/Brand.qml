@@ -67,6 +67,8 @@ QtObject {
     // Headings and the wordmark (0.9.3: Inter took the text).
     readonly property string fontDisplay: "Tabless Golos Text"
     readonly property string fontMono: "Tabless JetBrains Mono"
+    // The third text face Appearance offers beside Inter and Golos (APP-314).
+    readonly property string fontOnest: "Tabless Onest"
 
     // Type scale (px)
     readonly property int sizeDisplay:  56

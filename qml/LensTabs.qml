@@ -66,10 +66,6 @@ Item {
                         font.pixelSize: root._fs
                         font.weight: tab.on ? Theme.fwTitle : Theme.fwBody
                     }
-                    KeyHint {
-                        anchors.verticalCenter: parent.verticalCenter
-                        keys: tab.modelData.keys || ""
-                    }
                 }
                 CursorBar {
                     anchors.horizontalCenter: Style.chipFill ? parent.horizontalCenter : undefined
@@ -79,8 +75,11 @@ Item {
                     target: Style.chipFill ? tab : label
                     shown: tab.on
                 }
+                // The key moved to the tip (APP-314): "g b" beside every tab
+                // was one more speck in a row the eye reads at every visit.
                 ClickArea {
                     label: tab.modelData.label
+                    tip: tab.modelData.keys ? tab.modelData.label + " · " + tab.modelData.keys : ""
                     role: Accessible.PageTab
                     checkable: true
                     checked: tab.on

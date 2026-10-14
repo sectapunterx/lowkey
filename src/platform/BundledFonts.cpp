@@ -22,6 +22,7 @@ QList<BundledFamily> bundledFamilies() {
       {kUiFontFamily, {QFont::Normal, QFont::Medium, QFont::DemiBold}},
       {kDisplayFontFamily, {QFont::Normal, QFont::Medium, QFont::DemiBold}},
       {kMonoFontFamily, {QFont::Normal, QFont::Medium}},
+      {kOnestFontFamily, {QFont::Normal, QFont::Medium, QFont::DemiBold}},
   };
 }
 

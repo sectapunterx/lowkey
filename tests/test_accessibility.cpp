@@ -80,6 +80,26 @@ TEST(SystemTextScale, MapsToTheNearestInterfaceStep) {
   EXPECT_DOUBLE_EQ(uiScaleForTextScale(1.375, {1.5, 1, 1.25}), 1.5);
 }
 
+TEST(ScreenDefaultScale, SmallPixelsOnADesktopMonitorStartAt125) {
+  using heap::ui::screenDefaultScale;
+  // 27" 2560×1440 at 100 % (109 ppi): the owner's screen.
+  EXPECT_DOUBLE_EQ(screenDefaultScale(2560, 1440, 27, 1.0), 1.25);
+  // 27" 4K at 150 %: the same logical pixels.
+  EXPECT_DOUBLE_EQ(screenDefaultScale(2560, 1440, 27, 1.5), 1.25);
+  // 24" 1440p and a 34" ultrawide.
+  EXPECT_DOUBLE_EQ(screenDefaultScale(2560, 1440, 24, 1.0), 1.25);
+  EXPECT_DOUBLE_EQ(screenDefaultScale(3440, 1440, 34, 1.0), 1.25);
+  // 24" 1920×1080 (92 ppi): big pixels, 110 % as before.
+  EXPECT_DOUBLE_EQ(screenDefaultScale(1920, 1080, 24, 1.0), 1.1);
+  // A laptop: 15.6" FHD unscaled, 14" at 125 %.
+  EXPECT_DOUBLE_EQ(screenDefaultScale(1920, 1080, 15.6, 1.0), 1.1);
+  EXPECT_DOUBLE_EQ(screenDefaultScale(1536, 864, 14, 1.25), 1.0);
+  // An unknown size keeps the old rule.
+  EXPECT_DOUBLE_EQ(screenDefaultScale(2560, 1440, 0, 1.0), 1.1);
+  EXPECT_DOUBLE_EQ(screenDefaultScale(2560, 1440, 3, 1.5), 1.0);
+  EXPECT_DOUBLE_EQ(screenDefaultScale(2560, 1440, std::nan(""), 1.0), 1.1);
+}
+
 TEST(SystemTextScale, ReadingTheSystemIsAtLeastOne) {
   EXPECT_GE(heap::platform::systemTextScale(), 1.0);
 }

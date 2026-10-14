@@ -41,6 +41,7 @@ prep (no fpgm, cvt or glyph programs), so nothing depends on the old em.
     pip install fonttools
     python tools/gen_bundled_fonts.py            # downloads upstream, writes resources/fonts/
     python tools/gen_bundled_fonts.py <dir>      # uses <dir>/GolosText[wght].ttf etc. instead
+    python tools/gen_bundled_fonts.py <dir> Onest  # only the faces named (output stems)
     python tools/fonts/add_return_glyph.py       # then: the ↵ glyph the upstream fonts lack (R4-056)
 
 A download also rewrites each *-OFL.txt from upstream: put back the
@@ -59,6 +60,10 @@ from fontTools.varLib import instancer
 # checks the resulting unitsPerEm.
 SCALE_UI = 0.93
 SCALE_MONO = 0.88
+# Onest, one of the three faces Appearance offers for the text (APP-314):
+# its x-height is 0.527 of the em, so 0.94 brings it to the bundled Golos
+# Text's 0.493 and the sizes in Theme read the same in every face.
+SCALE_ONEST = 0.94
 
 UPSTREAM = "https://raw.githubusercontent.com/google/fonts/7085eb89a950e85db5b166b7a58d414544b4140c/ofl"
 
@@ -66,6 +71,7 @@ FONTS = [
     # (upstream dir, variable file, output stem, [(weight, style)], scale)
     ("golostext", "GolosText[wght].ttf", "GolosText", [(400, "Regular"), (500, "Medium"), (600, "SemiBold")], SCALE_UI),
     ("jetbrainsmono", "JetBrainsMono[wght].ttf", "JetBrainsMono", [(400, "Regular"), (500, "Medium")], SCALE_MONO),
+    ("onest", "Onest[wght].ttf", "Onest", [(400, "Regular"), (500, "Medium"), (600, "SemiBold")], SCALE_ONEST),
 ]
 
 OUT = Path(__file__).resolve().parent.parent / "resources" / "fonts"
@@ -80,7 +86,10 @@ def fetch(url: str) -> bytes:
 def main() -> None:
     src_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else None
     OUT.mkdir(parents=True, exist_ok=True)
+    only = sys.argv[2:] if src_dir else []
     for updir, varfile, stem, weights, scale in FONTS:
+        if only and stem not in only:
+            continue
         if src_dir:
             var_path = src_dir / varfile
         else:

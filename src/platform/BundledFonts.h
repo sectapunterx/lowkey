@@ -20,6 +20,8 @@ namespace heap::platform {
 inline constexpr const char* kUiFontFamily = "Tabless Inter";
 inline constexpr const char* kDisplayFontFamily = "Tabless Golos Text";
 inline constexpr const char* kMonoFontFamily = "Tabless JetBrains Mono";
+// The third text face Settings → Appearance → Font offers (APP-314).
+inline constexpr const char* kOnestFontFamily = "Tabless Onest";
 
 // Adds every bundled face to the application font database. Call once, after
 // the QGuiApplication exists and before any QML loads. A face that cannot be

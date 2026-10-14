@@ -56,4 +56,22 @@ inline double uiScaleForTextScale(double textScale, QList<double> steps) {
   return std::max(best, 1.0);
 }
 
+// The scale a screen starts heap at while the user has not picked one
+// (APP-314). A desktop monitor whose logical pixels are small — 27"
+// 2560×1440 at 100 % (109 ppi), 24" 1440p, 27" 4K at 150 % — gets 125 %, so
+// a card title lands near 4 mm at arm's length; 110 % read as small there.
+// Other unscaled screens keep 110 %, a screen the system already scales
+// (a laptop) 100 %. An unknown size (0, or an EDID that says 3") keeps
+// those two.
+inline double screenDefaultScale(double logicalWidth, double logicalHeight, double diagonalInches, double pixelRatio) {
+  constexpr double kDesktopInches = 20;
+  constexpr double kSmallPixelPpi = 100;
+  const double fallback = pixelRatio > 1.05 ? 1.0 : 1.1;
+  if(!std::isfinite(diagonalInches) || diagonalInches < 10 || diagonalInches > 100 || logicalWidth <= 0 || logicalHeight <= 0) {
+    return fallback;
+  }
+  const double ppi = std::hypot(logicalWidth, logicalHeight) / diagonalInches;
+  return diagonalInches >= kDesktopInches && ppi >= kSmallPixelPpi ? 1.25 : fallback;
+}
+
 }  // namespace heap::ui

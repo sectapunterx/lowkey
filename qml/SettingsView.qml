@@ -1250,6 +1250,19 @@ Item {
                     options: Theme.scaleSteps.map((s) => ({ value: String(Math.round(s * 100)), label: Math.round(s * 100) + "%" }))
                     onSelected: (value) => root.set("appearance", "uiScale", Number(value) / 100)
                 }
+                // The text's face (APP-314): three bundled, one x-height.
+                SegRow {
+                    objectName: "settings-font-face"
+                    label: I18n.t("settings.appearance.font")
+                    hint: I18n.t("settings.appearance.font.hint")
+                    value: Theme.fontFace
+                    options: [
+                        { value: "inter", label: "Inter" },
+                        { value: "golos", label: "Golos" },
+                        { value: "onest", label: "Onest" }
+                    ]
+                    onSelected: (value) => root.set("appearance", "fontFace", value)
+                }
                 SegRow {
                     objectName: "settings-contrast"
                     label: I18n.t("settings.appearance.contrast")

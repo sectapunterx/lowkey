@@ -682,7 +682,12 @@ Rectangle {
                     textFormat: Text.StyledText
                     color: Theme.textMuted
                     font.pixelSize: Theme.fsSm
-                    maximumLineCount: 1
+                    // Two lines at 1.45 (APP-314): cut to one, the line read
+                    // as a fragment and the eye went back to finish it.
+                    wrapMode: Text.Wrap
+                    lineHeightMode: Text.FixedHeight
+                    lineHeight: Math.round(font.pixelSize * 1.45)
+                    maximumLineCount: 2
                     elide: Text.ElideRight
                 }
 

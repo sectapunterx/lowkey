@@ -819,6 +819,9 @@ qt_add_resources(heap_core "fonts"
         resources/fonts/Inter-SemiBold.ttf
         resources/fonts/JetBrainsMono-Regular.ttf
         resources/fonts/JetBrainsMono-Medium.ttf
+        resources/fonts/Onest-Regular.ttf
+        resources/fonts/Onest-Medium.ttf
+        resources/fonts/Onest-SemiBold.ttf
 )
 
 # ── Brand assets (Tabless logo + app icon, design/brand-export/tabless — APP-283) ──

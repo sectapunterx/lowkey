@@ -16021,9 +16021,19 @@ double AppController::systemUiScale(const QVariantList& steps) const {
   return heap::ui::uiScaleForTextScale(m_systemTextScale, uiScaleSteps(steps));
 }
 
+double AppController::screenUiScale() const {
+  const QScreen* screen = QGuiApplication::primaryScreen();
+  if(screen == nullptr) {
+    return 1.1;
+  }
+  // A test run reads the same layout on every machine: no screen size.
+  const QSizeF mm = QStandardPaths::isTestModeEnabled() ? QSizeF() : screen->physicalSize();
+  const double inches = std::hypot(mm.width(), mm.height()) / 25.4;
+  return heap::ui::screenDefaultScale(screen->size().width(), screen->size().height(), inches, screen->devicePixelRatio());
+}
+
 double AppController::defaultUiScale(const QVariantList& steps) const {
-  const double byScreen = systemPixelRatio() > 1.05 ? 1.0 : 1.1;
-  return std::max(byScreen, systemUiScale(steps));
+  return std::max(screenUiScale(), systemUiScale(steps));
 }
 
 double AppController::stepUiScale(int direction, const QVariantList& steps) {

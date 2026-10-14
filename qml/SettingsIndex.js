@@ -52,6 +52,7 @@ var ITEMS = [
     ["appearance", "row", "style.flag.todayExtras"],
     ["appearance", "row", "style.flag.icons"],
     ["appearance", "row", "settings.appearance.scale"],
+    ["appearance", "row", "settings.appearance.font"],
     ["appearance", "row", "settings.appearance.contrast"],
     ["appearance", "group", "settings.appearance.group.window"],
     ["appearance", "row", "settings.system.closeToTray"],

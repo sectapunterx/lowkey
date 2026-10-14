@@ -329,13 +329,13 @@ QtObject {
     // Until the user picks one, the system's text size picks it (APP-183):
     // Windows "Make text bigger" at 150 % starts heap at 150 %.
     readonly property var scaleSteps: [0.9, 1, 1.1, 1.25, 1.5]
-    // Unset: 110 % where the system does not scale (100 %, e.g. a 2560 px
-    // monitor), so body text is ~14 px — the sheets' 13 px read as small
-    // there (owner, 0.8.3). Where the system already scales (125 % on a
-    // laptop, 150-200 % on 4K) it stays 100 %: on top of that it doubled up
-    // and the board no longer fit.
+    // Unset: what the screen's size asks for (APP-314) — 125 % on a desktop
+    // monitor with small pixels (27" 2560×1440 at 100 %, where 110 % still
+    // tired the eyes), 110 % on other unscaled screens, 100 % where the
+    // system already scales (a laptop at 125 %): on top of that it doubled
+    // up and the board no longer fit.
     readonly property real systemPixelRatio: AppController.systemPixelRatio()
-    readonly property real defaultScale: systemPixelRatio > 1.05 ? 1 : 1.1
+    readonly property real defaultScale: AppController.screenUiScale()
     // A function, not a property: the system is asked only when needed.
     function systemScale() { return AppController.systemUiScale(scaleSteps); }
     readonly property real scale: {
@@ -574,14 +574,23 @@ QtObject {
     function _installedFont(family, fallback) {
         return family && Qt.fontFamilies().indexOf(family) >= 0 ? family : fallback;
     }
-    readonly property string fontUi: legacyDefaultFontsUi.indexOf(_appearance.fontUI) < 0
-                                     ? _installedFont(_appearance.fontUI, Brand.fontSans) : Brand.fontSans
+    // Settings → Appearance → Font (APP-314): the text in Inter (default),
+    // Golos Text or Onest, all three bundled and cut to one x-height, so the
+    // sizes read the same in each.
+    readonly property var fontFaces: ["inter", "golos", "onest"]
+    readonly property string fontFace: fontFaces.indexOf(_appearance.fontFace) >= 0 ? _appearance.fontFace : "inter"
+    readonly property string _faceFamily: fontFace === "golos" ? Brand.fontDisplay
+                                          : fontFace === "onest" ? Brand.fontOnest : Brand.fontSans
+    // A family typed into state.json as fontUI (an installed font) still wins.
+    readonly property bool _customFontUi: !!_appearance.fontUI && legacyDefaultFontsUi.indexOf(_appearance.fontUI) < 0
+                                          && _appearance.fontUI !== Brand.fontSans
+                                          && Qt.fontFamilies().indexOf(_appearance.fontUI) >= 0
+    readonly property string fontUi: _customFontUi ? _appearance.fontUI : _faceFamily
     // Headings - a screen's, a note's, a dialog's - and the wordmark: Golos
-    // Text, the brand's face (0.9.3, owner: Inter for the text, Golos kept
-    // where it is large enough to stay sharp). A face the user picked in
-    // Appearance is used for both.
-    readonly property string fontDisplay: legacyDefaultFontsUi.indexOf(_appearance.fontUI) < 0 && fontUi !== Brand.fontSans
-                                          ? fontUi : Brand.fontDisplay
+    // Text, the brand's face, under Inter text (0.9.3, owner: Golos kept
+    // where it is large enough to stay sharp); Golos or Onest picked for the
+    // text sets the headings too, and so does a custom fontUI.
+    readonly property string fontDisplay: _customFontUi || fontFace !== "inter" ? fontUi : Brand.fontDisplay
     readonly property string fontMono: legacyDefaultFontsMono.indexOf(_appearance.fontMono) < 0
                                        ? _installedFont(_appearance.fontMono, Brand.fontMono) : Brand.fontMono
     // Mono is for what is typed or copied: ticket ids, branches, keys, code,

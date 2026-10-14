@@ -1961,10 +1961,13 @@ class AppController : public QObject {
   // How much the system already scales the primary screen (1 at 100 %,
   // 1.25 at 125 %): the default interface scale is not stacked on top.
   Q_INVOKABLE double systemPixelRatio() const;
+  // What the primary screen's size asks for (heap::ui::screenDefaultScale):
+  // 125 % on a desktop monitor with small pixels (27" 2560×1440), 110 % on
+  // another unscaled screen, 100 % where the system scales.
+  Q_INVOKABLE double screenUiScale() const;
   // The scale the app is drawn at while the user has not picked one — what
-  // Theme.scale shows and what the zoom keys step from (SHELL-3): 110 % on a
-  // screen that does not scale itself, 100 % where it does, or the system's
-  // text size when that is larger.
+  // Theme.scale shows and what the zoom keys step from (SHELL-3): the
+  // screen's (screenUiScale), or the system's text size when that is larger.
   Q_INVOKABLE double defaultUiScale(const QVariantList& steps) const;
   // Paints a window's own title bar dark or light to match the theme; the
   // OS otherwise follows its own app mode (a white bar over a dark heap).

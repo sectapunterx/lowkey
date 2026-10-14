@@ -15,8 +15,23 @@ Text {
     visible: keys.length > 0 && (always || Style.keyHints)
     text: keys
     color: Theme.textDim
-    font.family: Theme.fontMono
+    // A key cap in the text face (APP-314): small mono letters beside every
+    // row read as specks on a 2K screen; a framed key reads as a key.
+    font.family: Theme.fontUi
     font.pixelSize: Theme.fsXs
     verticalAlignment: Text.AlignVCenter
+    leftPadding: Theme.px(5)
+    rightPadding: Theme.px(5)
+    topPadding: 1
+    bottomPadding: 1
     Accessible.ignored: true
+
+    Rectangle {
+        z: -1
+        anchors.fill: parent
+        radius: 4
+        color: "transparent"
+        border.width: 1
+        border.color: Theme.borderStrong
+    }
 }

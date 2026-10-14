@@ -105,11 +105,44 @@ Item {
     function dragTaskId(src) {
         return src && src.taskId ? String(src.taskId) : "";
     }
+    // An empty column folds to a strip by itself (APP-314): six empty
+    // columns spread across a 2K screen squeezed the one with cards and sent
+    // the eye over a screen of "Nothing here yet". It stays a drop target and
+    // opens when a card lands in it; one the user opens stays open, empty or
+    // not (boardEmptyOpen).
+    property var emptyOpen: ({})
+    function _loadEmptyOpen() {
+        let s = {};
+        try { s = JSON.parse(AppController.appSettingsJson || "{}") || {}; } catch (e) { s = {}; }
+        const ids = Array.isArray(s.boardEmptyOpen) ? s.boardEmptyOpen : [];
+        const out = {};
+        for (let i = 0; i < ids.length; i++) out[ids[i]] = true;
+        root.emptyOpen = out;
+    }
+    function isEmptyColumn(statusId) {
+        return !((AppController.statusCounts || {})[statusId] > 0);
+    }
     function isFolded(statusId) {
         if (root.isDoneColumn(statusId)) return !root.doneShown[statusId];
-        return !!root.collapsed[statusId];
+        if (root.collapsed[statusId]) return true;
+        return root.isEmptyColumn(statusId) && !root.emptyOpen[statusId];
+    }
+    function _saveEmptyOpen(next) {
+        root.emptyOpen = next;
+        let s = {};
+        try { s = JSON.parse(AppController.appSettingsJson || "{}") || {}; } catch (e) { s = {}; }
+        s.boardEmptyOpen = Object.keys(next);
+        AppController.appSettingsJson = JSON.stringify(s);
     }
     function toggleCollapsed(statusId) {
+        // An empty column folded by itself opens on the same gesture, and
+        // folding it back clears that, so it folds by itself again.
+        if (!root.isDoneColumn(statusId) && !root.collapsed[statusId] && root.isEmptyColumn(statusId)) {
+            const open = Object.assign({}, root.emptyOpen);
+            if (open[statusId]) delete open[statusId]; else open[statusId] = true;
+            root._saveEmptyOpen(open);
+            return;
+        }
         if (root.isDoneColumn(statusId)) {
             const shown = Object.assign({}, root.doneShown);
             if (shown[statusId]) delete shown[statusId]; else shown[statusId] = true;
@@ -274,6 +307,7 @@ Item {
         root._syncColumns();
         root._loadCollapsed();
         root._loadDoneShown();
+        root._loadEmptyOpen();
         if (AppController.focusedStatus && AppController.focusedStatus.length > 0)
             Qt.callLater(function() { root.focusColumn(AppController.focusedStatus); });
     }

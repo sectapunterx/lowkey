@@ -26,6 +26,17 @@ The interface's text font since 0.9.3. Static Regular, Medium and SemiBold
 faces, renamed "Tabless Inter" with a larger unitsPerEm by
 `tools/gen_bundled_fonts.py --inter`.
 
+## Onest
+
+- Source: https://github.com/googlefonts/onest (google/fonts `ofl/onest`)
+- License: SIL Open Font License 1.1 — `resources/fonts/Onest-OFL.txt`
+- Copyright 2021 The Onest Project Authors
+- No Reserved Font Name is declared.
+
+One of the three text faces Settings → Appearance offers (0.9.3). Static
+Regular, Medium and SemiBold faces cut from the variable font, renamed
+"Tabless Onest" with a larger unitsPerEm by `tools/gen_bundled_fonts.py`.
+
 ## Golos Text
 
 - Source: https://github.com/googlefonts/golos-text (as published in
