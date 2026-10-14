@@ -303,6 +303,7 @@ qt_add_library(heap_core STATIC
     src/sync/SyncSerializer.cpp
     src/sync/JsonMerger.cpp
     src/update/Updater.cpp
+    src/update/FeatureBuild.cpp
     src/update/UpdateInstall.cpp
     $<$<PLATFORM_ID:Linux>:${CMAKE_SOURCE_DIR}/src/notify/NotificationCenter_linux.cpp>
         # Notifications with buttons (APP-155): WinRT toasts, UNUserNotificationCenter.
@@ -582,6 +583,7 @@ qt_add_qml_module(heap_core
         src/sync/SyncSerializer.h
         src/sync/JsonMerger.h
         src/update/Updater.h
+        src/update/FeatureBuild.h
         src/update/UpdateInstall.h
 )
 

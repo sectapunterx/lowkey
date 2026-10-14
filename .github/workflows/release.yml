@@ -80,7 +80,9 @@ jobs:
           if [ -n "${CHANNEL:-}" ]; then
             # Channel build: a pre-release string the updater ranks below any
             # real release, published only to the channel's rolling release.
-            tag="v${cmver}-${CHANNEL}.$(git rev-parse --short HEAD)"
+            # vX.Y.Z-feature-<sha>: the files read tabless-vX.Y.Z-feature-<sha>-…
+            # beside stable's tabless-vX.Y.Z-… in the latest release.
+            tag="v${cmver}-${CHANNEL}-$(git rev-parse --short HEAD)"
             release=false
             prerelease=true
           elif [ "${{ github.ref_type }}" = "tag" ]; then
@@ -784,10 +786,12 @@ jobs:
           files: dist/*
 
   # ──────────────────────────────────────────────────────────────────
-  # Channel build (APP-309): one rolling pre-release per channel, tag
-  # channel-<name>, moved to the built commit, its files replaced. Never the
-  # latest release, so the updater (/releases/latest) never offers it, and
-  # the release list gains two entries, not one per push.
+  # Channel build (APP-309). feature: its files go into the latest stable
+  # release under their own names (tabless-vX.Y.Z-feature-<sha>-…, with
+  # SHA256SUMS-feature), replaced on every build; the stable updater looks
+  # for its exact stable names, so it never picks them. unstable: one rolling
+  # pre-release, tag channel-unstable, moved to the built commit, its files
+  # replaced, never the latest release.
   # ──────────────────────────────────────────────────────────────────
   publish-channel:
     name: Publish channel build
@@ -823,7 +827,36 @@ jobs:
           find . -maxdepth 1 -type f -printf '%f\n' | sort | xargs sha256sum > SHA256SUMS
           cat SHA256SUMS
 
+      # Feature: into the latest stable release, beside stable's own files,
+      # as tabless-vX.Y.Z-feature-<sha>-… with their own SHA256SUMS-feature
+      # (stable's SHA256SUMS is never touched, so the stable updater and the
+      # stable files stay exactly as published). The feature files of the
+      # build before are removed from whichever recent release holds them.
+      # Settings → About downloads and opens them from there.
+      - name: Put the feature build into the latest release
+        if: needs.meta.outputs.channel == 'feature'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          mv dist/SHA256SUMS dist/SHA256SUMS-feature
+          latest=$(gh release view --repo "$REPO" --json tagName --jq .tagName)
+          echo "latest release: $latest"
+          gh release list --repo "$REPO" --limit 10 --json tagName --jq '.[].tagName' |
+            while IFS= read -r rel; do
+              gh release view "$rel" --repo "$REPO" --json assets --jq '.assets[].name' |
+                grep -E -- '-feature-|^SHA256SUMS-feature$' |
+                while IFS= read -r a; do
+                  echo "remove $rel/$a"
+                  gh release delete-asset "$rel" "$a" --repo "$REPO" --yes
+                done || true
+            done
+          gh release upload "$latest" dist/* --repo "$REPO" --clobber
+          gh release view "$latest" --repo "$REPO" --json assets --jq '.assets[].name'
+
       - name: Replace the channel release
+        if: needs.meta.outputs.channel != 'feature'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}

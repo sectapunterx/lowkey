@@ -109,6 +109,12 @@ class Updater : public QObject {
     return m_assets;
   }
 
+  // The checksum file downloads are checked against: SHA256SUMS, or the
+  // feature build's own SHA256SUMS-feature published beside it.
+  void setSumsAsset(const QString& name) {
+    m_sumsAsset = name;
+  }
+
   QString latestTag() const {
     return m_latestTag;
   }
@@ -139,6 +145,7 @@ class Updater : public QObject {
   void failDownload(DownloadFailure kind, const QString& error);
 
   QString m_currentVersion;
+  QString m_sumsAsset = QStringLiteral("SHA256SUMS");
   QString m_latestUrl;
   QNetworkAccessManager* m_nam = nullptr;
   bool m_checking = false;

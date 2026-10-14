@@ -137,6 +137,7 @@ var ITEMS = [
     ["help", "row", "settings.help.start"],
     ["help", "row", "settings.help.report"],
     ["about", "row", "settings.about.updates"],
+    ["about", "row", "settings.about.feature"],
     ["about", "row", "settings.about.whatsNew"],
     ["about", "row", "settings.about.licenses"],
     ["about", "row", "settings.about.storage"],

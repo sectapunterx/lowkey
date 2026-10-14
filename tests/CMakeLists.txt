@@ -750,6 +750,8 @@ add_executable(heap_update_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/update/Updater.h
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/update/UpdateInstall.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/update/UpdateInstall.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/update/FeatureBuild.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../src/update/FeatureBuild.h
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/updater/BundleSwap.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/updater/BundleSwap.h
 )
@@ -757,6 +759,7 @@ set_target_properties(heap_update_tests PROPERTIES AUTOMOC ON)
 target_include_directories(heap_update_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 target_link_libraries(heap_update_tests PRIVATE
         Qt6::Core
+        Qt6::Qml
         Qt6::Network
         Qt6::NetworkAuth
         heap_markdown
