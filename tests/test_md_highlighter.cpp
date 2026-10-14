@@ -178,9 +178,23 @@ TEST(MdHighlighterLive, HidesTheDelimitersNotTheText) {
   EXPECT_EQ(hiddenOf(QStringLiteral("- ## Title")), QStringLiteral("## "));
   EXPECT_EQ(hiddenOf(QStringLiteral("#tag here")), QString()) << "a tag is not a heading";
   EXPECT_EQ(hiddenOf(QStringLiteral("see ![shot.png](shot.png)")), QStringLiteral("![|](shot.png)"));
-  EXPECT_EQ(hiddenOf(QStringLiteral("a footnote[^1] here")), QStringLiteral("[^|]")) << "drawn as a raised 1";
+  EXPECT_EQ(hiddenOf(QStringLiteral("a footnote[^1] here")), QString()) << "ghosted whole; a raised 1 is drawn over it";
+  ASSERT_EQ(heap::md::MdHighlighter::footnoteSpans(QStringLiteral("a[^1] b[^note] `[^x]`")).size(), 2);
+  EXPECT_TRUE(heap::md::MdHighlighter::footnoteSpans(QStringLiteral("[^1]: the body")).isEmpty());
   EXPECT_EQ(hiddenOf(QStringLiteral("[^1]: The body")), QStringLiteral("[^|]:"));
   EXPECT_EQ(hiddenOf(QStringLiteral("press <kbd>Ctrl</kbd> now")), QStringLiteral("<kbd>|</kbd>"));
+  EXPECT_EQ(hiddenOf(QStringLiteral("> [!note] A callout")), QStringLiteral("[!note] "));
+}
+
+TEST(MdHighlighterLive, ACalloutCarriesItsKindDownTheQuote) {
+  QStringList kinds;
+  for(const QVariant& v : heap::md::MdHighlighter::decorations(QStringLiteral("> [!Warning] Title\n> body\n\n> plain quote\n"))) {
+    const QVariantMap d = v.toMap();
+    if(d.value(QStringLiteral("kind")).toString() == QStringLiteral("quote")) {
+      kinds << d.value(QStringLiteral("callout")).toString();
+    }
+  }
+  EXPECT_EQ(kinds, (QStringList{QStringLiteral("warning"), QStringLiteral("warning"), QString()}));
 }
 
 TEST(MdHighlighterLive, LinkAtSaysWhatAClickOpens) {

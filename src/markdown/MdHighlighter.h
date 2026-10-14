@@ -118,6 +118,7 @@ class MdHighlighter : public QSyntaxHighlighter {
   //                                             align ["l"|"c"|"r"|""]
   // Fenced code and tables are revealed as a whole, the rest line by line.
   //   ticket: at, length, label (a known task's title, drawn over its id)
+  //   footnote: at, length, label (the id, drawn small and raised)
   Q_INVOKABLE static QVariantList decorations(const QString& text, const QVariantMap& ticketTitles = {});
 
   // What a click at pos opens, in MdView's link form: "heap://task/<id>",
@@ -135,6 +136,9 @@ class MdHighlighter : public QSyntaxHighlighter {
   };
 
   static QList<TicketSpan> ticketSpans(const QString& line, const QVariantMap& ticketTitles);
+  // Footnote references ("[^1]", not the "[^1]:" that defines one), drawn as
+  // a small raised number; `title` is the id.
+  static QList<TicketSpan> footnoteSpans(const QString& line);
 
   // The maths spans of one line, as md4c reads them (APP-312): $ opens
   // only before a non-space, closes only after one and not before a digit,
@@ -168,6 +172,7 @@ class MdHighlighter : public QSyntaxHighlighter {
     InFence,
     InFrontmatter,
     InMathBlock,
+    InIndentedCode,
   };
 
   void rebuildFormats();
@@ -221,7 +226,7 @@ class MdHighlighter : public QSyntaxHighlighter {
   QTextCharFormat m_frontmatter;
   QTextCharFormat m_rule;
   QTextCharFormat m_table;
-  QTextCharFormat m_footnote;
+  QTextCharFormat m_codeInline;
 
   // Language rules for whatever fence is currently open. The language itself
   // is not a member: it travels per block (see kCommentStyleFor in the .cpp),

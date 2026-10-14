@@ -1,6 +1,7 @@
 #include "markdown/MdHighlighter.h"
 #include "markdown/MdMath.h"
 
+#include <QFontInfo>
 #include <QFontMetricsF>
 #include <QRegularExpression>
 #include <QTextBlock>
@@ -8,6 +9,7 @@
 #include <QUrl>
 
 #include <algorithm>
+#include <cmath>
 
 namespace heap::md {
 
@@ -49,6 +51,12 @@ const QRegularExpression& thematicBreakRx() {
 
 const QRegularExpression& listMarkerRx() {
   static const QRegularExpression rx(QStringLiteral("^(\\s*)([-*+]|\\d+[.)])(\\s+)(\\[([ xX])\\]\\s+)?"));
+  return rx;
+}
+
+// "> [!note] Title": a callout's first line; the kind is group 1.
+const QRegularExpression& calloutRx() {
+  static const QRegularExpression rx(QStringLiteral("^\\s*(?:>\\s?)+(\\[!([A-Za-z]+)\\][+-]?\\s*)"));
   return rx;
 }
 
@@ -324,21 +332,16 @@ QList<QPair<int, int>> MdHighlighter::hiddenMarkup(const QString& line) {
     add(m.capturedStart(1), 1);
     add(m.capturedStart(3), m.capturedLength(3));
   }
+  // "> [!note] Title": the kind is drawn as the callout's colour, the title stays.
+  if(const auto callout = calloutRx().match(line); callout.hasMatch()) {
+    add(callout.capturedStart(1), callout.capturedLength(1));
+  }
   // [^1] is drawn as a raised "1"; a definition line "[^1]: text" as "1 text".
   static const QRegularExpression footnoteDefRx(QStringLiteral("^(\\[\\^)[^\\]\\s]+(\\]:)"));
   const auto def = footnoteDefRx.match(line);
   if(def.hasMatch()) {
     add(def.capturedStart(1), 2);
     add(def.capturedStart(2), 2);
-  }
-  static const QRegularExpression footnoteRx(QStringLiteral("(\\[\\^)[^\\]\\s]+(\\])(?!:)"));
-  for(auto it = footnoteRx.globalMatch(line); it.hasNext();) {
-    const auto m = it.next();
-    if(inCode(m.capturedStart()) || (def.hasMatch() && m.capturedStart() == 0)) {
-      continue;
-    }
-    add(m.capturedStart(1), 2);
-    add(m.capturedStart(2), 1);
   }
   // <kbd>Ctrl</kbd>: the key stays, in a key's face.
   static const QRegularExpression kbdRx(QStringLiteral("(<kbd>)[^<\\n]*(</kbd>)"), QRegularExpression::CaseInsensitiveOption);
@@ -387,6 +390,7 @@ QList<QPair<int, int>> MdHighlighter::hiddenMarkup(const QString& line) {
 
 QVariantList MdHighlighter::decorations(const QString& text, const QVariantMap& ticketTitles) {
   QVariantList out;
+  QString callout;  // the kind of the callout the quote being read opened
   const QStringList lines = text.split(QLatin1Char('\n'));
   QVector<int> starts(lines.size());
   int at = 0;
@@ -556,6 +560,17 @@ QVariantList MdHighlighter::decorations(const QString& text, const QVariantMap& 
                              {"at", starts.at(i) + span.start},
                              {"html", math.html}});
     }
+    if(const auto q = quoteRx().match(line); !q.hasMatch() || q.capturedLength() == 0) {
+      callout.clear();
+    }
+    for(const TicketSpan& span : footnoteSpans(line)) {
+      out.append(QVariantMap{{"kind", "footnote"},
+                             {"start", starts.at(i)},
+                             {"end", lineEnd(i)},
+                             {"at", starts.at(i) + span.start},
+                             {"length", span.length},
+                             {"label", span.title}});
+    }
     for(const TicketSpan& span : ticketSpans(line, ticketTitles)) {
       out.append(QVariantMap{{"kind", "ticket"},
                              {"start", starts.at(i)},
@@ -566,10 +581,17 @@ QVariantList MdHighlighter::decorations(const QString& text, const QVariantMap& 
                              {"label", span.title}});
     }
     if(const auto q = quoteRx().match(line); q.hasMatch() && q.capturedLength() > 0) {
+      // A callout runs from its "[!kind]" line to the end of the quote.
+      const auto head = calloutRx().match(line);
+      if(head.hasMatch()) {
+        callout = head.captured(2).toLower();
+      }
       out.append(QVariantMap{{"kind", "quote"},
                              {"start", starts.at(i)},
                              {"end", lineEnd(i)},
-                             {"depth", static_cast<int>(q.captured(0).count(QLatin1Char('>')))}});
+                             {"depth", static_cast<int>(q.captured(0).count(QLatin1Char('>')))},
+                             {"callout", callout},
+                             {"head", head.hasMatch()}});
     } else if(const auto m = listMarkerRx().match(line); m.hasMatch() && !m.captured(2).at(0).isDigit()) {
       if(!m.captured(4).isEmpty()) {
         out.append(QVariantMap{{"kind", "task"},
@@ -638,6 +660,9 @@ QList<MdHighlighter::MathSpan> MdHighlighter::mathSpans(const QString& line) {
 
 namespace {
 
+// A footnote number's size against the text's (the overlay draws it so).
+constexpr qreal kFootnoteScale = 0.7;
+
 // `code` spans of a line, as [start, end) pairs: nothing in them is markup.
 QList<QPair<qsizetype, qsizetype>> codeRanges(const QString& line) {
   static const QRegularExpression codeRx(QStringLiteral("`[^`\\n]+`"));
@@ -656,6 +681,21 @@ bool within(const QList<QPair<qsizetype, qsizetype>>& ranges, qsizetype at) {
 }
 
 }  // namespace
+
+QList<MdHighlighter::TicketSpan> MdHighlighter::footnoteSpans(const QString& line) {
+  QList<TicketSpan> out;
+  // A reference, not the definition at the start of its own line.
+  static const QRegularExpression rx(QStringLiteral("\\[\\^([^\\]\\s]+)\\](?!:)"));
+  const auto code = codeRanges(line);
+  for(auto it = rx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    if(within(code, m.capturedStart())) {
+      continue;
+    }
+    out.append({static_cast<int>(m.capturedStart()), static_cast<int>(m.capturedLength()), m.captured(1), m.captured(1)});
+  }
+  return out;
+}
 
 QList<MdHighlighter::TicketSpan> MdHighlighter::ticketSpans(const QString& line, const QVariantMap& ticketTitles) {
   QList<TicketSpan> out;
@@ -786,6 +826,17 @@ void MdHighlighter::hideDrawn(const QString& text) {
     measure.setHtml(math.html);
     ghostTo(span.start, span.length, measure.idealWidth());
   }
+  // A footnote's number is drawn small and raised over its "[^1]".
+  QFont small = document()->defaultFont();
+  if(small.pixelSize() > 0) {
+    small.setPixelSize(std::max(1, static_cast<int>(std::round(small.pixelSize() * kFootnoteScale))));
+  } else {
+    small.setPointSizeF(small.pointSizeF() * kFootnoteScale);
+  }
+  const QFontMetricsF smallMetrics(small);
+  for(const TicketSpan& span : footnoteSpans(text)) {
+    ghostTo(span.start, span.length, smallMetrics.horizontalAdvance(span.title) + 2);
+  }
   // A known task's title is drawn over its id.
   const QFontMetricsF metrics(document()->defaultFont());
   for(const TicketSpan& span : ticketSpans(text, m_ticketTitles)) {
@@ -826,6 +877,9 @@ void MdHighlighter::rebuildFormats() {
   }
   m_codeFence = m_code;
   m_codeFence.setForeground(dim);
+  // `code` in a line and <kbd>: the theme's accent, when one is given.
+  m_codeInline = m_code;
+  m_codeInline.setForeground(colorAt(m_palette, "inlineCode", codeColor));
 
   m_quote.setForeground(dim);
   m_quote.setFontItalic(true);
@@ -865,9 +919,6 @@ void MdHighlighter::rebuildFormats() {
   m_codeComment.setFontItalic(true);
   m_codeNumber = m_code;
   m_codeNumber.setForeground(colorAt(m_palette, "number", QColor(0xD8, 0xC2, 0x77)));
-  m_footnote = QTextCharFormat();
-  m_footnote.setForeground(accent);
-  m_footnote.setVerticalAlignment(QTextCharFormat::AlignSuperScript);
 
   // Collapsed: a one-pixel, 1%-wide glyph in no colour. A fresh format, not
   // a merge: a heading's size adjustment kept "## " a heading's width.
@@ -1071,8 +1122,8 @@ void MdHighlighter::highlightInline(const QString& text) {
       {&ticketRx, &m_ticket, 0},
       {&tagRx, &m_tag, 0},
       {&mentionRx, &m_mention, 0},
-      {&footnoteRx, &m_footnote, 0},
-      {&kbdRx, &m_code, 1},
+      {&footnoteRx, &m_wiki, 0},
+      {&kbdRx, &m_codeInline, 1},
   };
 
   for(const Rule& rule : rules) {
@@ -1092,7 +1143,7 @@ void MdHighlighter::highlightInline(const QString& text) {
   auto it = codeRx.globalMatch(text);
   while(it.hasNext()) {
     const auto match = it.next();
-    setFormat(static_cast<int>(match.capturedStart()), static_cast<int>(match.capturedLength()), m_code);
+    setFormat(static_cast<int>(match.capturedStart()), static_cast<int>(match.capturedLength()), m_codeInline);
   }
 }
 
@@ -1171,6 +1222,33 @@ void MdHighlighter::highlightBlock(const QString& text) {
   setCurrentBlockUserData(nullptr);
   setCurrentBlockState(Normal);
 
+  // Indented code: four spaces (or a tab) after a blank line or more such
+  // code, and not under a list item, where the indent continues the item.
+  // Set in the code's face, as decorations() draws its box.
+  static const QRegularExpression indentedRx(QStringLiteral("^(?: {4}|\\t)\\S"));
+  if(indentedRx.match(text).hasMatch()) {
+    bool code = previous == InIndentedCode;
+    if(!code && currentBlock().previous().isValid() && currentBlock().previous().text().trimmed().isEmpty()) {
+      code = true;
+      for(QTextBlock b = currentBlock().previous(); b.isValid(); b = b.previous()) {
+        if(!b.text().trimmed().isEmpty()) {
+          code = !listMarkerRx().match(b.text()).hasMatch() && !indentedRx.match(b.text()).hasMatch();
+          break;
+        }
+      }
+    }
+    if(code) {
+      setFormat(0, length, m_code);
+      setCurrentBlockState(InIndentedCode);
+      return;
+    }
+  }
+  // A blank line inside indented code keeps it open for the next line.
+  if(previous == InIndentedCode && text.trimmed().isEmpty()) {
+    setCurrentBlockState(InIndentedCode);
+    return;
+  }
+
   // ── Line-level structure ────────────────────────────────────────
   const auto heading = atxHeadingRx().match(text);
   if(heading.hasMatch()) {
@@ -1210,14 +1288,45 @@ void MdHighlighter::highlightBlock(const QString& text) {
     setFormat(0, length, m_table);
     highlightInline(text);
     if(hides()) {
-      ghost(0, length);  // the grid is drawn over it
+      // The grid is drawn over it. A row's line is made taller (a big, narrow
+      // invisible face) so the cells have room; the |---| line under the
+      // header all but goes, being part of the header's box.
+      static const QRegularExpression separatorRx(QStringLiteral("^\\s*\\|?(\\s*:?-+:?\\s*\\|)+\\s*(:?-+:?)?\\s*$"));
+      const QFont base = document() != nullptr ? document()->defaultFont() : QFont();
+      const int px = base.pixelSize() > 0 ? base.pixelSize() : QFontInfo(base).pixelSize();
+      QTextCharFormat f = m_ghost;
+      f.setProperty(QTextFormat::FontPixelSize, separatorRx.match(text).hasMatch() ? 2 : static_cast<int>(std::round(px * 1.55)));
+      f.setFontStretch(1);
+      setFormat(0, length, f);
     }
     return;
   }
 
   const auto quote = quoteRx().match(text);
   if(quote.hasMatch() && quote.capturedLength() > 0) {
-    setFormat(0, length, m_quote);
+    // A callout ("> [!note] Title" and the quote under it) reads as a box of
+    // plain text with a bold title, not as a quotation.
+    const auto head = calloutRx().match(text);
+    bool inCallout = head.hasMatch();
+    for(QTextBlock b = currentBlock().previous(); !inCallout && b.isValid(); b = b.previous()) {
+      const auto q = quoteRx().match(b.text());
+      if(!q.hasMatch() || q.capturedLength() == 0) {
+        break;
+      }
+      inCallout = calloutRx().match(b.text()).hasMatch();
+    }
+    if(inCallout) {
+      QTextCharFormat body;
+      body.setForeground(colorAt(m_palette, "text", QColor(0xE6, 0xE6, 0xE6)));
+      setFormat(0, length, body);
+      if(head.hasMatch()) {
+        QTextCharFormat title = body;
+        title.setFontWeight(QFont::DemiBold);
+        setFormat(static_cast<int>(head.capturedEnd()), length - static_cast<int>(head.capturedEnd()), title);
+      }
+    } else {
+      setFormat(0, length, m_quote);
+    }
     setFormat(0, static_cast<int>(quote.capturedLength()), m_marker);
     highlightInline(text);
     if(hides()) {

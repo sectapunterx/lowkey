@@ -367,7 +367,7 @@ Rectangle {
     }
     readonly property string _excerpt: MdPlain.plain(card._excerptLine, 160).trim()
     readonly property string _excerptHtml: card._excerpt.length > 0
-        ? MdPlain.inlineHtml(card._excerptLine, 160, { code: Theme.code, link: Theme.accent, mono: Theme.fontMono }) : ""
+        ? MdPlain.inlineHtml(card._excerptLine, 160, { code: Theme.accent, link: Theme.accent, mono: Theme.fontMono }) : ""
     readonly property var _cl: (card.task && card.task.checklist) ? card.task.checklist : ({})
     readonly property bool _timing: !!(card.task && card.task.isTiming)
     readonly property int _tracked: card.task ? (card.task.trackedSeconds || 0) : 0

@@ -68,9 +68,11 @@ Item {
             id: deco
             required property var modelData
             // Code: the box under the text, its language and Copy over it.
-            active: root._shown(modelData) && (!root.under || modelData.kind === "code")
+            active: root._shown(modelData) && (!root.under || modelData.kind === "code"
+                                               || (modelData.kind === "quote" && String(modelData.callout || "").length > 0))
             sourceComponent: {
                 if (deco.modelData.kind === "code" && !root.under) return codeHeader;
+                if (deco.modelData.kind === "quote" && root.under) return calloutBg;
                 switch (deco.modelData.kind) {
                 case "bullet": return bullet;
                 case "task": return task;
@@ -80,6 +82,7 @@ Item {
                 case "table": return table;
                 case "math": return deco.modelData.display ? mathBlock : mathInline;
                 case "ticket": return ticketRef;
+                case "footnote": return footnoteRef;
                 }
                 return null;
             }
@@ -140,7 +143,20 @@ Item {
                     width: Theme.px(3)
                     height: root._rect(deco.modelData.end).y + r.height - r.y
                     radius: width / 2
-                    color: Theme.border
+                    color: String(deco.modelData.callout || "").length > 0 ? root.calloutColor(deco.modelData.callout) : Theme.border
+                }
+            }
+            // A callout's tint, under its lines ("> [!note]" and the quote under it).
+            Component {
+                id: calloutBg
+                Rectangle {
+                    objectName: "md-live-callout"
+                    readonly property rect r: root._rect(deco.modelData.start)
+                    x: -Theme.spSm
+                    y: r.y
+                    width: root.width + 2 * Theme.spSm
+                    height: root._rect(deco.modelData.end).y + r.height - r.y
+                    color: Theme.withAlpha(root.calloutColor(deco.modelData.callout), 0.08)
                 }
             }
             // A formula (MdMath, APP-312) over its hidden source, which the
@@ -158,6 +174,21 @@ Item {
                     text: deco.modelData.html
                     color: Theme.math
                     font: root.editor.font
+                }
+            }
+            // A footnote's number, small and raised, over its hidden "[^1]".
+            Component {
+                id: footnoteRef
+                Text {
+                    objectName: "md-live-footnote"
+                    readonly property rect r: root._rect(deco.modelData.at)
+                    x: r.x + 1
+                    y: r.y
+                    text: deco.modelData.label
+                    textFormat: Text.PlainText
+                    color: Theme.accent
+                    font.family: root.editor.font.family
+                    font.pixelSize: Math.max(1, Math.round(root.editor.font.pixelSize * 0.7))
                 }
             }
             // A known task's title over its "#jira-APP-1" (hidden, as wide as
@@ -293,7 +324,7 @@ Item {
                         for (const row of grid.rows) {
                             if (row.separator) continue;
                             for (let c = 0; c < row.cells.length; c++)
-                                w[c] = Math.max(w[c] || 0, (row.header ? fmHead : fm).advanceWidth(root.plain(row.cells[c])) + 2 * Theme.spMd + 2);
+                                w[c] = Math.max(w[c] || 0, (row.header ? fmHead : fm).advanceWidth(root.plain(row.cells[c])) + 2 * Theme.spLg + 2);
                         }
                         return w;
                     }
@@ -330,8 +361,8 @@ Item {
                                         border.color: Theme.border
                                         Text {
                                             anchors.fill: parent
-                                            anchors.leftMargin: Theme.spMd
-                                            anchors.rightMargin: Theme.spMd
+                                            anchors.leftMargin: Theme.spLg
+                                            anchors.rightMargin: Theme.spLg
                                             verticalAlignment: Text.AlignVCenter
                                             horizontalAlignment: grid.align[parent.index] === "r" ? Text.AlignRight
                                                                : grid.align[parent.index] === "c" ? Text.AlignHCenter : Text.AlignLeft
@@ -360,6 +391,17 @@ Item {
         root.editor.insert(p, checked ? " " : "x");
         root.editor.cursorPosition = c;
         root.editor.forceActiveFocus();
+    }
+
+    // A callout's colour by its kind, as MdView draws it: the priority and
+    // status colours the app already speaks; anything else the accent.
+    function calloutColor(kind: string): color {
+        switch (String(kind).toLowerCase()) {
+        case "warning": case "caution": case "attention": return Theme.warning;
+        case "danger": case "error": case "bug": return Theme.danger;
+        case "tip": case "success": case "done": case "check": return Theme.success;
+        default: return Theme.accent;
+        }
     }
 
     // A cell's text without its inline markup.

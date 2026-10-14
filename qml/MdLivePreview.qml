@@ -141,6 +141,8 @@ Item {
             dim:           Theme.textMuted,
             accent:        Theme.accent,
             code:          Theme.code,
+            // code in a line and <kbd>: the theme's own colour.
+            inlineCode:    Theme.accent,
             codeBg:        Theme.codeBg,
             mention:       Theme.mention,
             ticket:        Theme.ticket,
