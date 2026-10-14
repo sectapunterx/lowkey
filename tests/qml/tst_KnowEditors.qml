@@ -24,6 +24,12 @@ TestCase {
 
     // Ctrl+Z past a block's history is the app's undo: with the deletes of
     // an earlier cleanup still on it, it brought those notes back.
+    function initTestCase() {
+        // These cases drive the in-place block editor ("live"); notes open
+        // split since 0.9.2, so ask for it.
+        AppController.appSettingsJson = JSON.stringify(Object.assign({}, JSON.parse(AppController.appSettingsJson || "{}"),
+                                                                     { notes: { view: "live" } }));
+    }
     function init() { AppController.clearPendingUndo(); }
     function cleanup() {
         for (let i = 0; i < tc.seeded.length; i++) AppController.deleteNote(tc.seeded[i]);

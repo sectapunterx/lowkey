@@ -17,6 +17,10 @@ TestCase {
 
     property string _docs: ""
     function initTestCase() {
+        // These cases drive the in-place block editor ("live"); notes open
+        // split since 0.9.2, so ask for it.
+        AppController.appSettingsJson = JSON.stringify(Object.assign({}, JSON.parse(AppController.appSettingsJson || "{}"),
+                                                                     { notes: { view: "live" } }));
         _docs = AppController.docsState;
         AppController.docsState = JSON.stringify({
             sections: [{ id: "s", title: "Ref", items: [{ ref: "RFC 9110", title: "HTTP Semantics", url: "https://www.rfc-editor.org/rfc/rfc9110", pinned: true }] }],

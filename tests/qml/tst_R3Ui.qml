@@ -18,6 +18,10 @@ TestCase {
     property var seeded: []
 
     function initTestCase() {
+        // These cases drive the in-place block editor ("live"); notes open
+        // split since 0.9.2, so ask for it.
+        AppController.appSettingsJson = JSON.stringify(Object.assign({}, JSON.parse(AppController.appSettingsJson || "{}"),
+                                                                     { notes: { view: "live" } }));
         const comp = Qt.createComponent("qrc:/qt/qml/TodoCpp/qml/Main.qml");
         tryCompare(comp, "status", Component.Ready, 5000);
         verify(comp.status === Component.Ready, comp.errorString());

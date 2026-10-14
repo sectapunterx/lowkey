@@ -12,22 +12,26 @@ import "Mention.js" as Mention
 Item {
     id: root
 
-    // ── Mode: "live" | "edit" (APP-269) ─────────────────────────────
-    // Knowledge has no Text / Split / Preview: the note is drawn and the
-    // block under the caret is edited in place ("live"). The whole source
-    // ("edit") is the fallback for big edits, Ctrl+Shift+M or the Source
-    // switch. Stored as settings.notes.mode; the 0.7 viewMode is not read,
-    // so everyone starts in live.
-    property string viewMode: "live"
+    // ── Mode: "split" | "edit" | "live" ─────────────────────────────
+    // A note is its source on the left and the drawn note beside it
+    // ("split"); Ctrl+Shift+M gives the source alone ("edit") and back. The
+    // in-place block editor ("live", APP-269) lost clicks on tables, put the
+    // caret at a block's end and could not select or edit past a block, so it
+    // is no longer where a note opens (0.9.2). Stored as settings.notes.view;
+    // the old settings.notes.mode is read only for "source", so a "live"
+    // stored by 0.9.1 does not keep anyone in it.
+    property string viewMode: "split"
 
     function _readViewMode() {
         const raw = AppController.appSettingsJson || "";
-        if (!raw.length) return "live";
+        if (!raw.length) return "split";
         try {
             const s = JSON.parse(raw);
-            if (s && s.notes && s.notes.mode === "source") return "edit";
+            const n = (s && s.notes) || {};
+            if (n.view === "edit" || n.view === "split" || n.view === "live") return n.view;
+            if (n.mode === "source") return "edit";
         } catch (e) {}
-        return "live";
+        return "split";
     }
     function _writeViewMode(mode) {
         const raw = AppController.appSettingsJson || "";
@@ -35,7 +39,7 @@ Item {
         if (raw.length) {
             try { s = JSON.parse(raw); } catch (e) { s = {}; }
         }
-        s.notes = Object.assign({}, s.notes || {}, { mode: mode === "edit" ? "source" : "live" });
+        s.notes = Object.assign({}, s.notes || {}, { view: mode });
         AppController.appSettingsJson = JSON.stringify(s);
     }
     onViewModeChanged: if (_loadedOnce) _writeViewMode(viewMode)
@@ -1084,7 +1088,10 @@ Item {
                 // Editor pane — visible in edit + split modes.
                 Flickable {
                     id: notesScroll
-                    visible: root.viewMode === "edit" && root._noteShown
+                    visible: (root.viewMode === "edit" || root.viewMode === "split") && root._noteShown
+                    // Halves of equal weight in split: one fill alone took
+                    // the whole row and left the other at zero.
+                    Layout.preferredWidth: 1
                     // Scroll sync: the editor leads while the reader scrolls it.
                     onContentYChanged: if (root.viewMode === "split") root._syncFrom("editor")
                     Layout.fillWidth: true
@@ -1209,8 +1216,9 @@ Item {
                 }
                 // Vertical divider — only in split mode.
                 Rectangle {
-                    visible: root.viewMode === "split"
+                    visible: root.viewMode === "split" && root._noteShown
                     Layout.preferredWidth: 1
+                    Layout.maximumWidth: 1
                     Layout.fillHeight: true
                     color: Theme.border
                 }
@@ -1224,9 +1232,11 @@ Item {
                 MdView {
                     id: preview
                     objectName: "notesPreview"
-                    // Kept for its link handling (openExternal); the live view
-                    // draws the note now.
-                    visible: false
+                    // The drawn note beside the source (split). Text in it can
+                    // be selected and copied; a double-click puts the caret on
+                    // the source line it came from.
+                    visible: root.viewMode === "split" && root._noteShown
+                    Layout.preferredWidth: 1
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     document: mdDocument
@@ -1384,7 +1394,8 @@ Item {
                     objectName: "knowledge-page"
                     visible: root.pageId.length > 0
                     bare: true
-                    mode: "live"
+                    // A doc page as a note: source and drawn page side by side.
+                    mode: root.viewMode === "edit" ? "edit" : root.viewMode === "live" ? "live" : "split"
                     pageId: root.pageId
                     Layout.fillWidth: true
                     Layout.fillHeight: true
@@ -1590,7 +1601,7 @@ Item {
         context: Qt.WindowShortcut
         enabled: root.visible
         onActivated: {
-            root.viewMode = root.viewMode === "edit" ? "live" : "edit";
+            root.viewMode = root.viewMode === "edit" ? "split" : "edit";
         }
     }
 
