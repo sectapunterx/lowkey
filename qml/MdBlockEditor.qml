@@ -243,7 +243,7 @@ Item {
     }
     // Open the block that holds `line` for editing; the caret at its end, or
     // at its start with `atStart`.
-    function editLine(line, atStart) {
+    function editLine(line, atStart, hit) {
         if (root.readOnly || !root.visible) return;
         root._commit();
         const t = src.text;
@@ -268,12 +268,108 @@ Item {
         root._fieldLoading = true;
         field.text = t.substring(root._lineStart(t, first), root._lineEnd(t, lastLine));
         root._fieldLoading = false;
-        if (root.wholeDocument)
+        // The caret where the click was, not at the end of the block.
+        const off = hit ? root._offsetFor(hit, field.text) : -1;
+        if (off >= 0)
+            field.cursorPosition = Math.min(off, field.length);
+        else if (root.wholeDocument)
             field.cursorPosition = atStart ? root._lineStart(t, line) : root._lineEnd(t, line);
         else
             field.cursorPosition = atStart ? 0 : field.length;
         field.forceActiveFocus();
         Qt.callLater(root._reveal);
+    }
+    // Where a click on the drawn text lands in the block's source: the
+    // drawn text around the click, found once in the source; else the drawn
+    // text up to the click walked through the source (the markup it skips is
+    // what the drawing left out). -1 when there is no click to go by.
+    function _offsetFor(hit: var, t: string): int {
+        if (!hit || typeof hit.plain !== "string" || hit.pos < 0) return -1;
+        // A table cell: its row and column in the source, then the place in
+        // the cell — "1" is in many cells, so the text alone cannot say which.
+        if (hit.cell >= 0 && hit.columns > 0) {
+            const lines = t.split("\n");
+            const row = Math.floor(hit.cell / hit.columns);
+            const col = hit.cell % hit.columns;
+            const li = row === 0 ? 0 : row + 1;   // under the header, the |---| line
+            if (li < lines.length) {
+                const line = lines[li];
+                let at = 0;
+                for (let i = 0; i < li; i++) at += lines[i].length + 1;
+                // Cells are what the unescaped pipes part; a leading pipe opens none.
+                const bars = [];
+                for (let i = 0; i < line.length; i++)
+                    if (line.charAt(i) === "|" && (i === 0 || line.charAt(i - 1) !== "\\")) bars.push(i);
+                const lead = /^\s*\|/.test(line) ? 1 : 0;
+                const from = col + lead - 1 >= 0 && col + lead - 1 < bars.length ? bars[col + lead - 1] + 1 : 0;
+                const to = col + lead < bars.length ? bars[col + lead] : line.length;
+                const cell = line.substring(from, to);
+                const pad = cell.length - cell.replace(/^\s+/, "").length;
+                return at + from + Math.min(pad + hit.pos, Math.max(pad, cell.replace(/\s+$/, "").length));
+            }
+        }
+        const plain = hit.plain.replace(/[\u2028\u2029]/g, "\n");
+        const pos = Math.min(hit.pos, plain.length);
+        // The drawn text around the click, found once in the source: the
+        // longest piece first, down to two characters either side of it.
+        for (let k = Math.min(pos, 24); k >= 0; k = k > 3 ? Math.floor(k / 2) : k - 1) {
+            for (let m = Math.min(plain.length - pos, 16); m >= 0; m = m > 3 ? Math.floor(m / 2) : m - 1) {
+                if (k + m < 2) continue;
+                const frag = plain.substring(pos - k, pos + m);
+                const at = t.indexOf(frag);
+                if (at >= 0 && t.indexOf(frag, at + 1) < 0) return at + k;
+            }
+        }
+        // Not once anywhere: the drawn text up to the click walked through
+        // the source (the markup it skips is what the drawing left out).
+        let j = 0;
+        for (let i = 0; i < pos && j < t.length; i++) {
+            const n = t.indexOf(plain.charAt(i), j);
+            if (n >= 0 && n - j < 200) j = n + 1;
+        }
+        return j;
+    }
+    // The open block grown to lines first..last, the selection kept on the
+    // same source text (offsets into the whole source): Shift+click,
+    // Shift+Up/Down at its edge and a second Ctrl+A select across blocks,
+    // which one block at a time never could (nothing past a block could be
+    // selected or copied).
+    function _extendTo(first: int, last: int, selFrom: int, selTo: int) {
+        if (!root.editing) return;
+        root._commit();
+        const t = src.text;
+        first = Math.max(0, Math.min(first, view.editFirst));
+        last = Math.min(root._lineCount(t) - 1, Math.max(last, view.editLast));
+        while (last > first && t.substring(root._lineStart(t, last), root._lineEnd(t, last)).trim().length === 0) last--;
+        const s0 = root._lineStart(t, first);
+        view.editRow = root._rowFor(t, first);
+        view.editFirst = first;
+        view.editLast = last;
+        root._fieldLoading = true;
+        field.text = t.substring(s0, root._lineEnd(t, last));
+        root._fieldLoading = false;
+        const a = Math.max(0, Math.min(field.length, selFrom - s0));
+        const b = Math.max(0, Math.min(field.length, selTo - s0));
+        // select(start, end) puts the caret at `end`: the side being moved.
+        if (a === b) field.cursorPosition = a;
+        else field.select(a, b);
+        field.forceActiveFocus();
+    }
+    // A Shift+click on another row: the open block grows to it, selected
+    // from where the caret was to the click.
+    function extendToRow(row: int, hit: var): bool {
+        if (!root.editing || row < 0) return false;
+        // The row came from the drawn rows; the open block's edits are in by
+        // now only if they were taken in (the timer may still be running).
+        root._commit();
+        const t = src.text;
+        const first = doc.firstLineOfRow(row), last = doc.lastLineOfRow(row);
+        const anchor = root._lineStart(t, view.editFirst) + field.cursorPosition;
+        const rowText = t.substring(root._lineStart(t, first), root._lineEnd(t, last));
+        const off = root._offsetFor(hit, rowText);
+        const target = root._lineStart(t, first) + (off >= 0 ? off : (first < view.editFirst ? 0 : rowText.length));
+        root._extendTo(first, last, anchor, target);
+        return true;
     }
     function editRowAt(row, atStart) {
         if (row < 0 || row >= view.count) return false;
@@ -395,7 +491,10 @@ Item {
         editorDocument: src.textDocument
         clickToEdit: !root.readOnly
         editHeight: field.implicitHeight
-        onRowClicked: (row, line) => root.editLine(line, false)
+        onRowClicked: (row, line, hit, extend) => {
+            if (extend && root.extendToRow(row, hit)) return;
+            root.editLine(line, false, hit);
+        }
         onSourceRequested: (line) => root.editLine(line, false)
         onInternalLinkActivated: (kind, target) => root.internalLinkActivated(kind, target)
 
@@ -458,19 +557,25 @@ Item {
             parent: root
             z: 2
             visible: root.editing
-            readonly property Item _host: view.editRow >= 0 ? view.itemAtIndex(view.editRow) : null
+            // The row that holds the block's place, as it reports itself.
+            readonly property Item _host: view.editRow >= 0 && view.editHostRow === view.editRow ? view.editHostItem : null
             // The whole document opens at its top; the host row can be
             // missing while the rows are rebuilt, and the field fell to the end.
             readonly property real _contentY: root.wholeDocument ? 0 : _host ? _host.y : (view.count > 0 && view.itemAtIndex(view.count - 1)
                                   ? view.itemAtIndex(view.count - 1).y + view.itemAtIndex(view.count - 1).height : 0)
-            x: view.x + view.sideMargin - leftPadding
+            // One block open: the field sits where that block is drawn, at its
+            // quote and list depth, in its own face — a nested item opened at
+            // the left edge, code in the UI font. Several blocks: the column.
+            readonly property bool _single: !root.wholeDocument && _host !== null && view.editLast <= doc.lastLineOfRow(view.editRow)
+            readonly property real _indentX: _single ? view.editHostIndent : 0
+            x: view.x + view.sideMargin - leftPadding + _indentX
             y: view.y + view.contentItem.y + _contentY
-            width: (root.noteType ? Math.min(view.width - 2 * view.sideMargin, Theme.px(680)) : view.width - 2 * view.sideMargin) + leftPadding + rightPadding
+            width: (root.noteType ? Math.min(view.width - 2 * view.sideMargin, Theme.px(680)) : view.width - 2 * view.sideMargin) + leftPadding + rightPadding - _indentX
             wrapMode: TextEdit.Wrap
             selectByMouse: true
             textFormat: TextEdit.PlainText
             color: Theme.text
-            font.family: Theme.fontUi
+            font.family: _single && view.editHostCode ? Theme.fontMono : Theme.fontUi
             // One editor, no modes (N/X-Oth-Knowledge, R3-092): the source
             // is typed where the block was drawn, in the block's own face,
             // with no box around it.
@@ -554,6 +659,81 @@ Item {
                     root._holdView();
                     event.accepted = true;
                     return;
+                }
+                // Backspace at a block's start / Delete at its end goes on into
+                // the block next to it, as in any text: the line break between
+                // them was out of reach, so two paragraphs could not be joined
+                // and nothing could be edited past the block's edge.
+                if (mods === Qt.NoModifier && field.selectionStart === field.selectionEnd && !root.wholeDocument
+                        && ((event.key === Qt.Key_Backspace && field.cursorPosition === 0)
+                            || (event.key === Qt.Key_Delete && field.cursorPosition === field.length))) {
+                    // The rows are read from the source: the block's edits in
+                    // first, or the lines below it are counted from the old text.
+                    root._commit();
+                    const t = src.text;
+                    if (event.key === Qt.Key_Backspace && field.cursorPosition === 0 && view.editFirst > 0) {
+                        let line = view.editFirst - 1;
+                        while (line > 0 && t.substring(root._lineStart(t, line), root._lineEnd(t, line)).trim().length === 0) line--;
+                        const row = doc.rowForLine(line);
+                        const at = root._lineStart(t, view.editFirst);
+                        root._extendTo(row >= 0 ? doc.firstLineOfRow(row) : line, view.editLast, at, at);
+                        const c = field.cursorPosition;
+                        if (c > 0) field.remove(c - 1, c);
+                        event.accepted = true;
+                        return;
+                    }
+                    const total = root._lineCount(t);
+                    if (event.key === Qt.Key_Delete && field.cursorPosition === field.length && view.editLast < total - 1) {
+                        let line = view.editLast + 1;
+                        while (line < total - 1 && t.substring(root._lineStart(t, line), root._lineEnd(t, line)).trim().length === 0) line++;
+                        const row = doc.rowForLine(line);
+                        const at = root._lineEnd(t, view.editLast);
+                        root._extendTo(view.editFirst, row >= 0 ? doc.lastLineOfRow(row) : line, at, at);
+                        const c = field.cursorPosition;
+                        if (c < field.length) field.remove(c, c + 1);
+                        event.accepted = true;
+                        return;
+                    }
+                }
+                // Ctrl+A on a block already all selected: the whole document.
+                if (event.matches(StandardKey.SelectAll) && !root.wholeDocument && field.length > 0
+                        && field.selectionStart === 0 && field.selectionEnd === field.length) {
+                    const all = root._lineCount(src.text) - 1;
+                    if (view.editFirst > 0 || view.editLast < all) {
+                        root._extendTo(0, all, 0, src.text.length);
+                        event.accepted = true;
+                        return;
+                    }
+                }
+                // Shift+Up on the first line / Shift+Down on the last: the
+                // selection runs on into the block next to it.
+                if ((event.key === Qt.Key_Up || event.key === Qt.Key_Down) && mods === Qt.ShiftModifier) {
+                    const caret = field.cursorPosition;
+                    const edge = event.key === Qt.Key_Up ? field.text.lastIndexOf("\n", caret - 1) < 0
+                                                         : field.text.indexOf("\n", caret) < 0;
+                    if (edge) root._commit();
+                    const t = src.text;
+                    const base = root._lineStart(t, view.editFirst);
+                    const anchor = base + (caret === field.selectionStart ? field.selectionEnd : field.selectionStart);
+                    if (event.key === Qt.Key_Up && field.text.lastIndexOf("\n", caret - 1) < 0 && view.editFirst > 0) {
+                        let line = view.editFirst - 1;
+                        while (line > 0 && t.substring(root._lineStart(t, line), root._lineEnd(t, line)).trim().length === 0) line--;
+                        const row = doc.rowForLine(line);
+                        const first = row >= 0 ? doc.firstLineOfRow(row) : line;
+                        root._extendTo(first, view.editLast, anchor, root._lineStart(t, first));
+                        event.accepted = true;
+                        return;
+                    }
+                    const total = root._lineCount(t);
+                    if (event.key === Qt.Key_Down && field.text.indexOf("\n", caret) < 0 && view.editLast < total - 1) {
+                        let line = view.editLast + 1;
+                        while (line < total - 1 && t.substring(root._lineStart(t, line), root._lineEnd(t, line)).trim().length === 0) line++;
+                        const row = doc.rowForLine(line);
+                        const last = row >= 0 ? doc.lastLineOfRow(row) : line;
+                        root._extendTo(view.editFirst, last, anchor, root._lineEnd(t, last));
+                        event.accepted = true;
+                        return;
+                    }
                 }
                 const firstLine = field.text.lastIndexOf("\n", field.cursorPosition - 1) < 0;
                 const lastLine = field.text.indexOf("\n", field.cursorPosition) < 0;

@@ -41,7 +41,10 @@ ListView {
     // A single click asks for the row's source (the block editor); otherwise
     // only a double-click does.
     property bool clickToEdit: false
-    signal rowClicked(int row, int line)
+    // `hit` is where in the drawn text the click landed ({plain, pos}, or
+    // null), so the caret can go there; `extend` is a Shift+click, which
+    // widens the open block to this row (selecting across blocks).
+    signal rowClicked(int row, int line, var hit, bool extend)
 
     // Emitted when a row is activated (double-click, or Alt+click), with the
     // first source line it came from — the editor uses this to put the caret
@@ -55,6 +58,12 @@ ListView {
     signal internalLinkActivated(string kind, string target)
 
     model: document ? document.model : null
+    // The drawn row that holds the open block's place, as its delegate
+    // reports itself: its index, how far in it is drawn, whether it is code.
+    property Item editHostItem: null
+    property int editHostRow: -1
+    property real editHostIndent: 0
+    property bool editHostCode: false
     clip: true
     spacing: 0
     boundsBehavior: Flickable.StopAtBounds
@@ -115,6 +124,32 @@ ListView {
     function _unescape(s) {
         return String(s).replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
                         .replace(/&quot;/g, "\"").replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+    }
+    // The drawn text under a point and the character it is on: the caret
+    // went to the end of the block wherever the click was.
+    function _hitUnder(item, x, y) {
+        let it = item, px = x, py = y;
+        for (let d = 0; d < 32 && it; d++) {
+            if (typeof it.positionAt === "function" && typeof it.getText === "function")
+                return { plain: it.getText(0, it.length), pos: it.positionAt(px, py),
+                         cell: typeof it.mdCell === "number" ? it.mdCell : -1,
+                         columns: typeof it.mdColumns === "number" ? it.mdColumns : 0 };
+            const c = it.childAt(px, py);
+            if (!c) break;
+            const q = it.mapToItem(c, px, py);
+            it = c; px = q.x; py = q.y;
+        }
+        return null;
+    }
+    // A tap on a row, from the row itself or from a Flickable inside it (a
+    // table, a code block), which took the press from the row's handler: a
+    // click on a table opened nothing (notes bug 1).
+    function _rowTap(row, from, x, y, extend) {
+        if (!view.clickToEdit) return;
+        const at = from.mapToItem(row, x, y);
+        const link = extend ? "" : view._linkUnder(row, at.x, at.y);
+        if (link.length > 0) view._handleLink(link, row.model.firstLine);
+        else view.rowClicked(row.index, row.model.firstLine, view._hitUnder(row, at.x, at.y), extend);
     }
     function _plainOf(html) { return view._unescape(String(html).replace(/<[^>]*>/g, "")); }
     function _handleLink(link, line) {
@@ -183,6 +218,21 @@ ListView {
         readonly property bool _inEdit: view.editFirst >= 0 && rowItem.model.firstLine >= view.editFirst
                                         && rowItem.model.firstLine <= view.editLast
         readonly property bool _editHost: rowItem._inEdit && rowItem.index === view.editRow
+        // The row holding the open block's place says so itself: the field
+        // looked it up with itemAtIndex(), which tells no one when the rows
+        // are rebuilt (an edit joining or splitting blocks), kept a row that
+        // was gone and fell to the end of the note, out of sight.
+        function _claimHost() {
+            if (!rowItem._editHost) return;
+            view.editHostItem = rowItem;
+            view.editHostRow = rowItem.index;
+            view.editHostIndent = rowItem.model.quoteDepth * view.quoteStep + rowItem.model.indent * view.indentStep;
+            view.editHostCode = rowItem.model.rowType === view.tCode;
+        }
+        on_EditHostChanged: rowItem._claimHost()
+        onIndexChanged: if (view.editHostItem === rowItem) view.editHostRow = rowItem.index
+        Component.onCompleted: rowItem._claimHost()
+        Component.onDestruction: if (view.editHostItem === rowItem) { view.editHostItem = null; view.editHostRow = -1; }
         implicitHeight: rowItem._editHost ? view.editHeight
                       : rowItem._inEdit ? 0
                       : content.implicitHeight + content.anchors.topMargin + content.anchors.bottomMargin
@@ -263,13 +313,14 @@ ListView {
         // Double-click anywhere on a row jumps the editor to its source.
         TapHandler {
             acceptedButtons: Qt.LeftButton
-            onTapped: (point) => {
-                if (!view.clickToEdit) return;
-                const link = view._linkUnder(rowItem, point.position.x, point.position.y);
-                if (link.length > 0) view._handleLink(link, rowItem.model.firstLine);
-                else view.rowClicked(rowItem.index, rowItem.model.firstLine);
-            }
+            acceptedModifiers: Qt.NoModifier
+            onTapped: (point) => view._rowTap(rowItem, rowItem, point.position.x, point.position.y, false)
             onDoubleTapped: view.sourceRequested(rowItem.model.firstLine)
+        }
+        TapHandler {
+            acceptedButtons: Qt.LeftButton
+            acceptedModifiers: Qt.ShiftModifier
+            onTapped: (point) => view._rowTap(rowItem, rowItem, point.position.x, point.position.y, true)
         }
 
         // ── Row components ──────────────────────────────────────────────
@@ -447,9 +498,26 @@ ListView {
             id: headingRow
             ColumnLayout {
                 spacing: Theme.spXs
+                // A heading inside a list item ("1. ## Step") keeps the item's
+                // marker; "1. #", a heading with no words, drew nothing at all,
+                // and the item could not be seen or reached.
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spMd
+                    Text {
+                        objectName: "mdHeadingMarker"
+                        visible: rowItem.model.marker !== ""
+                        Layout.alignment: Qt.AlignTop
+                        text: rowItem.model.marker
+                        color: view.noteType ? Theme.text : Theme.textDim
+                        font.family: Theme.fontUi
+                        font.pixelSize: Theme.fsLg
+                    }
                 TextEdit {
                     objectName: "mdHeading"
                     Layout.fillWidth: true
+                    // An empty heading still holds a line, so a click finds it.
+                    Layout.minimumHeight: font.pixelSize
                     readOnly: true
                     enabled: !view.clickToEdit
                     selectByMouse: true
@@ -468,6 +536,7 @@ ListView {
                                     ? [Theme.fsNoteTitle, Theme.fsNoteHeading, Theme.fsLg, Theme.fsMd, Theme.fsMd, Theme.fsSm][Math.max(1, Math.min(rowItem.model.level, 6)) - 1]
                                     : [24, 20, 17, 15, 14, 13][Math.max(1, Math.min(rowItem.model.level, 6)) - 1]
                     onLinkActivated: (link) => view._handleLink(link, rowItem.model.firstLine)
+                }
                 }
                 // A rule under the top two levels, the way a document separates
                 // its major sections.
@@ -563,6 +632,14 @@ ListView {
                         clip: true
                         flickableDirection: Flickable.HorizontalFlick
                         boundsBehavior: Flickable.StopAtBounds
+                        TapHandler {
+                            acceptedModifiers: Qt.NoModifier
+                            onTapped: (point) => view._rowTap(rowItem, parent, point.position.x, point.position.y, false)
+                        }
+                        TapHandler {
+                            acceptedModifiers: Qt.ShiftModifier
+                            onTapped: (point) => view._rowTap(rowItem, parent, point.position.x, point.position.y, true)
+                        }
 
                         TextEdit {
                             id: codeText
@@ -600,6 +677,14 @@ ListView {
                 clip: true
                 flickableDirection: Flickable.HorizontalFlick
                 boundsBehavior: Flickable.StopAtBounds
+                TapHandler {
+                    acceptedModifiers: Qt.NoModifier
+                    onTapped: (point) => view._rowTap(rowItem, parent, point.position.x, point.position.y, false)
+                }
+                TapHandler {
+                    acceptedModifiers: Qt.ShiftModifier
+                    onTapped: (point) => view._rowTap(rowItem, parent, point.position.x, point.position.y, true)
+                }
 
                 GridLayout {
                     id: grid
@@ -624,6 +709,10 @@ ListView {
 
                             TextEdit {
                                 id: cellText
+                                // Which cell this is, for a click into the
+                                // table's source (row by row, pipe by pipe).
+                                readonly property int mdCell: parent.index
+                                readonly property int mdColumns: Math.max(1, rowItem.model.tableColumns)
                                 anchors.fill: parent
                                 anchors.margins: Theme.spSm
                                 readOnly: true

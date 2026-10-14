@@ -271,6 +271,20 @@ TEST(MdBlockModelTest, TextlessNestedBlockKeepsItsOwnLine) {
   EXPECT_EQ(doc.model().firstLineOfRow(doc.model().rowForLine(5)), 5);
 }
 
+TEST(MdBlockModelTest, TextlessNestedBlockSkipsAMathBlockAboveIt) {
+  // $$ math is a reserved region with no md4c block: "1. #" under it took
+  // the math's first line, and a click on the item opened "$$".
+  Doc doc(QStringLiteral("para\n\n$$\nE = mc^2\n$$\n\n1. #\n2. two\n"));
+  int itemRow = -1;
+  for(int row = 0; row < doc.rows(); ++row) {
+    if(doc.at(row, MdBlockModel::MarkerRole).toString() == QStringLiteral("1.")) {
+      itemRow = row;
+    }
+  }
+  ASSERT_GE(itemRow, 0);
+  EXPECT_EQ(doc.model().firstLineOfRow(itemRow), 6);
+}
+
 // ── The diff ────────────────────────────────────────────────────────
 
 TEST(MdBlockModelTest, EditingOneParagraphTouchesOnlyThatRow) {
