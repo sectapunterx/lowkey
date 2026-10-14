@@ -147,7 +147,8 @@ Item {
             mention:       Theme.mention,
             ticket:        Theme.ticket,
             tag:           Theme.tag,
-            math:          Theme.math,
+            // Formulas in the theme's own colour, as code is.
+            math:          Theme.accent,
             highlightBg:   Theme.highlightBg,
             keyword:       Theme.synKeyword,
             string:        Theme.synString,

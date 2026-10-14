@@ -172,7 +172,7 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                     textFormat: Text.RichText
                     text: deco.modelData.html
-                    color: Theme.math
+                    color: Theme.accent
                     font: root.editor.font
                 }
             }
@@ -234,7 +234,7 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         textFormat: Text.RichText
                         text: deco.modelData.html
-                        color: Theme.math
+                        color: Theme.accent
                         font: root.editor.font
                     }
                 }
