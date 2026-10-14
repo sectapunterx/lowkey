@@ -47,6 +47,10 @@ export function classifyAsset(asset: Asset): ClassifiedAsset | null {
 // offers only the files under the newest name the release has.
 const NAMES = ['tabless', 'lowkey', 'heap'];
 
+// The latest release also carries the feature build (tabless-v0.9.2-feature-<sha>-…), which the app
+// downloads for those who ask; the site offers only the release itself.
+const CHANNEL_BUILD = /-v?\d+\.\d+\.\d+-(?:feature|unstable)-/i;
+
 function prefixOf(name: string): string | undefined {
   return NAMES.find((n) => name.toLowerCase().startsWith(`${n}-`));
 }
@@ -55,6 +59,7 @@ export function assetsByOS(release: Release): Record<DesktopOS, ClassifiedAsset[
   const out: Record<DesktopOS, ClassifiedAsset[]> = { windows: [], macos: [], linux: [] };
   const newest = NAMES.find((n) => release.assets.some((a) => prefixOf(a.name) === n));
   for (const a of release.assets) {
+    if (CHANNEL_BUILD.test(a.name)) continue;
     const p = prefixOf(a.name);
     if (newest && p && p !== newest) continue;
     const c = classifyAsset(a);
