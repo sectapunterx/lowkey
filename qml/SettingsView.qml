@@ -1241,6 +1241,7 @@ Item {
                     hint: (Theme._appearance.uiScale === undefined && Theme.systemScale() > Theme.defaultScale
                           ? I18n.t("settings.appearance.scale.system")
                           : I18n.t("settings.appearance.scale.hint"))
+                          + " " + I18n.t("settings.appearance.scale.default").arg(Math.round(AppController.defaultUiScale(Theme.scaleSteps) * 100))
                           + " " + I18n.t("settings.appearance.scale.keys")
                               .arg(AppController.keyText(AppController.shortcutFor("zoom.in")))
                               .arg(AppController.keyText(AppController.shortcutFor("zoom.out")))
