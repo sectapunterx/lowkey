@@ -178,6 +178,48 @@ TEST(MdHighlighterLive, HidesTheDelimitersNotTheText) {
   EXPECT_EQ(hiddenOf(QStringLiteral("- ## Title")), QStringLiteral("## "));
   EXPECT_EQ(hiddenOf(QStringLiteral("#tag here")), QString()) << "a tag is not a heading";
   EXPECT_EQ(hiddenOf(QStringLiteral("see ![shot.png](shot.png)")), QStringLiteral("![|](shot.png)"));
+  EXPECT_EQ(hiddenOf(QStringLiteral("a footnote[^1] here")), QStringLiteral("[^|]")) << "drawn as a raised 1";
+  EXPECT_EQ(hiddenOf(QStringLiteral("[^1]: The body")), QStringLiteral("[^|]:"));
+  EXPECT_EQ(hiddenOf(QStringLiteral("press <kbd>Ctrl</kbd> now")), QStringLiteral("<kbd>|</kbd>"));
+}
+
+TEST(MdHighlighterLive, LinkAtSaysWhatAClickOpens) {
+  using heap::md::MdHighlighter;
+  const QVariantMap titles{{QStringLiteral("jira-TEL-1"), QStringLiteral("Fix it")}, {QStringLiteral("APP-2"), QStringLiteral("Two")}};
+  const QString line =
+      QStringLiteral("see [docs](https://x.test/a) and [[Note|alias]] and #jira-TEL-1 and #APP-2 and #tag, @ann[^1] `#jira-TEL-1`");
+  const auto at = [&](const QString& piece) {
+    return MdHighlighter::linkAt(line, static_cast<int>(line.indexOf(piece)) + 1, titles);
+  };
+  EXPECT_EQ(at(QStringLiteral("docs")), QStringLiteral("https://x.test/a"));
+  EXPECT_EQ(at(QStringLiteral("Note|")), QStringLiteral("heap://note/Note"));
+  EXPECT_EQ(at(QStringLiteral("#jira")), QStringLiteral("heap://task/jira-TEL-1"));
+  EXPECT_EQ(at(QStringLiteral("#APP")), QStringLiteral("heap://task/APP-2"));
+  EXPECT_EQ(at(QStringLiteral("#tag")), QStringLiteral("heap://tag/tag"));
+  EXPECT_EQ(at(QStringLiteral("@ann")), QStringLiteral("heap://person/ann"));
+  EXPECT_EQ(at(QStringLiteral("[^1]")), QStringLiteral("heap://fn/1"));
+  EXPECT_EQ(at(QStringLiteral("`#jira")), QString()) << "nothing in code is a link";
+  EXPECT_EQ(MdHighlighter::linkAt(QStringLiteral("go https://x.test now"), 6, {}), QStringLiteral("https://x.test"));
+  EXPECT_EQ(MdHighlighter::linkAt(QStringLiteral("plain words"), 3, {}), QString());
+}
+
+TEST(MdHighlighterLive, AKnownTaskIsDrawnAsItsTitle) {
+  using heap::md::MdHighlighter;
+  const QVariantMap titles{{QStringLiteral("jira-TEL-1"), QStringLiteral("Fix the  thing")}};
+  const auto spans = MdHighlighter::ticketSpans(QStringLiteral("ref #jira-TEL-1, #other and `#jira-TEL-1`"), titles);
+  ASSERT_EQ(spans.size(), 1);
+  EXPECT_EQ(spans.at(0).start, 4);
+  EXPECT_EQ(spans.at(0).title, QStringLiteral("Fix the thing"));
+  int tickets = 0;
+  for(const QVariant& v : MdHighlighter::decorations(QStringLiteral("ref #jira-TEL-1\n"), titles)) {
+    const QVariantMap d = v.toMap();
+    if(d.value(QStringLiteral("kind")).toString() == QStringLiteral("ticket")) {
+      ++tickets;
+      EXPECT_EQ(d.value(QStringLiteral("at")).toInt(), 4);
+      EXPECT_EQ(d.value(QStringLiteral("label")).toString(), QStringLiteral("Fix the thing"));
+    }
+  }
+  EXPECT_EQ(tickets, 1);
 }
 
 TEST(MdHighlighterLive, TheCaretLineShowsItsSource) {

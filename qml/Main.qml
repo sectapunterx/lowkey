@@ -1440,6 +1440,9 @@ ApplicationWindow {
                         MouseArea {
                             anchors.fill: parent
                             enabled: panelScrim.shown
+                            // The view under it is not live: its cards lit up
+                            // and opened their details under the pointer.
+                            hoverEnabled: true
                             acceptedButtons: Qt.LeftButton | Qt.RightButton
                             onClicked: {
                                 if (eventEditor.opened) eventEditor.close();
@@ -1597,6 +1600,8 @@ ApplicationWindow {
         id: taskEditor
         objectName: "task-editor"
         onSeenBeforeActivated: (hit) => win.openSeenBefore(hit)
+        // Ctrl+click on a note, a task, a tag in the description.
+        onDescLinkActivated: (kind, target) => win.followMdLink(kind, target)
     }
     PeopleDialog {
         id: peopleDialog

@@ -1144,6 +1144,7 @@ Item {
                         id: livePreview
                         editor: editor
                         rich: root.viewMode === "rich"
+                        onInternalLinkActivated: (kind, target) => root._followLink(kind, target)
                     }
 
                     TextArea {

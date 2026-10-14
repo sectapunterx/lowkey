@@ -79,6 +79,7 @@ Item {
                 case "code": return code;
                 case "table": return table;
                 case "math": return deco.modelData.display ? mathBlock : mathInline;
+                case "ticket": return ticketRef;
                 }
                 return null;
             }
@@ -157,6 +158,31 @@ Item {
                     text: deco.modelData.html
                     color: Theme.math
                     font: root.editor.font
+                }
+            }
+            // A known task's title over its "#jira-APP-1" (hidden, as wide as
+            // the title), as the drawn note reads it. Ctrl+click opens it.
+            Component {
+                id: ticketRef
+                Text {
+                    objectName: "md-live-ticket"
+                    readonly property rect r: root._rect(deco.modelData.at)
+                    x: r.x
+                    y: r.y
+                    height: r.height
+                    verticalAlignment: Text.AlignVCenter
+                    text: deco.modelData.label
+                    textFormat: Text.PlainText
+                    color: Theme.ticket
+                    font: root.editor.font
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: Theme.px(3)
+                        height: 1
+                        color: Theme.ticket
+                    }
                 }
             }
             // $$ … $$: centred over its lines.

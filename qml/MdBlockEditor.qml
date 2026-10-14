@@ -861,6 +861,7 @@ Item {
             MdLivePreview {
                 editor: field
                 readOnly: root.readOnly
+                onInternalLinkActivated: (kind, target) => root.internalLinkActivated(kind, target)
             }
         }
     }

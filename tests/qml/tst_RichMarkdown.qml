@@ -111,6 +111,7 @@ TestCase {
         const field = findChild(tracker, "md-block-field");
         tryVerify(() => field.visible, 1000);
         verify(field.readOnly, "the tracker's text can be edited");
+        verify(findChild(doc, "task-doc-tracker-readonly").visible, "nothing says why it does not take typing");
         compare(field.text, "## Steps\n**bold** and `mono`\n- one");
         // Typing goes nowhere, and the stored text is the tracker's own.
         field.forceActiveFocus();
@@ -119,6 +120,31 @@ TestCase {
         // As it is, on the user's word.
         AppController.setTrackerWikiToMarkdown("jira", false);
         compare(AppController.trackerDescription(id), "h2. Steps\n*bold* and {{mono}}\n* one");
+        doc.close();
+    }
+
+    SignalSpy { id: linkSpy; signalName: "internalLinkActivated" }
+
+    // Ctrl+click opens what is under the pointer; a plain click puts the caret.
+    function test_ctrl_click_opens_a_link() {
+        const id = mkTask("ctrl click probe", "see [[Some note]] here");
+        const doc = make();
+        doc.open(id);
+        const body = findChild(doc, "task-doc-body");
+        const field = findChild(body, "md-block-field");
+        tryVerify(() => field.visible, 1000);
+        linkSpy.target = doc;
+        linkSpy.clear();
+        waitForRendering(doc);
+        const r = field.positionToRectangle(field.text.indexOf("Some") + 2);
+        mouseClick(field, r.x + 1, r.y + r.height / 2, Qt.LeftButton, Qt.ControlModifier);
+        tryCompare(linkSpy, "count", 1);
+        compare(linkSpy.signalArguments[0][0], "note");
+        compare(linkSpy.signalArguments[0][1], "Some note");
+        // Without Ctrl it is a click into the text.
+        mouseClick(field, r.x + 1, r.y + r.height / 2);
+        compare(linkSpy.count, 1);
+        tryVerify(() => field.activeFocus, 1000);
         doc.close();
     }
 

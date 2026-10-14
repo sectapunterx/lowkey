@@ -5,6 +5,9 @@
 #include <QRegularExpression>
 #include <QTextBlock>
 #include <QTextDocument>
+#include <QUrl>
+
+#include <algorithm>
 
 namespace heap::md {
 
@@ -121,6 +124,27 @@ void MdHighlighter::setRevealEnd(int position) {
   m_revealEnd = position;
   revealMoved(m_revealStart, oldEnd);
   emit revealChanged();
+}
+
+void MdHighlighter::setMonoFamily(const QString& family) {
+  if(m_monoFamily == family) {
+    return;
+  }
+  m_monoFamily = family;
+  rebuildFormats();
+  rehighlight();
+  emit monoFamilyChanged();
+}
+
+void MdHighlighter::setTicketTitles(const QVariantMap& titles) {
+  if(m_ticketTitles == titles) {
+    return;
+  }
+  m_ticketTitles = titles;
+  if(m_livePreview) {
+    rehighlight();
+  }
+  emit ticketTitlesChanged();
 }
 
 QPair<QTextBlock, QTextBlock> MdHighlighter::revealUnit(const QTextBlock& block) const {
@@ -300,6 +324,32 @@ QList<QPair<int, int>> MdHighlighter::hiddenMarkup(const QString& line) {
     add(m.capturedStart(1), 1);
     add(m.capturedStart(3), m.capturedLength(3));
   }
+  // [^1] is drawn as a raised "1"; a definition line "[^1]: text" as "1 text".
+  static const QRegularExpression footnoteDefRx(QStringLiteral("^(\\[\\^)[^\\]\\s]+(\\]:)"));
+  const auto def = footnoteDefRx.match(line);
+  if(def.hasMatch()) {
+    add(def.capturedStart(1), 2);
+    add(def.capturedStart(2), 2);
+  }
+  static const QRegularExpression footnoteRx(QStringLiteral("(\\[\\^)[^\\]\\s]+(\\])(?!:)"));
+  for(auto it = footnoteRx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    if(inCode(m.capturedStart()) || (def.hasMatch() && m.capturedStart() == 0)) {
+      continue;
+    }
+    add(m.capturedStart(1), 2);
+    add(m.capturedStart(2), 1);
+  }
+  // <kbd>Ctrl</kbd>: the key stays, in a key's face.
+  static const QRegularExpression kbdRx(QStringLiteral("(<kbd>)[^<\\n]*(</kbd>)"), QRegularExpression::CaseInsensitiveOption);
+  for(auto it = kbdRx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    if(inCode(m.capturedStart())) {
+      continue;
+    }
+    add(m.capturedStart(1), m.capturedLength(1));
+    add(m.capturedStart(2), m.capturedLength(2));
+  }
   // ![alt](src): the alt text stays, read as the image's name (rich mode
   // draws no picture in the source).
   static const QRegularExpression imageRx(QStringLiteral("(!\\[)([^\\]\\n]*)(\\]\\([^)\\n]*\\))"));
@@ -335,7 +385,7 @@ QList<QPair<int, int>> MdHighlighter::hiddenMarkup(const QString& line) {
   return out;
 }
 
-QVariantList MdHighlighter::decorations(const QString& text) {
+QVariantList MdHighlighter::decorations(const QString& text, const QVariantMap& ticketTitles) {
   QVariantList out;
   const QStringList lines = text.split(QLatin1Char('\n'));
   QVector<int> starts(lines.size());
@@ -506,6 +556,15 @@ QVariantList MdHighlighter::decorations(const QString& text) {
                              {"at", starts.at(i) + span.start},
                              {"html", math.html}});
     }
+    for(const TicketSpan& span : ticketSpans(line, ticketTitles)) {
+      out.append(QVariantMap{{"kind", "ticket"},
+                             {"start", starts.at(i)},
+                             {"end", lineEnd(i)},
+                             {"at", starts.at(i) + span.start},
+                             {"length", span.length},
+                             {"id", span.id},
+                             {"label", span.title}});
+    }
     if(const auto q = quoteRx().match(line); q.hasMatch() && q.capturedLength() > 0) {
       out.append(QVariantMap{{"kind", "quote"},
                              {"start", starts.at(i)},
@@ -577,6 +636,127 @@ QList<MdHighlighter::MathSpan> MdHighlighter::mathSpans(const QString& line) {
   return out;
 }
 
+namespace {
+
+// `code` spans of a line, as [start, end) pairs: nothing in them is markup.
+QList<QPair<qsizetype, qsizetype>> codeRanges(const QString& line) {
+  static const QRegularExpression codeRx(QStringLiteral("`[^`\\n]+`"));
+  QList<QPair<qsizetype, qsizetype>> out;
+  for(auto it = codeRx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    out.append({m.capturedStart(), m.capturedEnd()});
+  }
+  return out;
+}
+
+bool within(const QList<QPair<qsizetype, qsizetype>>& ranges, qsizetype at) {
+  return std::any_of(ranges.cbegin(), ranges.cend(), [at](const auto& r) {
+    return at >= r.first && at < r.second;
+  });
+}
+
+}  // namespace
+
+QList<MdHighlighter::TicketSpan> MdHighlighter::ticketSpans(const QString& line, const QVariantMap& ticketTitles) {
+  QList<TicketSpan> out;
+  if(ticketTitles.isEmpty()) {
+    return out;
+  }
+  // As MdHtml reads them: "#APP-1" by key, "#jira-APP-1" (the shape of a tag)
+  // only when a task has that id.
+  static const QRegularExpression rx(QStringLiteral("(?<![\\p{L}\\p{N}_])#([\\p{L}][\\p{L}\\p{N}_/-]*)"));
+  const auto code = codeRanges(line);
+  for(auto it = rx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    const QString id = m.captured(1);
+    const auto known = ticketTitles.constFind(id);
+    if(known == ticketTitles.constEnd() || within(code, m.capturedStart())) {
+      continue;
+    }
+    const QString title = known->toString().simplified();
+    if(title.isEmpty()) {
+      continue;
+    }
+    out.append({static_cast<int>(m.capturedStart()), static_cast<int>(m.capturedLength()), id, title});
+  }
+  return out;
+}
+
+QString MdHighlighter::linkAt(const QString& text, int pos, const QVariantMap& ticketTitles) {
+  if(pos < 0 || pos > text.size()) {
+    return {};
+  }
+  const qsizetype lineStart = text.lastIndexOf(QLatin1Char('\n'), pos - 1) + 1;
+  qsizetype lineEnd = text.indexOf(QLatin1Char('\n'), pos);
+  if(lineEnd < 0) {
+    lineEnd = text.size();
+  }
+  const QString line = text.mid(lineStart, lineEnd - lineStart);
+  const qsizetype at = pos - lineStart;
+  const auto code = codeRanges(line);
+  if(within(code, at)) {
+    return {};
+  }
+  const auto hit = [at](const QRegularExpressionMatch& m) {
+    return at >= m.capturedStart() && at <= m.capturedEnd();
+  };
+  const auto encoded = [](const QString& s) {
+    return QString::fromUtf8(QUrl::toPercentEncoding(s));
+  };
+  static const QRegularExpression wikiRx(QStringLiteral("\\[\\[([^\\]|\\n]+)(?:\\|[^\\]\\n]*)?\\]\\]"));
+  for(auto it = wikiRx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    if(hit(m)) {
+      const QString target = m.captured(1).trimmed();
+      return (ticketTitles.contains(target) ? QStringLiteral("heap://task/") : QStringLiteral("heap://note/")) + encoded(target);
+    }
+  }
+  static const QRegularExpression linkRx(QStringLiteral("(?<!!)\\[[^\\]\\n]*\\]\\(([^)\\s]*)(?:\\s+\"[^\"]*\")?\\)"));
+  for(auto it = linkRx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    if(hit(m)) {
+      return m.captured(1);
+    }
+  }
+  static const QRegularExpression urlRx(QStringLiteral("<?(\\bhttps?://[^\\s)\\]>]+)>?"));
+  for(auto it = urlRx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    if(hit(m)) {
+      return m.captured(1);
+    }
+  }
+  static const QRegularExpression footnoteRx(QStringLiteral("\\[\\^([^\\]\\s]+)\\]"));
+  for(auto it = footnoteRx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    if(hit(m)) {
+      return QStringLiteral("heap://fn/") + encoded(m.captured(1));
+    }
+  }
+  static const QRegularExpression keyRx(QStringLiteral("(?<![A-Za-z0-9_])#([A-Z][A-Z0-9]*-\\d+)"));
+  for(auto it = keyRx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    if(hit(m)) {
+      return QStringLiteral("heap://task/") + encoded(m.captured(1));
+    }
+  }
+  static const QRegularExpression tagRx(QStringLiteral("(?<![\\p{L}\\p{N}_])#([\\p{L}][\\p{L}\\p{N}_/-]*)"));
+  for(auto it = tagRx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    if(hit(m)) {
+      const QString id = m.captured(1);
+      return (ticketTitles.contains(id) ? QStringLiteral("heap://task/") : QStringLiteral("heap://tag/")) + encoded(id);
+    }
+  }
+  static const QRegularExpression mentionRx(QStringLiteral("(?<![\\p{L}\\p{N}_])@([\\p{L}\\p{N}_.-]+)"));
+  for(auto it = mentionRx.globalMatch(line); it.hasNext();) {
+    const auto m = it.next();
+    if(hit(m)) {
+      return QStringLiteral("heap://person/") + encoded(m.captured(1));
+    }
+  }
+  return {};
+}
+
 void MdHighlighter::ghostTo(int start, int length, qreal width) {
   if(length <= 0 || document() == nullptr) {
     return;
@@ -591,7 +771,7 @@ void MdHighlighter::ghostTo(int start, int length, qreal width) {
   setFormat(start, length, f);
 }
 
-void MdHighlighter::hideMaths(const QString& text) {
+void MdHighlighter::hideDrawn(const QString& text) {
   if(document() == nullptr) {
     return;
   }
@@ -605,6 +785,11 @@ void MdHighlighter::hideMaths(const QString& text) {
     measure.setDefaultFont(document()->defaultFont());
     measure.setHtml(math.html);
     ghostTo(span.start, span.length, measure.idealWidth());
+  }
+  // A known task's title is drawn over its id.
+  const QFontMetricsF metrics(document()->defaultFont());
+  for(const TicketSpan& span : ticketSpans(text, m_ticketTitles)) {
+    ghostTo(span.start, span.length, metrics.horizontalAdvance(span.title));
   }
 }
 
@@ -630,8 +815,12 @@ void MdHighlighter::rebuildFormats() {
     m_heading[level].setForeground(text);
   }
 
+  m_code = QTextCharFormat();
   m_code.setForeground(codeColor);
   m_code.setFontFixedPitch(true);
+  if(!m_monoFamily.isEmpty()) {
+    m_code.setFontFamilies(QStringList{m_monoFamily});
+  }
   if(codeBg.isValid()) {
     m_code.setBackground(codeBg);
   }
@@ -665,12 +854,20 @@ void MdHighlighter::rebuildFormats() {
 
   // Fenced code uses the same colours the docs viewer already speaks, so a
   // snippet looks the same wherever it is read.
+  // On the code format, so a keyword keeps the code's face.
+  m_codeKeyword = m_code;
   m_codeKeyword.setForeground(colorAt(m_palette, "keyword", accent));
   m_codeKeyword.setFontWeight(QFont::DemiBold);
+  m_codeString = m_code;
   m_codeString.setForeground(colorAt(m_palette, "string", QColor(0x9C, 0xC4, 0x8B)));
+  m_codeComment = m_code;
   m_codeComment.setForeground(dim);
   m_codeComment.setFontItalic(true);
+  m_codeNumber = m_code;
   m_codeNumber.setForeground(colorAt(m_palette, "number", QColor(0xD8, 0xC2, 0x77)));
+  m_footnote = QTextCharFormat();
+  m_footnote.setForeground(accent);
+  m_footnote.setVerticalAlignment(QTextCharFormat::AlignSuperScript);
 
   // Collapsed: a one-pixel, 1%-wide glyph in no colour. A fresh format, not
   // a merge: a heading's size adjustment kept "## " a heading's width.
@@ -861,6 +1058,7 @@ void MdHighlighter::highlightInline(const QString& text) {
   static const QRegularExpression ticketRx(QStringLiteral("(?<![A-Za-z0-9_])#[A-Z][A-Z0-9]*-\\d+"));
   static const QRegularExpression tagRx(QStringLiteral("(?<![\\p{L}\\p{N}_])#[\\p{L}][\\p{L}\\p{N}_/-]*"));
   static const QRegularExpression footnoteRx(QStringLiteral("\\[\\^[^\\]\\s]+\\]"));
+  static const QRegularExpression kbdRx(QStringLiteral("<kbd>([^<\\n]*)</kbd>"), QRegularExpression::CaseInsensitiveOption);
 
   const Rule rules[] = {
       {&strongRx, &m_strong, 0},
@@ -873,7 +1071,8 @@ void MdHighlighter::highlightInline(const QString& text) {
       {&ticketRx, &m_ticket, 0},
       {&tagRx, &m_tag, 0},
       {&mentionRx, &m_mention, 0},
-      {&footnoteRx, &m_wiki, 0},
+      {&footnoteRx, &m_footnote, 0},
+      {&kbdRx, &m_code, 1},
   };
 
   for(const Rule& rule : rules) {
@@ -985,7 +1184,7 @@ void MdHighlighter::highlightBlock(const QString& text) {
     highlightInline(text);
     if(m_livePreview && !revealed(currentBlock())) {
       hideMarkup(text);
-      hideMaths(text);
+      hideDrawn(text);
     }
     return;
   }
@@ -1023,7 +1222,7 @@ void MdHighlighter::highlightBlock(const QString& text) {
     highlightInline(text);
     if(hides()) {
       hideMarkup(text);
-      hideMaths(text);
+      hideDrawn(text);
       ghost(0, static_cast<int>(quote.capturedLength()));  // the bar is drawn there
     }
     return;
@@ -1045,7 +1244,7 @@ void MdHighlighter::highlightBlock(const QString& text) {
   highlightInline(text);
   if(hides()) {
     hideMarkup(text);
-    hideMaths(text);
+    hideDrawn(text);
     // The bullet or the box is drawn over its marker, which keeps its width.
     if(list.hasMatch() && !list.captured(2).at(0).isDigit()) {
       const int to = list.captured(4).isEmpty() ? static_cast<int>(list.capturedEnd(2)) : static_cast<int>(list.capturedEnd(4)) - 1;

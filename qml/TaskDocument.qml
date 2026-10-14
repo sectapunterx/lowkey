@@ -1062,6 +1062,16 @@ FocusScope {
                     font.family: Theme.fontUi
                     font.pixelSize: Theme.fsXs
                 }
+                // Why the text does not take typing (APP-313).
+                Text {
+                    objectName: "task-doc-tracker-readonly"
+                    Layout.fillWidth: true
+                    text: I18n.t("taskdoc.fromTracker.readOnly").arg(root._badge.name || root._ticket.provider || "")
+                    wrapMode: Text.WordWrap
+                    color: Theme.textDim
+                    font.family: Theme.fontUi
+                    font.pixelSize: Theme.fsXs
+                }
                 // Drawn as a note is in rich (APP-313), and only read: the
                 // text can be selected and copied across its lines, a box is
                 // not ticked, nothing goes back to the tracker.

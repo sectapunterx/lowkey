@@ -38,6 +38,8 @@ Popup {
     property bool isNew: false
     // The "seen this before" hint under the description was clicked (APP-159).
     signal seenBeforeActivated(var hit)
+    // Ctrl+click on a note, a task, a tag in the drawn description.
+    signal descLinkActivated(string kind, string target)
     // "edit" | "preview" for the description. Starts on edit — the editor is
     // where you go to change things.
     // Both kept across opens: whoever likes Details open, or writes long
@@ -2113,6 +2115,7 @@ Popup {
     MdLivePreview {
         editor: descField
         headingScale: 1.3
+        onInternalLinkActivated: (kind, target) => root.descLinkActivated(kind, target)
     }
     // The description's markdown keys (MdEditOps), shared with Notes.
     MarkdownEditorController {

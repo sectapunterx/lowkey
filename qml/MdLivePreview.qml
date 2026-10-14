@@ -10,6 +10,11 @@ import TodoCpp
 //
 // Put it beside the editor: the layers go into the editor's parent, the code
 // box under the text and the rest over it.
+//
+// Ctrl+click opens what is under the pointer, as a click does in a drawn
+// note: an address through LinkConfirmDialog, a file attached here, a
+// footnote's text below; a note, a task, a tag or a person is handed to the
+// host as internalLinkActivated.
 Item {
     id: root
 
@@ -19,8 +24,10 @@ Item {
     property bool readOnly: false
     property real headingScale: 1.45
 
+    signal internalLinkActivated(string kind, string target)
+
     readonly property alias highlighter: hl
-    readonly property var decorations: root.rich ? hl.decorations(root.editor.text) : []
+    readonly property var decorations: root.rich ? hl.decorations(root.editor.text, AppController.taskTitles) : []
     // The caret / selection range the source shows at; -1 when nothing is.
     readonly property int revealStart: hl.revealStart
     readonly property int revealEnd: hl.revealEnd
@@ -38,6 +45,31 @@ Item {
         revealStart: hl.revealStart
         revealEnd: hl.revealEnd
     }
+    // Ctrl+click on a link, between the text and what is drawn over it. Any
+    // other press goes on to the text.
+    MouseArea {
+        objectName: "md-live-link-area"
+        parent: root.editor.parent
+        x: root.editor.x
+        y: root.editor.y
+        z: root.editor.z + 0.5
+        width: root.editor.width
+        height: root.editor.height
+        visible: root.editor.visible
+        cursorShape: Qt.IBeamCursor
+        onPressed: (mouse) => {
+            if (!(mouse.modifiers & Qt.ControlModifier)) {
+                mouse.accepted = false;
+                return;
+            }
+            const link = root.linkAt(mouse.x, mouse.y);
+            if (link.length === 0) {
+                mouse.accepted = false;
+                return;
+            }
+            root.open(link);
+        }
+    }
     MdLiveDecorations {
         objectName: "md-live-decorations"
         parent: root.editor.parent
@@ -50,6 +82,49 @@ Item {
         revealEnd: hl.revealEnd
     }
 
+    // The link under a point of the editor, "" for none.
+    function linkAt(x: real, y: real): string {
+        return hl.linkAt(root.editor.text, root.editor.positionAt(x, y), AppController.taskTitles);
+    }
+
+    // As MdView opens a link it draws.
+    function open(link: string) {
+        if (link.startsWith("heap://")) {
+            const rest = link.substring(7);
+            const slash = rest.indexOf("/");
+            if (slash <= 0) return;
+            const kind = rest.substring(0, slash);
+            let target = rest.substring(slash + 1);
+            try { target = decodeURIComponent(target); } catch (e) { /* keep it as written */ }
+            if (kind === "fn") {
+                root._toFootnote(target);
+                return;
+            }
+            root.internalLinkActivated(kind, target);
+            return;
+        }
+        const att = /^attachments\/([0-9a-f]{32}(?:\.[a-z0-9]{1,12})?)$/.exec(link);
+        if (att) {
+            attOpener.open(att[1], att[1]);
+            return;
+        }
+        linkConfirm.openLink(link);
+    }
+
+    // The caret to the footnote's own line ("[^id]: …").
+    function _toFootnote(id: string) {
+        const t = root.editor.text;
+        const mark = "[^" + id + "]:";
+        const at = t.startsWith(mark) ? 0 : t.indexOf("\n" + mark);
+        if (at < 0) return;
+        root.editor.forceActiveFocus();
+        root.editor.cursorPosition = at === 0 ? 0 : at + 1;
+    }
+
+    LinkConfirmDialog { id: linkConfirm }
+    // Holds the "open this file?" dialog for attachment links.
+    AttachmentChips { id: attOpener; visible: false; model: []; removable: false }
+
     // Markup hidden away from the caret in rich; the line (or the lines of
     // the selection) being edited shows its source. Nothing is revealed while
     // the editor does not hold the keyboard, nor ever in read-only text.
@@ -57,6 +132,8 @@ Item {
         id: hl
         headingScale: root.headingScale
         livePreview: root.rich
+        monoFamily: Theme.fontMono
+        ticketTitles: root.rich ? AppController.taskTitles : ({})
         revealStart: root.editor.activeFocus && !root.readOnly ? root.editor.selectionStart : -1
         revealEnd: root.editor.activeFocus && !root.readOnly ? root.editor.selectionEnd : -1
         palette: ({
