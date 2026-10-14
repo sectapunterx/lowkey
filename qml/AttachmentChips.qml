@@ -30,6 +30,17 @@ Flow {
     function open(attachmentId, name) {
         const r = AppController.openAttachment(attachmentId, false);
         if (r === "confirm") root._askOpen(attachmentId, name || attachmentId);
+        // A table or a text file: shown in the app (APP-315).
+        else if (r === "view") root._view(attachmentId, name || attachmentId);
+    }
+    property var _viewer: null
+    function _view(attachmentId, name) {
+        if (!root._viewer) root._viewer = viewerComponent.createObject(root);
+        root._viewer.show(attachmentId, name);
+    }
+    Component {
+        id: viewerComponent
+        FileViewerDialog {}
     }
     function reveal(attachmentId) {
         AppController.revealAttachment(attachmentId);

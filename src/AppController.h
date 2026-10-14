@@ -614,7 +614,16 @@ class AppController : public QObject {
   // Opens a stored file in its default application. Returns "opened",
   // "confirm" (a type that runs something: ask, then call again with
   // confirmed), "missing" or "invalid".
+  // A table or a text file (.csv .tsv .xlsx .txt .log) returns "view": the
+  // app shows it itself (attachmentPreview, APP-315).
   Q_INVOKABLE QString openAttachment(const QString& id, bool confirmed = false);
+  // The same file in its own application, for the viewer's "open outside".
+  Q_INVOKABLE bool openAttachmentExternally(const QString& id);
+  // What the in-app viewer shows (APP-315): { kind: "table" | "text" | "none",
+  // name, sheets: [{ name, rows: [[cell…]…], total, columns }], text,
+  // language ("log" for a log), truncated, error }. At most a few thousand
+  // rows and a few MB of text; the rest is the file's, opened outside.
+  Q_INVOKABLE QVariantMap attachmentPreview(const QString& id) const;
   // Shows the file in the system file manager.
   Q_INVOKABLE bool revealAttachment(const QString& id);
   // The file:// URL of a stored file, for a preview; empty when missing.

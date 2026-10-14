@@ -152,7 +152,10 @@ Item {
             highlightBg:   Theme.highlightBg,
             keyword:       Theme.synKeyword,
             string:        Theme.synString,
-            number:        Theme.synNumber
+            number:        Theme.synNumber,
+            // A log's levels (APP-315).
+            error:         Theme.danger,
+            warn:          Theme.warning
         })
     }
     // Wired here, not bound: a binding can fire before the text area's

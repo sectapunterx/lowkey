@@ -1,5 +1,7 @@
 #include "CodeHighlighter.h"
 
+#include "markdown/LogSyntax.h"
+
 #include <QColor>
 #include <QHash>
 #include <QQuickTextDocument>
@@ -47,7 +49,12 @@ QTextCharFormat CodeHighlighter::fmt(const char *key, bool bold, bool italic) co
         else if (QByteArray(key) == "number") c = QColor("#7cc492");
         else if (QByteArray(key) == "type") c = QColor("#6cc4b8");
         else if (QByteArray(key) == "builtin") c = QColor("#c07acf");
-        else c = QColor("#e5ecf3");
+        else if(QByteArray(key) == "error") {
+          c = QColor("#e5534b");
+        } else if(QByteArray(key) == "warn") {
+          c = QColor("#d8a73a");
+        } else
+          c = QColor("#e5ecf3");
     }
     f.setForeground(c);
     if (bold) f.setFontWeight(QFont::DemiBold);
@@ -494,6 +501,35 @@ void CodeHighlighter::rebuildRules() {
 }
 
 void CodeHighlighter::highlightBlock(const QString& text) {
+  // A log (APP-315): its level, time, paths and quotes, one rule with the
+  // note's editor (LogSyntax).
+  if(heap::md::isLogLanguage(m_language)) {
+    for(const heap::md::LogSpan& s : heap::md::logSpans(text)) {
+      QTextCharFormat f;
+      switch(s.kind) {
+        case heap::md::LogKind::Error:
+          f = fmt("error", true);
+          break;
+        case heap::md::LogKind::Warn:
+          f = fmt("warn", true);
+          break;
+        case heap::md::LogKind::Quiet:
+          f = fmt("comment");
+          break;
+        case heap::md::LogKind::Time:
+          f = fmt("number");
+          break;
+        case heap::md::LogKind::Path:
+          f = fmt("type");
+          break;
+        case heap::md::LogKind::Quoted:
+          f = fmt("string");
+          break;
+      }
+      setFormat(s.start, s.length, f);
+    }
+    return;
+  }
   // Words first, then strings and comments on top — but strings and comments
   // decided left to right, whichever starts first wins. Applying comments
   // last used to colour the # inside "echo '#1'" as the start of a comment.

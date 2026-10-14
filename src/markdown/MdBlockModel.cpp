@@ -2,6 +2,7 @@
 #include "markdown/MdExtensions.h"
 #include "markdown/MdHtml.h"
 #include "markdown/MdMath.h"
+#include "markdown/TableText.h"
 
 #include <algorithm>
 #include <functional>
@@ -335,6 +336,29 @@ void MdBlockModel::setDocument(const MdSourceMap& src, const MdAst& ast, const M
       }
 
       case BlockType::CodeBlock: {
+        // ```csv / ```tsv: drawn as the table it holds (APP-315).
+        if(const QChar sep = separatorForLanguage(block.codeLanguage, inlinePlainText(ast, block)); !sep.isNull()) {
+          const QList<QStringList> records = parseDelimited(inlinePlainText(ast, block), sep);
+          if(!records.isEmpty()) {
+            Row row = makeRow(Table);
+            qsizetype columns = 0;
+            for(const QStringList& r : records) {
+              columns = std::max(columns, r.size());
+            }
+            row.tableColumns = static_cast<int>(columns);
+            row.tableHeaderCells = static_cast<int>(columns);
+            for(qsizetype c = 0; c < columns; ++c) {
+              row.tableAlign.append(static_cast<int>(ColumnAlign::Default));
+            }
+            for(const QStringList& r : records) {
+              for(qsizetype c = 0; c < columns; ++c) {
+                row.tableCells.append(escapeHtml(c < r.size() ? r.at(c) : QString()).replace(QLatin1Char('\n'), QStringLiteral("<br>")));
+              }
+            }
+            rows.append(row);
+            return;
+          }
+        }
         Row row = makeRow(Code);
         row.language = block.codeLanguage;
         row.isDiagram = isDiagramLanguage(block.codeLanguage);

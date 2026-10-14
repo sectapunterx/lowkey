@@ -272,7 +272,9 @@ QtObject {
     // drift from the theme by wiring its own mix of tokens.
     readonly property var codePalette: ({
         keyword: synKeyword, string: synString, comment: synComment,
-        number: synNumber, type: synType, builtin: synBuiltin
+        number: synNumber, type: synType, builtin: synBuiltin,
+        // A log's levels (APP-315).
+        error: danger, warn: warning
     })
     readonly property var mdPalette: ({
         "text": text, "dim": textDim, "link": mdLink, "code": mdCode,

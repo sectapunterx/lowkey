@@ -205,6 +205,16 @@ TEST(MdBlockModelTest, FlattensATableRowMajor) {
   EXPECT_EQ(align.at(1).toInt(), static_cast<int>(ColumnAlign::Right));
 }
 
+TEST(MdBlockModelTest, DrawsACsvFenceAsItsTable) {
+  Doc doc(QStringLiteral("```csv\nname;note\nA;\"x; <y>\"\nB\n```\n\n```js\na,b\n```\n"));
+  ASSERT_EQ(doc.rows(), 2);
+  EXPECT_EQ(doc.type(0), static_cast<int>(MdBlockModel::Table));
+  EXPECT_EQ(doc.at(0, MdBlockModel::TableColumnsRole).toInt(), 2);
+  const QStringList cells = doc.at(0, MdBlockModel::TableCellsRole).toStringList();
+  EXPECT_EQ(cells, (QStringList{"name", "note", "A", "x; &lt;y&gt;", "B", ""})) << "escaped, padded";
+  EXPECT_EQ(doc.type(1), static_cast<int>(MdBlockModel::Code)) << "only csv and tsv are tables";
+}
+
 TEST(MdBlockModelTest, PromotesAParagraphThatIsOnlyAnImage) {
   Doc doc(QStringLiteral("![alt text](attachments/x.png)\n\ntext with ![inline](y.png) in it\n"));
   ASSERT_EQ(doc.rows(), 2);

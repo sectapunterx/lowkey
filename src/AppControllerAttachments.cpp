@@ -5,6 +5,8 @@
 
 #include "AppController.h"
 
+#include "markdown/TableText.h"
+#include "markdown/Xlsx.h"
 #include "storage/Attachments.h"
 
 #include <QBuffer>
@@ -18,6 +20,7 @@
 #include <QImage>
 #include <QJsonObject>
 #include <QMimeData>
+#include <QStringDecoder>
 #include <QUrl>
 
 #include <algorithm>
@@ -50,8 +53,73 @@ const QHash<QString, AttText>& attTable() {
       {"import.problems", {"Some attachments were not imported: %1", "Часть вложений не импортирована: %1"}},
       {"cleanup.done", {"Deleted %1 unused attachments (%2)", "Удалено неиспользуемых вложений: %1 (%2)"}},
       {"cleanup.none", {"No unused attachments", "Неиспользуемых вложений нет"}},
+      {"table.cut",
+       {"%1: the first %2 of %3 rows went into the text; the whole file is linked under the table",
+        "%1: в текст вставлены первые %2 из %3 строк; весь файл — по ссылке под таблицей"}},
+      {"table.unreadable", {"%1 could not be read as a table: %2", "%1 не удалось прочитать как таблицу: %2"}},
   };
   return table;
+}
+
+// What the app shows itself rather than handing to another program (APP-315).
+enum class FileKind { Other, Delimited, Workbook, Text, Log };
+
+FileKind kindOf(const QString& name) {
+  const QString ext = QFileInfo(name).suffix().toLower();
+  if(ext == QLatin1String("csv") || ext == QLatin1String("tsv")) {
+    return FileKind::Delimited;
+  }
+  if(ext == QLatin1String("xlsx")) {
+    return FileKind::Workbook;
+  }
+  if(ext == QLatin1String("log")) {
+    return FileKind::Log;
+  }
+  if(ext == QLatin1String("txt")) {
+    return FileKind::Text;
+  }
+  return FileKind::Other;
+}
+
+// A text file's characters: UTF-8 (its BOM dropped), else the system's
+// code page (a csv from Excel on a Russian Windows is cp1251).
+QString decodeText(const QByteArray& bytes) {
+  QByteArray b = bytes;
+  if(b.startsWith("\xEF\xBB\xBF")) {
+    b.remove(0, 3);
+  }
+  QStringDecoder utf8(QStringDecoder::Utf8, QStringDecoder::Flag::Stateless);
+  QString s = utf8.decode(b);
+  if(!utf8.hasError()) {
+    return s;
+  }
+  QStringDecoder system(QStringDecoder::System);
+  return system.decode(b);
+}
+
+// The rows of a .csv / .tsv / .xlsx: one sheet for delimited text, the
+// workbook's sheets for .xlsx. `error` says why there are none.
+QList<heap::md::XlsxSheet> tableSheets(const QString& path, const QString& name, int maxRows, QString* error) {
+  QFile f(path);
+  if(!f.open(QIODevice::ReadOnly)) {
+    *error = f.errorString();
+    return {};
+  }
+  // A viewer and a paste, not a database: past this the file opens outside.
+  constexpr qint64 kMaxBytes = 64LL * 1024 * 1024;
+  const QByteArray data = f.read(kMaxBytes);
+  if(kindOf(name) == FileKind::Workbook) {
+    return heap::md::readXlsx(data, maxRows, error);
+  }
+  const QString text = decodeText(data);
+  const QChar sep = QFileInfo(name).suffix().toLower() == QLatin1String("tsv") ? QLatin1Char('\t') : heap::md::guessSeparator(text);
+  heap::md::XlsxSheet sheet;
+  sheet.name = QFileInfo(name).completeBaseName();
+  sheet.rows = heap::md::parseDelimited(text, sep);
+  if(maxRows > 0 && sheet.rows.size() > maxRows) {
+    sheet.rows = sheet.rows.mid(0, maxRows);
+  }
+  return {sheet};
 }
 
 QString localPathOf(const QVariant& v) {
@@ -128,7 +196,52 @@ QVariantList AppController::importAttachments(const QVariantList& urls, bool int
       m_attachmentsLinkedThisSession.insert(r.attachment.id);
     }
   }
-  return describeAttachments(att::toVariantList(stored));
+  QVariantList out = describeAttachments(att::toVariantList(stored));
+  if(intoText) {
+    // A .csv / .tsv / .xlsx goes into the text as its table (APP-315), the
+    // file linked under it: the text holds what it can, the file the rest.
+    for(QVariant& v : out) {
+      QVariantMap m = v.toMap();
+      const QString name = m.value(QStringLiteral("name")).toString();
+      const FileKind kind = kindOf(name);
+      if(kind != FileKind::Delimited && kind != FileKind::Workbook) {
+        continue;
+      }
+      constexpr int kRowsIntoText = 200;
+      constexpr int kCellChars = 300;
+      QString error;
+      const QList<heap::md::XlsxSheet> sheets = tableSheets(store.pathFor(m.value(QStringLiteral("id")).toString()), name, 0, &error);
+      if(sheets.isEmpty()) {
+        emit toast(attText("table.unreadable").arg(name, error), QStringLiteral("warning"));
+        continue;
+      }
+      QStringList parts;
+      for(const heap::md::XlsxSheet& sheet : sheets) {
+        if(sheet.rows.isEmpty()) {
+          continue;
+        }
+        if(sheets.size() > 1) {
+          parts << QStringLiteral("#### ") + sheet.name;
+        }
+        parts << heap::md::markdownTable(sheet.rows, kRowsIntoText, kCellChars);
+        const qsizetype records = sheet.rows.size() - 1;
+        if(records > kRowsIntoText) {
+          emit toast(attText("table.cut")
+                         .arg(sheets.size() > 1 ? name + QStringLiteral(" / ") + sheet.name : name)
+                         .arg(kRowsIntoText)
+                         .arg(records),
+                     QStringLiteral("warning"));
+        }
+      }
+      if(parts.isEmpty()) {
+        continue;
+      }
+      parts << m.value(QStringLiteral("ref")).toString();
+      m[QStringLiteral("ref")] = parts.join(QStringLiteral("\n\n"));
+      v = m;
+    }
+  }
+  return out;
 }
 
 int AppController::attachFilesToTask(const QString& taskId, const QVariantList& urls) {
@@ -237,8 +350,70 @@ QString AppController::openAttachment(const QString& id, bool confirmed) {
   if(!confirmed && att::needsOpenConfirmation(id)) {
     return QStringLiteral("confirm");
   }
+  // Tables and text the app reads itself (APP-315).
+  if(kindOf(id) != FileKind::Other) {
+    return QStringLiteral("view");
+  }
   att::shell(store.pathFor(id), false);
   return QStringLiteral("opened");
+}
+
+bool AppController::openAttachmentExternally(const QString& id) {
+  const att::Store store(attachmentsDir());
+  if(!att::isValidId(id) || !store.contains(id)) {
+    return false;
+  }
+  return att::shell(store.pathFor(id), false);
+}
+
+QVariantMap AppController::attachmentPreview(const QString& id) const {
+  QVariantMap out{{"kind", "none"}};
+  const att::Store store(attachmentsDir());
+  if(!att::isValidId(id) || !store.contains(id)) {
+    out["error"] = attText("missing").arg(id);
+    return out;
+  }
+  const QString path = store.pathFor(id);
+  const FileKind kind = kindOf(id);
+  out["name"] = QFileInfo(path).fileName();
+  if(kind == FileKind::Delimited || kind == FileKind::Workbook) {
+    constexpr int kViewRows = 5000;
+    QString error;
+    const QList<heap::md::XlsxSheet> sheets = tableSheets(path, id, 0, &error);
+    QVariantList list;
+    bool truncated = false;
+    for(const heap::md::XlsxSheet& sheet : sheets) {
+      QVariantList rows;
+      qsizetype columns = 0;
+      for(qsizetype i = 0; i < sheet.rows.size() && i < kViewRows; ++i) {
+        rows << QVariant(sheet.rows.at(i));
+        columns = std::max(columns, sheet.rows.at(i).size());
+      }
+      truncated = truncated || sheet.rows.size() > kViewRows;
+      list << QVariantMap{
+          {"name", sheet.name}, {"rows", rows}, {"total", static_cast<int>(sheet.rows.size())}, {"columns", static_cast<int>(columns)}};
+    }
+    out["kind"] = QStringLiteral("table");
+    out["sheets"] = list;
+    out["truncated"] = truncated;
+    if(sheets.isEmpty()) {
+      out["error"] = error;
+    }
+    return out;
+  }
+  if(kind == FileKind::Text || kind == FileKind::Log) {
+    QFile f(path);
+    if(!f.open(QIODevice::ReadOnly)) {
+      out["error"] = f.errorString();
+      return out;
+    }
+    constexpr qint64 kViewBytes = 4LL * 1024 * 1024;
+    out["kind"] = QStringLiteral("text");
+    out["text"] = decodeText(f.read(kViewBytes));
+    out["truncated"] = f.size() > kViewBytes;
+    out["language"] = kind == FileKind::Log ? QStringLiteral("log") : QString();
+  }
+  return out;
 }
 
 bool AppController::revealAttachment(const QString& id) {

@@ -168,6 +168,9 @@ qt_add_library(heap_markdown STATIC
     src/markdown/MdHtml.cpp
     src/markdown/MdMath.cpp
     src/markdown/JiraWiki.cpp
+    src/markdown/TableText.cpp
+    src/markdown/LogSyntax.cpp
+    src/markdown/Xlsx.cpp
     src/markdown/MdBlockModel.cpp
     src/markdown/MdEditOps.cpp
     src/notes/NoteLinks.cpp
@@ -175,7 +178,10 @@ qt_add_library(heap_markdown STATIC
 target_include_directories(heap_markdown PUBLIC ${CMAKE_SOURCE_DIR}/src)
 # Gui, not just Core: MdEditOps works on a QTextDocument, which is the same
 # document the editor owns — that is what puts each operation on its undo stack.
-target_link_libraries(heap_markdown PUBLIC heap_md4c Qt6::Core Qt6::Gui)
+# zlib inflates an .xlsx (a zip) for the viewer and paste (APP-315); every
+# platform's Qt already depends on it.
+find_package(ZLIB REQUIRED)
+target_link_libraries(heap_markdown PUBLIC heap_md4c Qt6::Core Qt6::Gui PRIVATE ZLIB::ZLIB)
 # MdBlockModel is a QAbstractListModel, so this one does need moc.
 set_target_properties(heap_markdown PROPERTIES AUTOMOC ON)
 target_compile_options(heap_markdown PRIVATE "${HEAP_WARNING_OPTIONS}")
@@ -443,6 +449,7 @@ qt_add_qml_module(heap_core
         qml/MdBlockEditor.qml
         qml/MdLiveDecorations.qml
         qml/MdLivePreview.qml
+        qml/FileViewerDialog.qml
         qml/FilterBar.qml
         qml/KanbanBoard.qml
         qml/TaskCard.qml

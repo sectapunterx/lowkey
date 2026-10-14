@@ -1,5 +1,7 @@
+#include "markdown/LogSyntax.h"
 #include "markdown/MdHighlighter.h"
 #include "markdown/MdMath.h"
+#include "markdown/TableText.h"
 
 #include <QFontInfo>
 #include <QFontMetricsF>
@@ -441,6 +443,40 @@ QVariantList MdHighlighter::decorations(const QString& text, const QVariantMap& 
       const bool closed = j < lines.size();
       const int last = std::min(j, static_cast<int>(lines.size()) - 1);
       const QStringList body = lines.mid(i + 1, (closed ? j : static_cast<int>(lines.size())) - i - 1);
+      // ```csv / ```tsv: the grid of its records over the hidden source
+      // (APP-315). A record whose quoted field runs over lines starts on its
+      // first line; the lines after it are part of its row.
+      if(const QChar sep = separatorForLanguage(f.captured(2), body.join(QLatin1Char('\n'))); closed && !sep.isNull() && !body.isEmpty()) {
+        QVariantList rows;
+        bool quoted = false;
+        QString record;
+        int recordLine = -1;
+        for(int k = 0; k < body.size(); ++k) {
+          const QString& l = body.at(k);
+          if(!quoted) {
+            if(recordLine >= 0) {
+              const QStringList cells = parseDelimited(record, sep).value(0);
+              rows.append(
+                  QVariantMap{{"start", starts.at(recordLine)}, {"cells", cells}, {"header", rows.isEmpty()}, {"separator", false}});
+            }
+            record = l;
+            recordLine = i + 1 + k;
+          } else {
+            record += QLatin1Char('\n') + l;
+          }
+          quoted = (quoted ? 1 : 0) + static_cast<int>(l.count(QLatin1Char('"'))) % 2 == 1;
+        }
+        if(recordLine >= 0) {
+          rows.append(QVariantMap{{"start", starts.at(recordLine)},
+                                  {"cells", parseDelimited(record, sep).value(0)},
+                                  {"header", rows.isEmpty()},
+                                  {"separator", false}});
+        }
+        out.append(
+            QVariantMap{{"kind", "table"}, {"start", starts.at(i)}, {"end", lineEnd(last)}, {"rows", rows}, {"align", QVariantList()}});
+        i = last + 1;
+        continue;
+      }
       out.append(QVariantMap{{"kind", "code"},
                              {"start", starts.at(i)},
                              {"end", lineEnd(last)},
@@ -844,6 +880,17 @@ void MdHighlighter::hideDrawn(const QString& text) {
   }
 }
 
+void MdHighlighter::ghostTableRow(int length, bool separator) {
+  // A row's line is made taller (a big, narrow invisible face) so the cells
+  // drawn over it have room; the |---| line under the header all but goes.
+  const QFont base = document() != nullptr ? document()->defaultFont() : QFont();
+  const int px = base.pixelSize() > 0 ? base.pixelSize() : QFontInfo(base).pixelSize();
+  QTextCharFormat f = m_ghost;
+  f.setProperty(QTextFormat::FontPixelSize, separator ? 2 : static_cast<int>(std::round(px * 1.55)));
+  f.setFontStretch(1);
+  setFormat(0, length, f);
+}
+
 void MdHighlighter::hideMarkup(const QString& text) {
   for(const auto& [start, length] : hiddenMarkup(text)) {
     // Kept in the text, drawn as nothing: a hairline glyph in no colour.
@@ -919,6 +966,12 @@ void MdHighlighter::rebuildFormats() {
   m_codeComment.setFontItalic(true);
   m_codeNumber = m_code;
   m_codeNumber.setForeground(colorAt(m_palette, "number", QColor(0xD8, 0xC2, 0x77)));
+  m_logError = m_code;
+  m_logError.setForeground(colorAt(m_palette, "error", QColor(0xE5, 0x53, 0x4B)));
+  m_logError.setFontWeight(QFont::DemiBold);
+  m_logWarn = m_code;
+  m_logWarn.setForeground(colorAt(m_palette, "warn", QColor(0xD8, 0xA7, 0x3A)));
+  m_logWarn.setFontWeight(QFont::DemiBold);
 
   // Collapsed: a one-pixel, 1%-wide glyph in no colour. A fresh format, not
   // a merge: a heading's size adjustment kept "## " a heading's width.
@@ -1040,6 +1093,34 @@ const QRegularExpression& commentRxFor(const QString& language) {
 void MdHighlighter::highlightCodeLine(const QString& text, const QString& language) {
   setFormat(0, static_cast<int>(text.size()), m_code);
   if(text.isEmpty()) {
+    return;
+  }
+  // A log (APP-315): its level, time, paths and quotes, as the drawn note
+  // has them (LogSyntax).
+  if(isLogLanguage(language)) {
+    for(const LogSpan& s : logSpans(text)) {
+      const QTextCharFormat* f = &m_codeString;
+      switch(s.kind) {
+        case LogKind::Error:
+          f = &m_logError;
+          break;
+        case LogKind::Warn:
+          f = &m_logWarn;
+          break;
+        case LogKind::Quiet:
+          f = &m_codeComment;
+          break;
+        case LogKind::Time:
+          f = &m_codeNumber;
+          break;
+        case LogKind::Path:
+          f = &m_codeKeyword;
+          break;
+        case LogKind::Quoted:
+          break;
+      }
+      setFormat(s.start, s.length, *f);
+    }
     return;
   }
 
@@ -1176,13 +1257,22 @@ void MdHighlighter::highlightBlock(const QString& text) {
       setCurrentBlockUserData(nullptr);
       setCurrentBlockState(Normal);
       if(hides()) {
-        ghost(0, length);
+        // Under a ```csv grid nothing of the fence shows, its box included.
+        if(!separatorForLanguage(language, QStringLiteral("a,b")).isNull()) {
+          setFormat(0, length, m_ghost);
+        } else {
+          ghost(0, length);
+        }
       }
       return;
     }
     setCurrentBlockUserData(new FenceLanguage(language));
-    highlightCodeLine(text, language);
     setCurrentBlockState(InFence);
+    if(hides() && !separatorForLanguage(language, QStringLiteral("a,b")).isNull()) {
+      ghostTableRow(length, false);  // a ```csv record: the grid is drawn over it
+      return;
+    }
+    highlightCodeLine(text, language);
     return;
   }
 
@@ -1202,7 +1292,11 @@ void MdHighlighter::highlightBlock(const QString& text) {
     setCurrentBlockUserData(new FenceLanguage(fence.captured(2)));
     setCurrentBlockState(InFence);
     if(hides()) {
-      ghost(0, length);
+      if(!separatorForLanguage(fence.captured(2), QStringLiteral("a,b")).isNull()) {
+        setFormat(0, length, m_ghost);
+      } else {
+        ghost(0, length);
+      }
     }
     return;
   }
@@ -1292,12 +1386,7 @@ void MdHighlighter::highlightBlock(const QString& text) {
       // invisible face) so the cells have room; the |---| line under the
       // header all but goes, being part of the header's box.
       static const QRegularExpression separatorRx(QStringLiteral("^\\s*\\|?(\\s*:?-+:?\\s*\\|)+\\s*(:?-+:?)?\\s*$"));
-      const QFont base = document() != nullptr ? document()->defaultFont() : QFont();
-      const int px = base.pixelSize() > 0 ? base.pixelSize() : QFontInfo(base).pixelSize();
-      QTextCharFormat f = m_ghost;
-      f.setProperty(QTextFormat::FontPixelSize, separatorRx.match(text).hasMatch() ? 2 : static_cast<int>(std::round(px * 1.55)));
-      f.setFontStretch(1);
-      setFormat(0, length, f);
+      ghostTableRow(length, separatorRx.match(text).hasMatch());
     }
     return;
   }

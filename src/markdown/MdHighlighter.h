@@ -184,6 +184,8 @@ class MdHighlighter : public QSyntaxHighlighter {
   // range moves from [oldStart, oldEnd] to the current one.
   void revealMoved(int oldStart, int oldEnd);
   void hideMarkup(const QString& text);
+  // A table row's (or a ```csv record's) line under its drawn grid.
+  void ghostTableRow(int length, bool separator);
   void ghost(int start, int length);
   // Invisible like ghost(), with the letter spacing that makes the span as
   // wide as `width`: a formula drawn over its source takes its own room,
@@ -236,6 +238,8 @@ class MdHighlighter : public QSyntaxHighlighter {
   QTextCharFormat m_codeString;
   QTextCharFormat m_codeComment;
   QTextCharFormat m_codeNumber;
+  QTextCharFormat m_logError;
+  QTextCharFormat m_logWarn;
 };
 
 }  // namespace heap::md

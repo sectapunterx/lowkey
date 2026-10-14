@@ -102,9 +102,17 @@ Popup {
         if (!AppController.clipboardHasAttachment()) return false;
         const added = AppController.importClipboardAttachments();
         if (added.length === 0) return true;
-        const refs = added.map(a => a.ref).join("\n");
+        const refs = added.map(a => a.ref).join("\n\n");
         field.remove(field.selectionStart, field.selectionEnd);
-        field.insert(field.cursorPosition, refs);
+        // A pasted .csv / .xlsx is a table (APP-315), which has to start and
+        // end on lines of its own.
+        const pos = field.cursorPosition;
+        const text = field.text;
+        let before = "";
+        if (pos > 0 && text.charAt(pos - 1) !== "\n") before = "\n\n";
+        else if (pos > 1 && text.charAt(pos - 2) !== "\n") before = "\n";
+        const after = pos < text.length && text.charAt(pos) !== "\n" ? "\n\n" : "";
+        field.insert(pos, before + refs + after);
         return true;
     }
 
