@@ -655,7 +655,7 @@ FocusScope {
                 color: Theme.text
                 placeholderText: I18n.t("event.ph.title")
                 placeholderTextColor: Theme.textDim
-                font.family: Theme.fontUi
+                font.family: Theme.fontDisplay
                 font.pixelSize: Theme.fs2xl
                 font.weight: Theme.fwScreenTitle
                 selectByMouse: true

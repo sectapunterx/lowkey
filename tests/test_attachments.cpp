@@ -401,7 +401,11 @@ TEST_F(AttachmentAppTest, AMissingFileShowsAsBroken) {
 }
 
 TEST_F(AttachmentAppTest, OpeningFollowsTheSafeOpenRules) {
-  const QVariantList txt = app_->importAttachments(urls({write(QStringLiteral("readme.txt"), uniqueBytes("t"))}));
+  const QVariantList txt = app_->importAttachments(urls({write(QStringLiteral("readme.pdf"), uniqueBytes("t"))}));
+  const QVariantList log = app_->importAttachments(urls({write(QStringLiteral("run.log"), uniqueBytes("l"))}));
+  // A table or a text file is shown in the app (APP-315), never handed out.
+  EXPECT_EQ(app_->openAttachment(log.at(0).toMap().value("id").toString()), QStringLiteral("view"));
+  EXPECT_TRUE(opened_.isEmpty());
   const QVariantList sh = app_->importAttachments(urls({write(QStringLiteral("deploy.sh"), uniqueBytes("s"))}));
   const QString txtId = txt.at(0).toMap().value("id").toString();
   const QString shId = sh.at(0).toMap().value("id").toString();

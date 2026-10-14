@@ -265,6 +265,7 @@ Item {
                     text: I18n.t("settings.title")
                     color: Theme.text
                     font.weight: Theme.fwScreenTitle
+                    font.family: Theme.fontDisplay
                     font.pixelSize: Theme.fsScreenTitle
                 }
 
@@ -2914,6 +2915,7 @@ Item {
                                 Text {
                                     text: intCard.modelData.name
                                     color: Theme.text
+                                    font.family: Theme.fontDisplay
                                     font.pixelSize: Theme.fsXl
                                     font.weight: root.quiet ? Theme.fwTitle : Theme.fwHeading
                                 }

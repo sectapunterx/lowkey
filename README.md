@@ -171,5 +171,5 @@ the rest: [docs/CLI.md](docs/CLI.md).
 
 Bug reports and pull requests are welcome — please attach `logs/tabless.log`.
 
-MIT — see [LICENSE](LICENSE). Bundled fonts (Golos Text, JetBrains Mono) are under the SIL OFL 1.1, see
+MIT — see [LICENSE](LICENSE). Bundled fonts (Inter, Golos Text, JetBrains Mono) are under the SIL OFL 1.1, see
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

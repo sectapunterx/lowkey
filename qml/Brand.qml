@@ -63,7 +63,9 @@ QtObject {
     // ── Typography ────────────────────────────────────────────
     // The bundled cuts (platform/BundledFonts.h): Golos Text and JetBrains
     // Mono under a "Tabless " name, so an installed copy can never stand in.
-    readonly property string fontSans: "Tabless Golos Text"
+    readonly property string fontSans: "Tabless Inter"
+    // Headings and the wordmark (0.9.3: Inter took the text).
+    readonly property string fontDisplay: "Tabless Golos Text"
     readonly property string fontMono: "Tabless JetBrains Mono"
 
     // Type scale (px)

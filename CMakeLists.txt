@@ -814,6 +814,9 @@ qt_add_resources(heap_core "fonts"
         resources/fonts/GolosText-Regular.ttf
         resources/fonts/GolosText-Medium.ttf
         resources/fonts/GolosText-SemiBold.ttf
+        resources/fonts/Inter-Regular.ttf
+        resources/fonts/Inter-Medium.ttf
+        resources/fonts/Inter-SemiBold.ttf
         resources/fonts/JetBrainsMono-Regular.ttf
         resources/fonts/JetBrainsMono-Medium.ttf
 )

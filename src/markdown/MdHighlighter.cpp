@@ -146,6 +146,16 @@ void MdHighlighter::setMonoFamily(const QString& family) {
   emit monoFamilyChanged();
 }
 
+void MdHighlighter::setDisplayFamily(const QString& family) {
+  if(m_displayFamily == family) {
+    return;
+  }
+  m_displayFamily = family;
+  rebuildFormats();
+  rehighlight();
+  emit displayFamilyChanged();
+}
+
 void MdHighlighter::setTicketTitles(const QVariantMap& titles) {
   if(m_ticketTitles == titles) {
     return;
@@ -911,6 +921,7 @@ void MdHighlighter::rebuildFormats() {
   for(int level = 0; level < 6; ++level) {
     m_heading[level].setFontWeight(level <= 2 ? QFont::Bold : QFont::DemiBold);
     m_heading[level].setForeground(text);
+    m_heading[level].setFontFamilies(level < 3 && !m_displayFamily.isEmpty() ? QStringList{m_displayFamily} : QStringList());
   }
 
   m_code = QTextCharFormat();

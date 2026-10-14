@@ -133,6 +133,8 @@ Item {
         headingScale: root.headingScale
         livePreview: root.rich
         monoFamily: Theme.fontMono
+        // Headings in the headings' face, as the drawn note has them.
+        displayFamily: root.rich ? Theme.fontDisplay : ""
         ticketTitles: root.rich ? AppController.taskTitles : ({})
         revealStart: root.editor.activeFocus && !root.readOnly ? root.editor.selectionStart : -1
         revealEnd: root.editor.activeFocus && !root.readOnly ? root.editor.selectionEnd : -1

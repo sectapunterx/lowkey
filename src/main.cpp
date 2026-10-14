@@ -416,7 +416,7 @@ int main(int argc, char* argv[]) {
     qInfo("data directory overridden: %s", qUtf8Printable(heap::paths::dataDir()));
   }
 
-  // Before any QML asks for "Tabless Golos Text" / "Tabless JetBrains Mono" (Theme.qml); after
+  // Before any QML asks for "Tabless Inter" / "Tabless Golos Text" / "Tabless JetBrains Mono" (Theme.qml); after
   // the file logger, so a face that fails to load is in tabless.log.
   heap::platform::registerBundledFonts();
   heap::platform::useBundledUiFontByDefault();

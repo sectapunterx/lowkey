@@ -1,6 +1,6 @@
 // The fonts heap ships inside the binary (platform/BundledFonts, qrc :/fonts):
 // every face registers, the families come back under their plain names, and
-// each weight the UI asks for (Golos Text 400/500/600, JetBrains Mono 400/500)
+// each weight the UI asks for (Inter and Golos Text 400/500/600, JetBrains Mono 400/500)
 // resolves to that face rather than a synthesised or system one. Static faces
 // with legacy naming are what makes this hold on every font backend — a
 // variable font or "Golos Text Medium" as its own family would fail here.
@@ -17,6 +17,7 @@
 
 #include <gtest/gtest.h>
 
+using heap::platform::kDisplayFontFamily;
 using heap::platform::kMonoFontFamily;
 using heap::platform::kUiFontFamily;
 
@@ -24,6 +25,10 @@ namespace {
 
 QString ui() {
   return QString::fromLatin1(kUiFontFamily);
+}
+
+QString display() {
+  return QString::fromLatin1(kDisplayFontFamily);
 }
 
 QString mono() {
@@ -41,6 +46,9 @@ TEST(BundledFonts, AllFacesAreCompiledIn) {
             QStringList({QStringLiteral("GolosText-Medium.ttf"),
                          QStringLiteral("GolosText-Regular.ttf"),
                          QStringLiteral("GolosText-SemiBold.ttf"),
+                         QStringLiteral("Inter-Medium.ttf"),
+                         QStringLiteral("Inter-Regular.ttf"),
+                         QStringLiteral("Inter-SemiBold.ttf"),
                          QStringLiteral("JetBrainsMono-Medium.ttf"),
                          QStringLiteral("JetBrainsMono-Regular.ttf")}));
 }
@@ -53,6 +61,7 @@ TEST(BundledFonts, FamiliesAreRegistered) {
   const QStringList families = QFontDatabase::families();
   EXPECT_TRUE(families.contains(ui())) << qPrintable(families.join(QStringLiteral(", ")));
   EXPECT_TRUE(families.contains(mono()));
+  EXPECT_TRUE(families.contains(display()));
   // One family per font: a weight never shows up as a family of its own.
   EXPECT_FALSE(families.contains(ui() + QStringLiteral(" Medium")));
   EXPECT_FALSE(families.contains(ui() + QStringLiteral(" SemiBold")));
@@ -66,21 +75,25 @@ TEST(BundledFonts, FamiliesAreRegistered) {
 TEST(BundledFonts, NamesNeverCollideWithAnInstalledCopy) {
   EXPECT_TRUE(ui().startsWith(QStringLiteral("Tabless ")));
   EXPECT_TRUE(mono().startsWith(QStringLiteral("Tabless ")));
+  EXPECT_TRUE(display().startsWith(QStringLiteral("Tabless ")));
   const QDir dir(QStringLiteral(":/fonts"));
   for(const QString& file : dir.entryList({QStringLiteral("*.ttf")}, QDir::Files)) {
     QFile f(dir.filePath(file));
     ASSERT_TRUE(f.open(QIODevice::ReadOnly));
     const QRawFont raw(f.readAll(), 12);
     ASSERT_TRUE(raw.isValid()) << qPrintable(file);
-    EXPECT_TRUE(raw.familyName() == ui() || raw.familyName() == mono()) << qPrintable(file + QStringLiteral(": ") + raw.familyName());
+    EXPECT_TRUE(raw.familyName() == ui() || raw.familyName() == display() || raw.familyName() == mono())
+        << qPrintable(file + QStringLiteral(": ") + raw.familyName());
   }
 }
 
 TEST(BundledFonts, StylesAreTheShippedWeights) {
-  const QStringList uiStyles = QFontDatabase::styles(ui());
-  EXPECT_TRUE(uiStyles.contains(QStringLiteral("Regular"))) << qPrintable(uiStyles.join(QStringLiteral(", ")));
-  EXPECT_TRUE(uiStyles.contains(QStringLiteral("Medium")));
-  EXPECT_TRUE(uiStyles.contains(QStringLiteral("SemiBold")));
+  for(const QString& family : {ui(), display()}) {
+    const QStringList styles = QFontDatabase::styles(family);
+    EXPECT_TRUE(styles.contains(QStringLiteral("Regular"))) << qPrintable(styles.join(QStringLiteral(", ")));
+    EXPECT_TRUE(styles.contains(QStringLiteral("Medium")));
+    EXPECT_TRUE(styles.contains(QStringLiteral("SemiBold")));
+  }
   const QStringList monoStyles = QFontDatabase::styles(mono());
   EXPECT_TRUE(monoStyles.contains(QStringLiteral("Regular"))) << qPrintable(monoStyles.join(QStringLiteral(", ")));
   EXPECT_TRUE(monoStyles.contains(QStringLiteral("Medium")));
@@ -104,6 +117,9 @@ TEST(BundledFonts, EachWeightResolvesToItsFace) {
       {ui(), QFont::Normal},
       {ui(), QFont::Medium},
       {ui(), QFont::DemiBold},
+      {display(), QFont::Normal},
+      {display(), QFont::Medium},
+      {display(), QFont::DemiBold},
       {mono(), QFont::Normal},
       {mono(), QFont::Medium},
   };
@@ -130,7 +146,9 @@ TEST(BundledFonts, SizedToTheSegoeAndConsolasScale) {
     const QRawFont raw(f.readAll(), 13);
     ASSERT_TRUE(raw.isValid()) << qPrintable(file);
     const bool isMono = file.startsWith(QStringLiteral("JetBrainsMono"));
-    EXPECT_DOUBLE_EQ(raw.unitsPerEm(), isMono ? 1136.0 : 1075.0) << qPrintable(file);
+    // Inter (2816 upstream) at 0.91, Golos Text (1000) at 0.93, JetBrains Mono (1000) at 0.88.
+    const double upm = isMono ? 1136.0 : file.startsWith(QStringLiteral("Inter")) ? 3095.0 : 1075.0;
+    EXPECT_DOUBLE_EQ(raw.unitsPerEm(), upm) << qPrintable(file);
     EXPECT_LE(raw.xHeight(), isMono ? 13 * 0.49 * 1.05 : 13 * 0.50 * 1.01) << qPrintable(file);
     // Smaller, not shrunk out of shape: still well above a 13px Segoe UI's
     // x-height of ~5.5px.
@@ -140,7 +158,7 @@ TEST(BundledFonts, SizedToTheSegoeAndConsolasScale) {
 
 TEST(BundledFonts, CoverCyrillic) {
   // The interface is Russian as well as English.
-  for(const QString& family : {ui(), mono()}) {
+  for(const QString& family : {ui(), display(), mono()}) {
     const QRawFont raw = QRawFont::fromFont(QFont(family));
     ASSERT_TRUE(raw.isValid()) << qPrintable(family);
     EXPECT_TRUE(raw.supportsCharacter(QChar(0x0416))) << qPrintable(family);  // Ж

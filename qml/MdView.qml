@@ -527,7 +527,9 @@ ListView {
                     textFormat: TextEdit.RichText
                     text: rowItem.model.html
                     color: Theme.text
-                    font.family: Theme.fontUi
+                    // The top three levels in the headings' face (Golos), the
+                    // small ones in the text's.
+                    font.family: rowItem.model.level <= 3 ? Theme.fontDisplay : Theme.fontUi
                     // A note: the title and "##" on the sheet's sizes, 600 in
                     // bold and 500 in quiet (R3-084); deeper levels a step down.
                     font.weight: view.noteType ? (rowItem.model.level <= 2 ? Theme.fwScreenTitle : Theme.fwTitle)

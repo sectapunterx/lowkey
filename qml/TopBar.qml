@@ -209,7 +209,7 @@ Rectangle {
             Layout.alignment: Style.fills ? Qt.AlignVCenter : Qt.AlignBaseline
             text: root.title
             color: Theme.text
-            font.family: Theme.fontUi
+            font.family: Theme.fontDisplay
             font.pixelSize: Theme.fsScreenTitle
             font.weight: Theme.fwScreenTitle
             Accessible.role: Accessible.Heading

@@ -519,6 +519,7 @@ Rectangle {
                 objectName: "knowledge-title"
                 text: I18n.t(root.docs ? "siderail.docs" : "siderail.notes")
                 color: Theme.text
+                font.family: Theme.fontDisplay
                 font.pixelSize: Style.quiet ? Theme.fsXl : Theme.px(18)  // sheet H2-Knowledge: 18px (R4-066)
                 font.weight: Theme.fwHeading
                 Layout.fillWidth: true

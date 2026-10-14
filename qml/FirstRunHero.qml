@@ -84,7 +84,7 @@ Item {
             Layout.fillWidth: true
             text: I18n.t("first.title")
             color: root.quiet ? Theme.textMuted : Theme.text
-            font.family: Theme.fontUi
+            font.family: Theme.fontDisplay
             font.pixelSize: root.quiet ? Theme.fsLg : Theme.fsXl
             font.weight: root.quiet ? Theme.fwBody : Theme.fwHeading
             wrapMode: Text.WordWrap

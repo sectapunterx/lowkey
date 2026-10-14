@@ -32,7 +32,8 @@ TestCase {
 
     // ── Typography ────────────────────────────────────────────
     function test_font_families() {
-        compare(Brand.fontSans, "Tabless Golos Text");
+        compare(Brand.fontSans, "Tabless Inter");
+        compare(Brand.fontDisplay, "Tabless Golos Text");
         compare(Brand.fontMono, "Tabless JetBrains Mono");
         verify(Brand.fontSans.length > 0);
         verify(Brand.fontMono.length > 0);

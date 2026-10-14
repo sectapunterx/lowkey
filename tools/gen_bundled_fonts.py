@@ -120,5 +120,50 @@ def main() -> None:
             var_path.unlink()
 
 
+def rename(font: TTFont, family: str, style: str) -> None:
+    """The legacy naming main() gives the variable cuts, for a static face."""
+    ps_family = family.replace(" ", "")
+    names = font["name"]
+    for rec in list(names.names):
+        if rec.nameID == 1:
+            names.setName(family, 1, rec.platformID, rec.platEncID, rec.langID)
+        elif rec.nameID == 2:
+            names.setName(style, 2, rec.platformID, rec.platEncID, rec.langID)
+        elif rec.nameID == 3:
+            version = rec.toUnicode().split(";")[0]
+            names.setName(f"{version};Tabless;{ps_family}-{style}", 3, rec.platformID, rec.platEncID, rec.langID)
+        elif rec.nameID == 4:
+            names.setName(f"{family} {style}", 4, rec.platformID, rec.platEncID, rec.langID)
+        elif rec.nameID == 6:
+            names.setName(f"{ps_family}-{style}", 6, rec.platformID, rec.platEncID, rec.langID)
+    names.removeNames(nameID=16)
+    names.removeNames(nameID=17)
+
+
+# Inter (the UI's text since 0.9.3; Golos Text stays for headings): cut from
+# the static 3.19 faces (rsms/inter release, SIL OFL 1.1, no Reserved Font
+# Name), which carry the full Cyrillic. Scaled so its x-height is about the
+# bundled Golos Text's: Inter's is 0.546 of the em against Golos's 0.493 at
+# SCALE_UI, so the sizes in Theme keep reading as they did.
+SCALE_INTER = 0.91
+INTER_FACES = [("Inter-Regular.ttf", "Regular", 400), ("Inter-Medium.ttf", "Medium", 500), ("Inter-SemiBold.ttf", "SemiBold", 600)]
+
+
+def cut_inter(src_dir: Path) -> None:
+    for file, style, weight in INTER_FACES:
+        font = TTFont(src_dir / file)
+        rename(font, "Tabless Inter", style)
+        assert font["OS/2"].usWeightClass == weight, (file, font["OS/2"].usWeightClass)
+        font["head"].unitsPerEm = round(font["head"].unitsPerEm / SCALE_INTER)
+        font.recalcTimestamp = False
+        out = OUT / f"Inter-{style}.ttf"
+        font.save(out)
+        print(f"{out.name}: Tabless Inter {style} ({weight}), UPM {font['head'].unitsPerEm}, {out.stat().st_size} bytes")
+
+
 if __name__ == "__main__":
-    main()
+    # python tools/gen_bundled_fonts.py --inter <dir with Inter-Regular/Medium/SemiBold.ttf>
+    if len(sys.argv) == 3 and sys.argv[1] == "--inter":
+        cut_inter(Path(sys.argv[2]))
+    else:
+        main()

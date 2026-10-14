@@ -475,7 +475,7 @@ FocusScope {
                         return s.charAt(0).toUpperCase() + s.slice(1);
                     }
                     color: Theme.text
-                    font.family: Theme.fontUi
+                    font.family: Theme.fontDisplay
                     font.pixelSize: root.stacked ? Theme.fsDayTitleSmall : Theme.fsDayTitle
                     font.weight: root.stacked ? Theme.fwHeading : Theme.fwScreenTitle
                     Accessible.role: Accessible.Heading

@@ -9,6 +9,7 @@ Text {
     leftPadding: Theme.inset
     rightPadding: Theme.inset
     color: Theme.text
+    font.family: Theme.fontDisplay
     font.pixelSize: Theme.fsLg
     font.weight: Theme.fwHeading
     wrapMode: Text.Wrap

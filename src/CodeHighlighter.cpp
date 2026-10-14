@@ -53,8 +53,9 @@ QTextCharFormat CodeHighlighter::fmt(const char *key, bool bold, bool italic) co
           c = QColor("#e5534b");
         } else if(QByteArray(key) == "warn") {
           c = QColor("#d8a73a");
-        } else
+        } else {
           c = QColor("#e5ecf3");
+        }
     }
     f.setForeground(c);
     if (bold) f.setFontWeight(QFont::DemiBold);

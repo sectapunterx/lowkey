@@ -85,7 +85,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         text: "Tabless"
         color: root._ink
-        font.family: Brand.fontSans
+        font.family: Brand.fontDisplay
         font.weight: Font.Medium
         // The x-height fills the logo's height the way the production
         // wordmark does: cap height ≈ 0.7 em. Tracking −3.5 % of that size;

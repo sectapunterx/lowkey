@@ -58,7 +58,7 @@ Popup {
             Layout.fillWidth: true
             text: root.title
             color: Theme.text
-            font.family: Theme.fontUi
+            font.family: Theme.fontDisplay
             font.pixelSize: Theme.fsLg
             font.weight: Theme.fwHeading
             wrapMode: Text.Wrap

@@ -115,7 +115,7 @@ Item {
                 Text {
                     text: root.tr2("Getting started", "С чего начать")
                     color: Theme.text
-                    font.family: Theme.fontUi
+                    font.family: Theme.fontDisplay
                     font.pixelSize: Theme.fsXl
                     font.weight: Theme.fwHeading
                 }

@@ -112,8 +112,8 @@ QList<bool> dateStyles(const QByteArray& xml) {
   return out;
 }
 
-// An Excel serial day (1900 system: day 0 is 1899-12-30) as the app writes
-// a date; with its time when it has one.
+// An Excel serial day (1900 system: day 0 is 1899-12-30) as an ISO date;
+// with its time when it has one.
 QString serialDate(const QString& value) {
   bool ok = false;
   const double serial = value.toDouble(&ok);
@@ -123,10 +123,11 @@ QString serialDate(const QString& value) {
   const auto days = static_cast<qint64>(serial);
   const QDate date = QDate(1899, 12, 30).addDays(days);
   const auto ms = static_cast<int>(std::lround((serial - static_cast<double>(days)) * 86400000.0));
+  // ISO: the same in either UI language, in the viewer and in a pasted table.
   if(ms <= 0 || ms >= 86400000) {
-    return date.toString(QStringLiteral("dd.MM.yyyy"));
+    return date.toString(Qt::ISODate);
   }
-  return QDateTime(date, QTime(0, 0).addMSecs(ms)).toString(QStringLiteral("dd.MM.yyyy HH:mm"));
+  return date.toString(Qt::ISODate) + QLatin1Char(' ') + QTime(0, 0).addMSecs(ms).toString(Qt::ISODate).left(5);
 }
 
 QStringList sharedStrings(const QByteArray& xml) {

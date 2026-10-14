@@ -20,6 +20,7 @@ struct BundledFamily {
 QList<BundledFamily> bundledFamilies() {
   return {
       {kUiFontFamily, {QFont::Normal, QFont::Medium, QFont::DemiBold}},
+      {kDisplayFontFamily, {QFont::Normal, QFont::Medium, QFont::DemiBold}},
       {kMonoFontFamily, {QFont::Normal, QFont::Medium}},
   };
 }

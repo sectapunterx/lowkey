@@ -243,7 +243,7 @@ Popup {
             Text {
                 text: I18n.t("keys.sheet.title")
                 color: Theme.text
-                font.family: Theme.fontUi
+                font.family: Theme.fontDisplay
                 font.pixelSize: Theme.fsXl
                 font.weight: Theme.fwHeading
             }

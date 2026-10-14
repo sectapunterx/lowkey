@@ -40,6 +40,21 @@ TestCase {
     // still carries an old seeded default ("IBM Plex Sans", or the upstream
     // "Golos Text" / "JetBrains Mono" of 0.6.0) gets the bundled "Tabless ..."
     // faces; a font the user picked stays in front.
+    // 0.9.3 (owner): Inter for the text, Golos Text kept for headings. A
+    // 0.9.x install saved "Tabless Golos Text" as its UI font: it gets Inter
+    // too. A face the user picked is used for the headings as well.
+    function test_headings_keep_golos() {
+        const saved = AppController.appSettingsJson;
+        try {
+            AppController.appSettingsJson = JSON.stringify({ appearance: { fontUI: "Tabless Golos Text" } });
+            compare(Theme.fontUi, "Tabless Inter");
+            compare(Theme.fontDisplay, "Tabless Golos Text");
+            AppController.appSettingsJson = JSON.stringify({ appearance: { fontUI: "Tabless JetBrains Mono" } });
+            compare(Theme.fontDisplay, "Tabless JetBrains Mono");
+        } finally {
+            AppController.appSettingsJson = saved;
+        }
+    }
     function test_fontui_defaults_to_bundled_golos() {
         const saved = AppController.appSettingsJson;
         AppController.appSettingsJson = JSON.stringify({});
@@ -67,16 +82,16 @@ TestCase {
 
         // One family each: Qt reads font.family as a single name, so a
         // "A, B, sans-serif" list matched nothing and drew in the system font.
-        compare(fresh, "Tabless Golos Text");
+        compare(fresh, "Tabless Inter");
         compare(freshMono, "Tabless JetBrains Mono");
-        compare(seeded, "Tabless Golos Text");
-        compare(seeded060, "Tabless Golos Text");
+        compare(seeded, "Tabless Inter");
+        compare(seeded060, "Tabless Inter");
         compare(seeded060Mono, "Tabless JetBrains Mono");
-        compare(legacy, "Tabless Golos Text");
-        compare(seeded080, "Tabless Golos Text");
+        compare(legacy, "Tabless Inter");
+        compare(seeded080, "Tabless Inter");
         compare(seeded080Mono, "Tabless JetBrains Mono");
         compare(custom, "Tabless JetBrains Mono");
-        compare(missing, "Tabless Golos Text");
+        compare(missing, "Tabless Inter");
         compare(missingMono, "Tabless JetBrains Mono");
     }
 
@@ -88,11 +103,11 @@ TestCase {
     Text { id: monoProbe; text: "0"; font.family: Theme.fontMono; font.weight: Font.Medium }
     Text { id: plainProbe; text: "a" }
     function test_bundled_fonts_resolve() {
-        compare(uiProbe.fontInfo.family, "Tabless Golos Text");
+        compare(uiProbe.fontInfo.family, "Tabless Inter");
         compare(uiProbe.fontInfo.weight, Font.DemiBold);
         compare(monoProbe.fontInfo.family, "Tabless JetBrains Mono");
         compare(monoProbe.fontInfo.weight, Font.Medium);
-        compare(plainProbe.fontInfo.family, "Tabless Golos Text");
+        compare(plainProbe.fontInfo.family, "Tabless Inter");
     }
 
     // ── Weights (APP-193): three, one job each, and only the heading at 600 ──

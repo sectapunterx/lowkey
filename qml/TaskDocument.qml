@@ -779,7 +779,7 @@ FocusScope {
                 textFormat: TextEdit.PlainText
                 selectByMouse: true
                 color: Theme.text
-                font.family: Theme.fontUi
+                font.family: Theme.fontDisplay
                 // 32 px bold, 28 px quiet (H2-Task / Q-Task); a step or two
                 // down for a title of more than three lines at that size: one
                 // of seven lines took most of a 720 px panel (F3-EYES-10).

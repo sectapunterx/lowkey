@@ -15,6 +15,17 @@ license, reproduced in full alongside the code it covers.
 md4c is the CommonMark parser behind Tabless's notes editor. Its sources are
 included verbatim and compiled into the application.
 
+## Inter
+
+- Source: https://github.com/rsms/inter, version 3.019
+- License: SIL Open Font License 1.1 — `resources/fonts/Inter-OFL.txt`
+- Copyright 2020 The Inter Project Authors
+- No Reserved Font Name is declared.
+
+The interface's text font since 0.9.3. Static Regular, Medium and SemiBold
+faces, renamed "Tabless Inter" with a larger unitsPerEm by
+`tools/gen_bundled_fonts.py --inter`.
+
 ## Golos Text
 
 - Source: https://github.com/googlefonts/golos-text (as published in
@@ -23,7 +34,7 @@ included verbatim and compiled into the application.
 - Copyright 2019 The Golos Text Project Authors
 - No Reserved Font Name is declared.
 
-The interface font. Tabless ships static Regular, Medium and SemiBold faces cut
+The headings' font (the interface's text until 0.9.3). Tabless ships static Regular, Medium and SemiBold faces cut
 from the upstream variable font by `tools/gen_bundled_fonts.py` (weight
 instancing and name-table changes only, every glyph kept); they are compiled
 into the application.

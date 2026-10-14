@@ -37,6 +37,7 @@ ColumnLayout {
             color: group.danger ? Theme.danger : Theme.text
             // A section heading on the sheets (N-Set-*: 15px, 600), a step
             // over its rows so a page does not read as one block.
+            font.family: Theme.fontDisplay
             font.pixelSize: Theme.fsLg
             font.weight: Style.chipFill ? Theme.fwHeading : Theme.fwTitle
             wrapMode: Text.WordWrap

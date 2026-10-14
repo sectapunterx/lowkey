@@ -568,13 +568,20 @@ QtObject {
     // upstream "Golos Text" / "JetBrains Mono" that 0.6.0 seeded. The bundled
     // faces are "Tabless ..." now ("heap ..." until 0.8.0, "lowkey ..." until
     // APP-283, which a pick in Appearance may still name), and the upstream name may be an installed copy.
-    readonly property var legacyDefaultFontsUi: ["IBM Plex Sans", "Golos Text", "heap Golos Text", "lowkey Golos Text"]
+    // The defaults saved by earlier builds; "Tabless Golos Text" was the text's face until 0.9.3.
+    readonly property var legacyDefaultFontsUi: ["IBM Plex Sans", "Golos Text", "heap Golos Text", "lowkey Golos Text", "Tabless Golos Text"]
     readonly property var legacyDefaultFontsMono: ["JetBrains Mono", "heap JetBrains Mono", "lowkey JetBrains Mono"]
     function _installedFont(family, fallback) {
         return family && Qt.fontFamilies().indexOf(family) >= 0 ? family : fallback;
     }
     readonly property string fontUi: legacyDefaultFontsUi.indexOf(_appearance.fontUI) < 0
                                      ? _installedFont(_appearance.fontUI, Brand.fontSans) : Brand.fontSans
+    // Headings - a screen's, a note's, a dialog's - and the wordmark: Golos
+    // Text, the brand's face (0.9.3, owner: Inter for the text, Golos kept
+    // where it is large enough to stay sharp). A face the user picked in
+    // Appearance is used for both.
+    readonly property string fontDisplay: legacyDefaultFontsUi.indexOf(_appearance.fontUI) < 0 && fontUi !== Brand.fontSans
+                                          ? fontUi : Brand.fontDisplay
     readonly property string fontMono: legacyDefaultFontsMono.indexOf(_appearance.fontMono) < 0
                                        ? _installedFont(_appearance.fontMono, Brand.fontMono) : Brand.fontMono
     // Mono is for what is typed or copied: ticket ids, branches, keys, code,

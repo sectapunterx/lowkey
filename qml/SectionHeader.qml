@@ -22,7 +22,7 @@ RowLayout {
     Text {
         text: root.title
         color: root.titleColor
-        font.family: Theme.fontUi
+        font.family: Theme.fontDisplay
         font.pixelSize: root.titleSize
         font.weight: root.titleWeight
         Accessible.role: Accessible.Heading

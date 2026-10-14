@@ -143,7 +143,7 @@ TEST(XlsxTest, ReadsSheetsAndCells) {
   ASSERT_EQ(sheets.size(), 2) << error.toStdString();
   EXPECT_EQ(sheets.at(0).name, QStringLiteral("Числа"));
   ASSERT_EQ(sheets.at(0).rows.size(), 3);
-  EXPECT_EQ(sheets.at(0).rows.at(0), (QStringList{"name", "", "x", "10.02.2025", "10.02.2025 12:00", "12.5"})) << "dates by their style";
+  EXPECT_EQ(sheets.at(0).rows.at(0), (QStringList{"name", "", "x", "2025-02-10", "2025-02-10 12:00", "12.5"})) << "dates by their style";
   EXPECT_EQ(sheets.at(0).rows.at(1), (QStringList{"", "", "", "", "", ""})) << "an empty row keeps its place";
   EXPECT_EQ(sheets.at(0).rows.at(2), (QStringList{"Алёна", "42.5", "TRUE", "", "", ""}));
   EXPECT_EQ(sheets.at(1).rows, (QList<QStringList>{{"inline"}}));

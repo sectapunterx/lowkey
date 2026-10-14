@@ -49,6 +49,9 @@ class MdHighlighter : public QSyntaxHighlighter {
   // The font code is set in (fences and spans): the editor's own face is
   // the UI font in rich mode, where code in it read as prose ("<<" as a «).
   Q_PROPERTY(QString monoFamily READ monoFamily WRITE setMonoFamily NOTIFY monoFamilyChanged)
+  // The headings' face (Theme.fontDisplay) for the top three levels in rich
+  // mode, as the drawn note sets them; empty keeps the editor's own.
+  Q_PROPERTY(QString displayFamily READ displayFamily WRITE setDisplayFamily NOTIFY displayFamilyChanged)
   // Task id -> title (AppController.taskTitles): a "#jira-APP-1" or "#APP-1"
   // that names a known task is drawn as its title in rich mode, as the
   // drawn note has it.
@@ -98,6 +101,12 @@ class MdHighlighter : public QSyntaxHighlighter {
   }
 
   void setMonoFamily(const QString& family);
+
+  QString displayFamily() const {
+    return m_displayFamily;
+  }
+
+  void setDisplayFamily(const QString& family);
 
   QVariantMap ticketTitles() const {
     return m_ticketTitles;
@@ -160,6 +169,7 @@ class MdHighlighter : public QSyntaxHighlighter {
   void livePreviewChanged();
   void revealChanged();
   void monoFamilyChanged();
+  void displayFamilyChanged();
   void ticketTitlesChanged();
 
  protected:
@@ -205,6 +215,7 @@ class MdHighlighter : public QSyntaxHighlighter {
   int m_revealStart = -1;
   int m_revealEnd = -1;
   QString m_monoFamily;
+  QString m_displayFamily;
   QVariantMap m_ticketTitles;
   QTextCharFormat m_hidden;  // collapsed: "## ", "**", "[", "](url)"
   QTextCharFormat m_ghost;   // invisible, keeping its width: what a drawn element sits on
