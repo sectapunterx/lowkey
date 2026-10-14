@@ -403,11 +403,12 @@ class Typesetter {
     if(name == QLatin1String("frac") || name == QLatin1String("dfrac") || name == QLatin1String("tfrac")) {
       const Piece num = group();
       const Piece den = group();
-      const auto wrap = [](const Piece& p, QString Piece::* field) {
-        return p.single ? p.*field : QStringLiteral("(") + p.*field + QStringLiteral(")");
+      // A piece of more than one symbol goes in brackets: (a+b)/2.
+      const auto wrap = [](bool single, const QString& s) {
+        return single ? s : QStringLiteral("(") + s + QStringLiteral(")");
       };
-      return {QStringLiteral("<sup>%1</sup>⁄<sub>%2</sub>").arg(wrap(num, &Piece::html), wrap(den, &Piece::html)),
-              wrap(num, &Piece::plain) + QStringLiteral("/") + wrap(den, &Piece::plain),
+      return {QStringLiteral("<sup>%1</sup>⁄<sub>%2</sub>").arg(wrap(num.single, num.html), wrap(den.single, den.html)),
+              wrap(num.single, num.plain) + QStringLiteral("/") + wrap(den.single, den.plain),
               false};
     }
     if(name == QLatin1String("sqrt")) {
