@@ -1718,7 +1718,7 @@ Item {
                     // A letter, then letters and digits (SHELL-10). Upper case.
                     validator: RegularExpressionValidator { regularExpression: /^([A-Za-z][A-Za-z0-9]{0,15})?$/ }
                     upperCase: true
-                    hint: I18n.t("settings.tasks.idPrefix.hint").arg(((root.settings.tasks && root.settings.tasks.idPrefix) || "TASK").toUpperCase())
+                    hint: (AppController.statusCounts, I18n.t("settings.tasks.idPrefix.hint").arg(AppController.nextTaskIdFor((root.settings.tasks && root.settings.tasks.idPrefix) || "TASK")))
                     value: (root.settings.tasks && root.settings.tasks.idPrefix) || ""
                     onCommitted: (text) => {
                         const next = (text || "").toUpperCase().trim();

@@ -3140,7 +3140,7 @@ TEST_F(AppControllerTest, SearchIsQueryOnlyParsesAndAdvertisesItsFields) {
   EXPECT_FALSE(app_->searchIsQuery(QString()));
 
   const QStringList fields = app_->searchFields();
-  for(const char* f : {"status", "priority", "deadline", "tag", "mention"}) {
+  for(const char* f : {"status", "priority", "due", "tag", "mention"}) {
     EXPECT_TRUE(fields.contains(QLatin1String(f))) << f << " must be offered as a hint";
   }
 }

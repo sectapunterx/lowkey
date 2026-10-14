@@ -61,7 +61,7 @@ TestCase {
         verify(!AppController.searchIsQuery("blocked"));
         verify(!AppController.searchIsQuery("https://example.test/x"),
                "a bare colon is not a clause");
-        verify(AppController.searchFields().indexOf("deadline") >= 0);
+        verify(AppController.searchFields().indexOf("due") >= 0);
 
         const tb = make('import TodoCpp; TopBar { width: 900 }');
         tb.searchText = "blocked";

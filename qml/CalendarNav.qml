@@ -29,8 +29,16 @@ Row {
             const m = I18n.monthName(d.getMonth());
             return m.charAt(0).toUpperCase() + m.slice(1) + " " + d.getFullYear();
         }
-        const a = root._startOfWeek(d);
-        const b = new Date(a.getFullYear(), a.getMonth(), a.getDate() + 6);
+        // The days the grid shows: without weekends "October 12 – 18" sat
+        // over Monday to Friday (EYE-17).
+        const s = root._startOfWeek(d);
+        const shown = [];
+        for (let i = 0; i < 7; i++) {
+            const x = new Date(s.getFullYear(), s.getMonth(), s.getDate() + i);
+            if (Theme.showWeekends || (x.getDay() !== 0 && x.getDay() !== 6)) shown.push(x);
+        }
+        const a = shown[0];
+        const b = shown[shown.length - 1];
         if (a.getMonth() !== b.getMonth()) return I18n.fmtDate(a, "longDay") + " – " + I18n.fmtDate(b, "longDay");
         return I18n.lang === "ru" ? a.getDate() + " – " + I18n.fmtDate(b, "longDay")
                                   : I18n.fmtDate(a, "longDay") + " – " + b.getDate();
