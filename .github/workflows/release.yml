@@ -824,7 +824,10 @@ jobs:
           find dist -mindepth 2 -type f -exec mv -n -t dist {} +
           find dist -mindepth 1 -type d -empty -delete
           cd dist
-          find . -maxdepth 1 -type f -printf '%f\n' | sort | xargs sha256sum > SHA256SUMS
+          # Hash first, write after: a `> SHA256SUMS` redirect creates the
+          # empty file before find runs, and it would list itself.
+          sums=$(find . -maxdepth 1 -type f -printf '%f\n' | sort | xargs sha256sum)
+          printf '%s\n' "$sums" > SHA256SUMS
           cat SHA256SUMS
 
       # Feature: into the latest stable release, beside stable's own files,
