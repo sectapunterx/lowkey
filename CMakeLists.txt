@@ -450,6 +450,7 @@ qt_add_qml_module(heap_core
         qml/MdBlockEditor.qml
         qml/MdLiveDecorations.qml
         qml/MdLivePreview.qml
+        qml/MdSlashMenu.qml
         qml/FileViewerDialog.qml
         qml/FilterBar.qml
         qml/KanbanBoard.qml

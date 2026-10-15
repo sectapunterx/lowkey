@@ -96,6 +96,12 @@ class AppController : public QObject {
   // task id → title for every task in the profile, archived included. The
   // rendered markdown shows a "#APP-12" mention as its title (APP-121).
   Q_PROPERTY(QVariantMap taskTitles READ taskTitles NOTIFY taskTitlesChanged)
+  // task id -> the key a card shows (displayKey) and -> its column's stage
+  // (statusCategory): the rich editor draws a "#APP-12" as a pill with the
+  // status ring and the key (a-05). Apart from the titles so a status drag
+  // redraws only the rings, not every open note's text.
+  Q_PROPERTY(QVariantMap taskKeys READ taskKeys NOTIFY taskKeysChanged)
+  Q_PROPERTY(QVariantMap taskStages READ taskStages NOTIFY taskStagesChanged)
   // The active profile's saved views, in sidebar order: [{id, name, query,
   // priorities, sort, archived, showDone, view, problems}] — `problems` is what
   // the search box would flag in the query (a deleted column, a typo).
@@ -1653,6 +1659,14 @@ class AppController : public QObject {
     return m_taskTitles;
   }
 
+  QVariantMap taskKeys() const {
+    return m_taskKeys;
+  }
+
+  QVariantMap taskStages() const {
+    return m_taskStages;
+  }
+
   // ---- Saved views (src/AppControllerSavedViews.cpp) ----
   // `state` is the filter state as Main.qml holds it: {query, priorities
   // (list or {P0: true} map), sort, archived, showDone, view}. Every mutation
@@ -2160,6 +2174,8 @@ class AppController : public QObject {
   void blockedStuckChanged();
   void statusCountsChanged();
   void taskTitlesChanged();
+  void taskKeysChanged();
+  void taskStagesChanged();
   void savedViewsChanged();
   void savedViewCountsChanged();
   void strictQueryChanged();
@@ -2481,6 +2497,8 @@ class AppController : public QObject {
   // changes, and announced only when a title or id really changed, so a
   // status drag does not re-render every open note.
   QVariantMap m_taskTitles;
+  QVariantMap m_taskKeys;
+  QVariantMap m_taskStages;
   bool m_taskTitlesQueued = false;
   void refreshTaskTitles();
   // The active profile's saved views and savedViewCounts()' cache. The count

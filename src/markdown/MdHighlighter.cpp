@@ -7,6 +7,7 @@
 #include <QFontMetricsF>
 #include <QRegularExpression>
 #include <QTextBlock>
+#include <QTextCursor>
 #include <QTextDocument>
 #include <QUrl>
 
@@ -72,6 +73,20 @@ const QRegularExpression& tableRowRx() {
   return rx;
 }
 
+// A line that is only a picture: drawn as a figure, its alt text the caption
+// under it (a-09). Group 1 is the alt text, 2 the address.
+const QRegularExpression& imageLineRx() {
+  static const QRegularExpression rx(QStringLiteral("^\\s*!\\[([^\\]\\n]*)\\]\\(([^)\\s]*)(?:\\s+\"[^\"]*\")?\\)\\s*$"));
+  return rx;
+}
+
+// The sheet's proportions against its 15px body text (H2/Q-Knowledge,
+// N/X-Oth-Knowledge): a list's gutter 20, `code` 13, a caption 12.
+constexpr qreal kListGutter = 20.0 / 15.0;
+constexpr qreal kTaskGutter = 1.6;  // the box (14) and the gap after it
+constexpr qreal kCodeScale = 13.0 / 15.0;
+constexpr qreal kCaptionScale = 12.0 / 15.0;
+
 }  // namespace
 
 MdHighlighter::MdHighlighter(QObject* parent) : QSyntaxHighlighter(parent) {
@@ -84,6 +99,8 @@ void MdHighlighter::setTarget(QQuickTextDocument* target) {
   }
   m_target = target;
   setDocument(target != nullptr ? target->textDocument() : nullptr);
+  // Sizes measured from the document's font (`code`, captions) come now.
+  rebuildFormats();
   emit targetChanged();
 }
 
@@ -112,6 +129,8 @@ void MdHighlighter::setLivePreview(bool on) {
     return;
   }
   m_livePreview = on;
+  // Links and `code` read differently drawn than as source (a-06, b-25).
+  rebuildFormats();
   rehighlight();
   emit livePreviewChanged();
 }
@@ -165,6 +184,76 @@ void MdHighlighter::setTicketTitles(const QVariantMap& titles) {
     rehighlight();
   }
   emit ticketTitlesChanged();
+}
+
+void MdHighlighter::setMetrics(const QVariantMap& metrics) {
+  if(m_metrics == metrics) {
+    return;
+  }
+  m_metrics = metrics;
+  rebuildFormats();
+  rehighlight();
+  emit metricsChanged();
+}
+
+qreal MdHighlighter::metric(const char* key) const {
+  return m_metrics.value(QLatin1String(key)).toReal();
+}
+
+QFont MdHighlighter::bodyFont() const {
+  return document() != nullptr ? document()->defaultFont() : QFont();
+}
+
+qreal MdHighlighter::bodyPx() const {
+  const qreal given = metric("body");
+  if(given > 0) {
+    return given;
+  }
+  const QFont f = bodyFont();
+  return f.pixelSize() > 0 ? f.pixelSize() : QFontInfo(f).pixelSize();
+}
+
+int MdHighlighter::headingPx(int level) const {
+  // The sheet sets H1 at twice the text and H2 at 1.2 (30 and 18 over 15);
+  // headingScale is H1's, the levels under it closer to the text, and 1.0
+  // keeps an even page. Pixel sizes, not FontSizeAdjustment's coarse steps,
+  // so the ratio holds at every interface scale.
+  static constexpr qreal kShare[6] = {1.0, 0.2, 0.1, 0.0, 0.0, 0.0};
+  const qreal ratio = 1.0 + (m_headingScale - 1.0) * kShare[std::clamp(level, 1, 6) - 1];
+  return std::max(1, static_cast<int>(std::round(bodyPx() * ratio)));
+}
+
+void MdHighlighter::spaceAfter(int pos, qreal spacing) {
+  if(pos < 0 || std::abs(spacing) < 0.01) {
+    return;
+  }
+  QTextCharFormat f = format(pos);
+  f.setFontLetterSpacingType(QFont::AbsoluteSpacing);
+  f.setFontLetterSpacing(spacing);
+  setFormat(pos, 1, f);
+}
+
+MdHighlighter::ListIndent MdHighlighter::listIndent(const QString& line) const {
+  ListIndent out;
+  const auto m = listMarkerRx().match(line);
+  if(!m.hasMatch()) {
+    return out;
+  }
+  const QFontMetricsF fm(bodyFont());
+  const qreal gutter = std::round(bodyPx() * kListGutter);
+  const QString lead = m.captured(1);
+  const QString prefix = line.mid(m.capturedStart(2), m.capturedEnd() - m.capturedStart(2));
+  // Two spaces a level, as the overlay counts a bullet's depth.
+  const qreal leadWidth = static_cast<qreal>(lead.size() / 2) * gutter;
+  const qreal natural = fm.horizontalAdvance(prefix);
+  const qreal room = std::max(m.captured(4).isEmpty() ? gutter : std::round(bodyPx() * kTaskGutter), natural);
+  out.ok = true;
+  out.leadEnd = static_cast<int>(m.capturedEnd(1));
+  out.prefixEnd = static_cast<int>(m.capturedEnd());
+  out.leadSpacing = lead.isEmpty() ? 0.0 : leadWidth - fm.horizontalAdvance(lead);
+  out.prefixSpacing = room - natural;
+  out.indent = leadWidth + room;
+  return out;
 }
 
 QPair<QTextBlock, QTextBlock> MdHighlighter::revealUnit(const QTextBlock& block) const {
@@ -490,6 +579,7 @@ QVariantList MdHighlighter::decorations(const QString& text, const QVariantMap& 
       out.append(QVariantMap{{"kind", "code"},
                              {"start", starts.at(i)},
                              {"end", lineEnd(last)},
+                             {"bodyAt", i + 1 < lines.size() ? starts.at(i + 1) : lineEnd(i)},
                              {"language", f.captured(2)},
                              {"closed", closed},
                              {"fenced", true},
@@ -592,6 +682,58 @@ QVariantList MdHighlighter::decorations(const QString& text, const QVariantMap& 
       ++i;
       continue;
     }
+    // A picture on a line of its own: the figure in the room above the line,
+    // the alt text under it as its caption (a-09).
+    if(const auto img = imageLineRx().match(line); img.hasMatch()) {
+      out.append(QVariantMap{{"kind", "image"},
+                             {"start", starts.at(i)},
+                             {"end", lineEnd(i)},
+                             {"at", starts.at(i)},
+                             {"src", img.captured(2)},
+                             {"alt", img.captured(1)}});
+      ++i;
+      continue;
+    }
+    // `code` in a pill under it (a-06, b-02) and a link's underline under its
+    // text (b-25): drawn, as a text format can neither pad a span nor move or
+    // tint an underline.
+    {
+      static const QRegularExpression codeSpanRx(QStringLiteral("`[^`\\n]+`"));
+      static const QRegularExpression linkTextRx(QStringLiteral("(?<!!)\\[([^\\]\\n]+)\\]\\([^)\\n]*\\)"));
+      static const QRegularExpression bareUrlRx(QStringLiteral("\\bhttps?://[^\\s)\\]>]+"));
+      QList<QPair<qsizetype, qsizetype>> taken;
+      const auto inTaken = [&taken](qsizetype pos) {
+        return std::any_of(taken.cbegin(), taken.cend(), [pos](const auto& r) {
+          return pos >= r.first && pos < r.second;
+        });
+      };
+      const auto span = [&](const QString& kind, qsizetype from, qsizetype to) {
+        out.append(QVariantMap{{"kind", kind},
+                               {"start", starts.at(i)},
+                               {"end", lineEnd(i)},
+                               {"at", starts.at(i) + static_cast<int>(from)},
+                               {"to", starts.at(i) + static_cast<int>(to)}});
+      };
+      for(auto it = codeSpanRx.globalMatch(line); it.hasNext();) {
+        const auto m = it.next();
+        taken.append({m.capturedStart(), m.capturedEnd()});
+        span(QStringLiteral("inlineCode"), m.capturedStart(), m.capturedEnd());
+      }
+      for(auto it = linkTextRx.globalMatch(line); it.hasNext();) {
+        const auto m = it.next();
+        if(inTaken(m.capturedStart())) {
+          continue;
+        }
+        taken.append({m.capturedStart(), m.capturedEnd()});
+        span(QStringLiteral("link"), m.capturedStart(1), m.capturedEnd(1));
+      }
+      for(auto it = bareUrlRx.globalMatch(line); it.hasNext();) {
+        const auto m = it.next();
+        if(!inTaken(m.capturedStart())) {
+          span(QStringLiteral("link"), m.capturedStart(), m.capturedEnd());
+        }
+      }
+    }
     for(const MathSpan& span : mathSpans(line)) {
       const MathRender math = renderMath(span.tex, span.display);
       if(!math.ok) {
@@ -643,6 +785,7 @@ QVariantList MdHighlighter::decorations(const QString& text, const QVariantMap& 
         out.append(QVariantMap{{"kind", "task"},
                                {"start", starts.at(i)},
                                {"end", lineEnd(i)},
+                               {"text", starts.at(i) + static_cast<int>(m.capturedEnd())},
                                {"at", starts.at(i) + static_cast<int>(m.capturedStart(2))},
                                {"box", starts.at(i) + static_cast<int>(m.capturedStart(4))},
                                {"checked", m.captured(5).toLower() == QStringLiteral("x")}});
@@ -650,6 +793,7 @@ QVariantList MdHighlighter::decorations(const QString& text, const QVariantMap& 
         out.append(QVariantMap{{"kind", "bullet"},
                                {"start", starts.at(i)},
                                {"end", lineEnd(i)},
+                               {"text", starts.at(i) + static_cast<int>(m.capturedEnd())},
                                {"at", starts.at(i) + static_cast<int>(m.capturedStart(2))},
                                {"depth", static_cast<int>(m.captured(1).size()) / 2}});
       }
@@ -883,10 +1027,34 @@ void MdHighlighter::hideDrawn(const QString& text) {
   for(const TicketSpan& span : footnoteSpans(text)) {
     ghostTo(span.start, span.length, smallMetrics.horizontalAdvance(span.title) + 2);
   }
-  // A known task's title is drawn over its id.
-  const QFontMetricsF metrics(document()->defaultFont());
+  // A known task is drawn over its id: what ticketTitles names it (the key,
+  // in the rich editor) and the ring and padding around it (a-05).
+  QFont label = bodyFont();
+  const qreal labelScale = metric("ticketScale") > 0 ? metric("ticketScale") : 1.0;
+  label.setPixelSize(std::max(1, static_cast<int>(std::round(bodyPx() * labelScale))));
+  const QFontMetricsF metrics(label);
   for(const TicketSpan& span : ticketSpans(text, m_ticketTitles)) {
-    ghostTo(span.start, span.length, metrics.horizontalAdvance(span.title));
+    ghostTo(span.start, span.length, metrics.horizontalAdvance(span.title) + metric("ticketChrome"));
+  }
+  // A link's "](address)" takes no room (b-25): collapsed to 1px glyphs, a
+  // long address still left a word's gap between the link and the text.
+  static const QRegularExpression linkTailRx(QStringLiteral("(?<!!)\\[[^\\]\\n]+(\\]\\([^)\\n]*\\))"));
+  const auto code = codeRanges(text);
+  for(auto it = linkTailRx.globalMatch(text); it.hasNext();) {
+    const auto m = it.next();
+    if(within(code, m.capturedStart())) {
+      continue;
+    }
+    ghostTo(static_cast<int>(m.capturedStart(1)), static_cast<int>(m.capturedLength(1)), 0);
+  }
+  // `code`: its backticks become the pill's padding (a-06).
+  if(const qreal pad = metric("codePad"); pad > 0) {
+    static const QRegularExpression codeRx(QStringLiteral("`[^`\\n]+`"));
+    for(auto it = codeRx.globalMatch(text); it.hasNext();) {
+      const auto m = it.next();
+      ghostTo(static_cast<int>(m.capturedStart()), 1, pad);
+      ghostTo(static_cast<int>(m.capturedEnd()) - 1, 1, pad);
+    }
   }
 }
 
@@ -918,8 +1086,10 @@ void MdHighlighter::rebuildFormats() {
   // Headings: the level shows in the weight here, and in the size applied per
   // line in highlightBlock. Sizing relative to the document's own font keeps
   // the editor's font setting as the baseline instead of hard-coding points.
+  // 600 at every level (a-07): the 700 asked for before is not a bundled
+  // weight, so Qt faked it by smearing the 400.
   for(int level = 0; level < 6; ++level) {
-    m_heading[level].setFontWeight(level <= 2 ? QFont::Bold : QFont::DemiBold);
+    m_heading[level].setFontWeight(QFont::DemiBold);
     m_heading[level].setForeground(text);
     m_heading[level].setFontFamilies(level < 3 && !m_displayFamily.isEmpty() ? QStringList{m_displayFamily} : QStringList());
   }
@@ -938,13 +1108,27 @@ void MdHighlighter::rebuildFormats() {
   // `code` in a line and <kbd>: the theme's accent, when one is given.
   m_codeInline = m_code;
   m_codeInline.setForeground(colorAt(m_palette, "inlineCode", codeColor));
+  if(m_livePreview) {
+    // Drawn: a pill under the span (MdLiveDecorations), the sheet's 13 over
+    // 15 so mono reads the size of the text around it (a-06).
+    m_codeInline.clearBackground();
+    m_codeInline.setProperty(QTextFormat::FontPixelSize, std::max(1, static_cast<int>(std::round(bodyPx() * kCodeScale))));
+  }
 
   m_quote.setForeground(dim);
   m_quote.setFontItalic(true);
   m_marker.setForeground(accent);
   m_marker.setFontWeight(QFont::DemiBold);
-  m_link.setForeground(accent);
-  m_link.setFontUnderline(true);
+  // Drawn, a link reads as text with a dim underline a little under it
+  // (b-25); the source keeps the accent.
+  m_link = QTextCharFormat();
+  m_link.setForeground(m_livePreview ? text : accent);
+  m_link.setFontUnderline(!m_livePreview);
+  m_markerLive = QTextCharFormat();
+  m_markerLive.setForeground(accent);
+  m_caption = QTextCharFormat();
+  m_caption.setForeground(dim);
+  m_caption.setProperty(QTextFormat::FontPixelSize, std::max(1, static_cast<int>(std::round(bodyPx() * kCaptionScale))));
   m_emphasis.setFontItalic(true);
   m_strong.setFontWeight(QFont::Bold);
   m_strike.setFontStrikeOut(true);
@@ -1239,9 +1423,134 @@ void MdHighlighter::highlightInline(const QString& text) {
   }
 }
 
+void MdHighlighter::scheduleBlockLook() {
+  if(m_lookPending || m_applyingLook) {
+    return;
+  }
+  m_lookPending = true;
+  // After the pass that called this: a block format set from inside
+  // highlightBlock would edit the document the highlighter is walking.
+  QMetaObject::invokeMethod(this, &MdHighlighter::applyBlockLook, Qt::QueuedConnection);
+}
+
+void MdHighlighter::applyBlockLook() {
+  m_lookPending = false;
+  QTextDocument* doc = document();
+  if(doc == nullptr || m_applyingLook) {
+    return;
+  }
+  struct Look {
+    bool fixed = false;
+    qreal height = 0;
+    qreal indent = 0;
+    qreal top = 0;
+  };
+
+  const bool on = m_livePreview && metric("leading") > 0;
+  const qreal lineHeight = std::round(bodyPx() * metric("leading"));
+  // What a line needs: the leading (a-02) for text, code and lists, a list
+  // item's hanging indent (a-04), the picture's room (a-09). Tables, csv
+  // grids and headings keep the font's own height: a grid's row is made
+  // tall by its glyphs, and a fixed height would pile a heading's line
+  // over the next.
+  const auto lookOf = [&](const QTextBlock& b) {
+    Look look;
+    if(!on) {
+      return look;
+    }
+    const int state = b.userState();
+    const int prev = b.previous().isValid() ? b.previous().userState() : static_cast<int>(Normal);
+    const QString t = b.text();
+    if(state == InFrontmatter || prev == InFrontmatter) {
+      return look;
+    }
+    look.fixed = true;
+    look.height = lineHeight;
+    if(state == InFence || prev == InFence) {
+      const QString language = fenceLanguageOf(state == InFence ? b : b.previous());
+      if(!separatorForLanguage(language, QStringLiteral("a,b")).isNull()) {
+        look.fixed = false;
+      }
+      return look;
+    }
+    if(state == InMathBlock || prev == InMathBlock || state == InIndentedCode) {
+      return look;
+    }
+    qsizetype k = 0;
+    while(k < t.size() && t.at(k).isSpace()) {
+      ++k;
+    }
+    if(k == t.size()) {
+      return look;
+    }
+    const QChar c = t.at(k);
+    if(c == QLatin1Char('#') && atxHeadingRx().match(t).hasMatch()) {
+      look.fixed = false;
+    } else if(c == QLatin1Char('|') && tableRowRx().match(t).hasMatch()) {
+      look.fixed = false;
+    } else if(c == QLatin1Char('!') && imageLineRx().match(t).hasMatch()) {
+      look.fixed = false;
+      look.top = metric("figureSpace");
+    } else if((c == QLatin1Char('=') || c == QLatin1Char('-')) && setextRx().match(t).hasMatch() && b.previous().isValid() &&
+              !b.previous().text().trimmed().isEmpty()) {
+      look.fixed = false;
+    } else if((c == QLatin1Char('-') || c == QLatin1Char('*') || c == QLatin1Char('+') || c.isDigit()) &&
+              !thematicBreakRx().match(t).hasMatch()) {
+      if(const ListIndent li = listIndent(t); li.ok) {
+        look.indent = li.indent;
+      }
+    }
+    return look;
+  };
+  const auto same = [](const QTextBlockFormat& f, const Look& w) {
+    const auto eq = [](qreal a, qreal b) {
+      return std::abs(a - b) < 0.01;
+    };
+    const bool fixed = f.lineHeightType() == QTextBlockFormat::FixedHeight;
+    if(fixed != w.fixed || (!fixed && f.lineHeightType() != QTextBlockFormat::SingleHeight)) {
+      return false;
+    }
+    return (!fixed || eq(f.lineHeight(), w.height)) && eq(f.leftMargin(), w.indent) && eq(f.textIndent(), -w.indent) &&
+           eq(f.topMargin(), w.top);
+  };
+
+  m_applyingLook = true;
+  // Text set from code (setPlainText) leaves no undo history: the layout
+  // must not become the first thing Ctrl+Z takes back. After an edit it
+  // joins that edit, so one Ctrl+Z takes back both (as TextLeading does).
+  const bool fresh = !doc->isUndoAvailable();
+  bool changed = false;
+  QTextCursor cursor(doc);
+  for(QTextBlock b = doc->begin(); b.isValid(); b = b.next()) {
+    const Look want = lookOf(b);
+    if(same(b.blockFormat(), want)) {
+      continue;
+    }
+    if(!changed) {
+      cursor.joinPreviousEditBlock();
+      changed = true;
+    }
+    QTextBlockFormat f = b.blockFormat();
+    f.setLineHeight(want.fixed ? want.height : 0, want.fixed ? QTextBlockFormat::FixedHeight : QTextBlockFormat::SingleHeight);
+    f.setLeftMargin(want.indent);
+    f.setTextIndent(-want.indent);
+    f.setTopMargin(want.top);
+    cursor.setPosition(b.position());
+    cursor.setBlockFormat(f);
+  }
+  if(changed) {
+    cursor.endEditBlock();
+    if(fresh) {
+      doc->clearUndoRedoStacks();
+    }
+  }
+  m_applyingLook = false;
+}
+
 void MdHighlighter::highlightBlock(const QString& text) {
   const int previous = previousBlockState();
   const int length = static_cast<int>(text.size());
+  scheduleBlockLook();
 
   // ── Multi-line state ────────────────────────────────────────────
   // A line on its own cannot tell code from prose, which is what the old
@@ -1359,10 +1668,9 @@ void MdHighlighter::highlightBlock(const QString& text) {
   if(heading.hasMatch()) {
     const int level = static_cast<int>(heading.captured(1).size());
     QTextCharFormat format = m_heading[std::clamp(level, 1, 6) - 1];
-    // Qt stores a heading's relative size as a multiplier on the document's
-    // default font; setting it here keeps the editor's own font setting as the
-    // baseline instead of hard-coding point sizes.
-    format.setProperty(QTextFormat::FontSizeAdjustment, static_cast<int>(std::round((m_headingScale - 1.0) * (7 - level))));
+    // Sized from the editor's own font, so its size setting stays the
+    // baseline (a-07).
+    format.setProperty(QTextFormat::FontPixelSize, headingPx(level));
     setFormat(0, length, format);
     highlightInline(text);
     if(m_livePreview && !revealed(currentBlock())) {
@@ -1438,10 +1746,13 @@ void MdHighlighter::highlightBlock(const QString& text) {
   }
 
   const auto list = listMarkerRx().match(text);
+  // Rich measures a marker to lay the item's text on its column (a-04), so
+  // it keeps the text's weight there.
+  const QTextCharFormat& marker = m_livePreview ? m_markerLive : m_marker;
   if(list.hasMatch()) {
-    setFormat(static_cast<int>(list.capturedStart(2)), static_cast<int>(list.capturedLength(2)), m_marker);
+    setFormat(static_cast<int>(list.capturedStart(2)), static_cast<int>(list.capturedLength(2)), marker);
     if(!list.captured(4).isEmpty()) {
-      setFormat(static_cast<int>(list.capturedStart(4)), static_cast<int>(list.capturedLength(4)), m_marker);
+      setFormat(static_cast<int>(list.capturedStart(4)), static_cast<int>(list.capturedLength(4)), marker);
       // A finished task reads as finished, the way it does in the rendered
       // view.
       if(list.captured(5).toLower() == QStringLiteral("x")) {
@@ -1451,6 +1762,11 @@ void MdHighlighter::highlightBlock(const QString& text) {
   }
 
   highlightInline(text);
+  // A picture's alt text is its caption, small and dim under it (a-09).
+  const auto image = m_livePreview ? imageLineRx().match(text) : QRegularExpressionMatch();
+  if(image.hasMatch() && image.capturedLength(1) > 0) {
+    setFormat(static_cast<int>(image.capturedStart(1)), static_cast<int>(image.capturedLength(1)), m_caption);
+  }
   if(hides()) {
     hideMarkup(text);
     hideDrawn(text);
@@ -1459,6 +1775,16 @@ void MdHighlighter::highlightBlock(const QString& text) {
       const int to = list.captured(4).isEmpty() ? static_cast<int>(list.capturedEnd(2)) : static_cast<int>(list.capturedEnd(4)) - 1;
       ghost(static_cast<int>(list.capturedStart(2)), to - static_cast<int>(list.capturedStart(2)));
     }
+  }
+  // The item's text on a fixed column, drawn or shown as source, so the
+  // hanging indent its lines wrap to fits either way (a-04): the room goes
+  // after the last space of the nesting and of the marker.
+  if(m_livePreview && list.hasMatch()) {
+    const ListIndent li = listIndent(text);
+    if(li.leadEnd > 0) {
+      spaceAfter(li.leadEnd - 1, li.leadSpacing);
+    }
+    spaceAfter(li.prefixEnd - 1, li.prefixSpacing);
   }
 }
 

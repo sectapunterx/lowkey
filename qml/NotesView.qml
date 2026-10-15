@@ -249,6 +249,24 @@ Item {
         root._refreshAttachments();
         return spans.length;
     }
+    // The caret alone on an empty line of the note.
+    function _caretOnEmptyLine() {
+        if (editor.selectionStart !== editor.selectionEnd) return false;
+        const at = editor.cursorPosition;
+        const t = editor.text;
+        return (at === 0 || t.charAt(at - 1) === "\n") && (at === t.length || t.charAt(at) === "\n");
+    }
+    // What "/" inserts in the rich editor (a-03); a file is picked and
+    // linked where the "/" was.
+    MdSlashMenu {
+        id: noteSlash
+        objectName: "notes-slash-menu"
+        field: editor
+        onFileRequested: {
+            noteSlash.dropSlash();
+            attachDialog.open();
+        }
+    }
     FileDialog {
         id: attachDialog
         fileMode: FileDialog.OpenFiles
@@ -1144,6 +1162,8 @@ Item {
                         id: livePreview
                         editor: editor
                         rich: root.viewMode === "rich"
+                        // The note's text at 1.7, as the drawn note (a-02, R3-083).
+                        leading: 1.7
                         onInternalLinkActivated: (kind, target) => root._followLink(kind, target)
                     }
 
@@ -1197,6 +1217,15 @@ Item {
                             // along the focus chain, as in any editor that keeps
                             // Tab for itself.
                             if (root._leaveEditorKey(editor, event.key, event.modifiers)) {
+                                event.accepted = true;
+                                return;
+                            }
+
+                            // "/" on an empty line: the insert menu, as in the
+                            // task document (a-03). Anywhere else "/" is
+                            // typed, so "/завтра" still expands to a date.
+                            if (root.viewMode === "rich" && event.text === "/" && root._caretOnEmptyLine()) {
+                                noteSlash.openAtCaret();
                                 event.accepted = true;
                                 return;
                             }

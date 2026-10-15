@@ -56,6 +56,18 @@ class MdHighlighter : public QSyntaxHighlighter {
   // that names a known task is drawn as its title in rich mode, as the
   // drawn note has it.
   Q_PROPERTY(QVariantMap ticketTitles READ ticketTitles WRITE setTicketTitles NOTIFY ticketTitlesChanged)
+  // What rich mode lays out around the text, in pixels of the editor (the
+  // overlay draws with the same numbers, so what is hidden and what is drawn
+  // over it stay the same width):
+  //   body          the editor's font size (headings are sized from it, a-07)
+  //   leading       line height as a multiple of body; 0 = the font's own (a-02)
+  //   codePad       room either side of `code`, where its pill is drawn (a-06)
+  //   ticketChrome  a task pill's width beyond its key (ring, gap, padding, a-05)
+  //   ticketScale   the key's size against body
+  //   figureSpace   room above an image line for the picture (a-09)
+  // Line height, list indents and the picture's room are block formats, so
+  // they are set on the document itself, without an undo step of their own.
+  Q_PROPERTY(QVariantMap metrics READ metrics WRITE setMetrics NOTIFY metricsChanged)
 
  public:
   explicit MdHighlighter(QObject* parent = nullptr);
@@ -114,6 +126,12 @@ class MdHighlighter : public QSyntaxHighlighter {
 
   void setTicketTitles(const QVariantMap& titles);
 
+  QVariantMap metrics() const {
+    return m_metrics;
+  }
+
+  void setMetrics(const QVariantMap& metrics);
+
   // The markup ranges of one line that live preview hides, as (start, length)
   // pairs. Public for the tests; the highlighter applies them itself.
   static QList<QPair<int, int>> hiddenMarkup(const QString& line);
@@ -126,8 +144,14 @@ class MdHighlighter : public QSyntaxHighlighter {
   //   code: language                     table: rows [{start, cells, header}],
   //                                             align ["l"|"c"|"r"|""]
   // Fenced code and tables are revealed as a whole, the rest line by line.
-  //   ticket: at, length, label (a known task's title, drawn over its id)
+  //   ticket: at, length, id, label (ticketTitles' value for the id, drawn
+  //           over it: the rich editor passes the keys, AppController.taskKeys)
   //   footnote: at, length, label (the id, drawn small and raised)
+  //   bullet / task also: text (where the item's text starts)
+  //   code also: bodyAt (the first line under the fence)
+  //   inlineCode: at, to (the backticks included)
+  //   link: at, to (the text of a [link](url), or a bare address)
+  //   image: at, src, alt (a line that is only ![alt](src))
   Q_INVOKABLE static QVariantList decorations(const QString& text, const QVariantMap& ticketTitles = {});
 
   // What a click at pos opens, in MdView's link form: "heap://task/<id>",
@@ -162,6 +186,21 @@ class MdHighlighter : public QSyntaxHighlighter {
 
   static QList<MathSpan> mathSpans(const QString& line);
 
+  // A list item's marker and the room it takes in rich mode (a-04): the
+  // nesting spaces are `depth` gutters wide and the marker with its space
+  // one more (wider for a task's box), so the text starts on a fixed column
+  // and a wrapped line, indented by `indent`, starts under it.
+  struct ListIndent {
+    bool ok = false;
+    int leadEnd = 0;    // after the nesting spaces
+    int prefixEnd = 0;  // where the item's text starts
+    qreal leadSpacing = 0;
+    qreal prefixSpacing = 0;
+    qreal indent = 0;
+  };
+
+  ListIndent listIndent(const QString& line) const;
+
  signals:
   void targetChanged();
   void paletteChanged();
@@ -171,6 +210,7 @@ class MdHighlighter : public QSyntaxHighlighter {
   void monoFamilyChanged();
   void displayFamilyChanged();
   void ticketTitlesChanged();
+  void metricsChanged();
 
  protected:
   void highlightBlock(const QString& text) override;
@@ -207,6 +247,18 @@ class MdHighlighter : public QSyntaxHighlighter {
   // line itself when it is in neither.
   QPair<QTextBlock, QTextBlock> revealUnit(const QTextBlock& block) const;
   bool hides() const;
+  // The editor's font, at metrics' body size when one is given.
+  QFont bodyFont() const;
+  qreal bodyPx() const;
+  qreal metric(const char* key) const;
+  // A heading's size against body (a-07): H1 headingScale, H2 1.2, H3 1.1.
+  int headingPx(int level) const;
+  // The extra width `spacing` added after the one character at `pos`.
+  void spaceAfter(int pos, qreal spacing);
+  // Line height, list indents and picture room on every block that needs
+  // them (or none, off rich): one pass, after the highlighter has run.
+  void scheduleBlockLook();
+  void applyBlockLook();
 
   QQuickTextDocument* m_target = nullptr;
   QVariantMap m_palette;
@@ -217,6 +269,9 @@ class MdHighlighter : public QSyntaxHighlighter {
   QString m_monoFamily;
   QString m_displayFamily;
   QVariantMap m_ticketTitles;
+  QVariantMap m_metrics;
+  bool m_lookPending = false;
+  bool m_applyingLook = false;
   QTextCharFormat m_hidden;  // collapsed: "## ", "**", "[", "](url)"
   QTextCharFormat m_ghost;   // invisible, keeping its width: what a drawn element sits on
 
@@ -240,6 +295,8 @@ class MdHighlighter : public QSyntaxHighlighter {
   QTextCharFormat m_rule;
   QTextCharFormat m_table;
   QTextCharFormat m_codeInline;
+  QTextCharFormat m_markerLive;  // a list marker in rich: its width is measured, so no weight
+  QTextCharFormat m_caption;     // an image line's alt text, under the picture
 
   // Language rules for whatever fence is currently open. The language itself
   // is not a member: it travels per block (see kCommentStyleFor in the .cpp),

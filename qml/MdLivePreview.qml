@@ -22,12 +22,40 @@ Item {
     property bool rich: true
     // Read-only text (the tracker's): all of it drawn, boxes not clickable.
     property bool readOnly: false
-    property real headingScale: 1.45
+    // H1 against the text: twice it, as the sheet's 30 over 15 (a-07).
+    property real headingScale: 2
+    // Line height as a multiple of the text, in rich only; 0 keeps the
+    // font's own. Notes 1.7, the task document 1.65 (a-02, R3-083/R3-038).
+    property real leading: 0
 
     signal internalLinkActivated(string kind, string target)
 
     readonly property alias highlighter: hl
-    readonly property var decorations: root.rich ? hl.decorations(root.editor.text, AppController.taskTitles) : []
+    // A task reference reads as its key in a pill (a-05), so the key is
+    // what is drawn over "#APP-1" and what its hidden source is as wide as.
+    readonly property var _ticketLabels: AppController.taskKeys
+    readonly property var decorations: root.rich ? hl.decorations(root.editor.text, root._ticketLabels) : []
+    // The sizes both the highlighter (what it hides) and the overlay (what
+    // it draws there) go by, from the sheet's 15px text (H2/Q-Knowledge).
+    readonly property int _body: root.editor.font.pixelSize
+    readonly property var metrics: ({
+        body: root._body,
+        leading: root.rich ? root.leading : 0,
+        // `code`: 5 either side (a-06).
+        codePad: Math.round(root._body / 3),
+        // A task: ring 9, gap 5, key 13 in bold, padded 7 in a fill;
+        // quiet the ring and the key at the text's size, underlined.
+        ring: Math.round(root._body * 0.6),
+        ringGap: Math.round(root._body / 3),
+        ticketPad: Style.chipFill ? Math.round(root._body * 7 / 15) : 0,
+        ticketScale: Style.chipFill ? 13 / 15 : 1,
+        ticketChrome: Math.round(root._body * 0.6) + Math.round(root._body / 3)
+                      + 2 * (Style.chipFill ? Math.round(root._body * 7 / 15) : 0),
+        // A picture: 200 high, its caption 6 under it (a-09).
+        figure: Theme.px(200),
+        figureGap: Theme.px(6),
+        figureSpace: Theme.px(200) + Theme.px(6)
+    })
     // The caret / selection range the source shows at; -1 when nothing is.
     readonly property int revealStart: hl.revealStart
     readonly property int revealEnd: hl.revealEnd
@@ -42,6 +70,7 @@ Item {
         z: root.editor.z - 1
         visible: root.rich && root.editor.visible
         decorations: root.decorations
+        metrics: root.metrics
         revealStart: hl.revealStart
         revealEnd: hl.revealEnd
     }
@@ -78,13 +107,14 @@ Item {
         visible: root.rich && root.editor.visible
         tasksClickable: !root.readOnly
         decorations: root.decorations
+        metrics: root.metrics
         revealStart: hl.revealStart
         revealEnd: hl.revealEnd
     }
 
     // The link under a point of the editor, "" for none.
     function linkAt(x: real, y: real): string {
-        return hl.linkAt(root.editor.text, root.editor.positionAt(x, y), AppController.taskTitles);
+        return hl.linkAt(root.editor.text, root.editor.positionAt(x, y), root._ticketLabels);
     }
 
     // As MdView opens a link it draws.
@@ -135,7 +165,8 @@ Item {
         monoFamily: Theme.fontMono
         // Headings in the headings' face, as the drawn note has them.
         displayFamily: root.rich ? Theme.fontDisplay : ""
-        ticketTitles: root.rich ? AppController.taskTitles : ({})
+        ticketTitles: root.rich ? root._ticketLabels : ({})
+        metrics: root.metrics
         revealStart: root.editor.activeFocus && !root.readOnly ? root.editor.selectionStart : -1
         revealEnd: root.editor.activeFocus && !root.readOnly ? root.editor.selectionEnd : -1
         palette: ({
@@ -143,8 +174,9 @@ Item {
             dim:           Theme.textMuted,
             accent:        Theme.accent,
             code:          Theme.code,
-            // code in a line and <kbd>: the theme's own colour.
-            inlineCode:    Theme.accent,
+            // code in a line and <kbd>: drawn, the text's colour on its
+            // pill (a-06, b-02); as source, the theme's own colour.
+            inlineCode:    root.rich ? Theme.text : Theme.accent,
             codeBg:        Theme.codeBg,
             mention:       Theme.mention,
             ticket:        Theme.ticket,

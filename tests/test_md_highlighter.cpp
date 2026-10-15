@@ -11,6 +11,8 @@
 
 #include "markdown/MdHighlighter.h"
 
+#include <QCoreApplication>
+#include <QFontMetricsF>
 #include <QGuiApplication>
 #include <QTextBlock>
 #include <QTextDocument>
@@ -354,6 +356,154 @@ TEST(MdHighlighterLive, AFormulaKeepsItsDrawnWidthHidden) {
     }
   }
   EXPECT_TRUE(spaced) << "the hidden source is squeezed to the drawn formula's width";
+}
+
+// ── Rich mode's layout (0.9.4 design gaps) ───────────────────────────
+
+namespace {
+
+// A document in rich mode with the sheet's 15px text, its pending block
+// layout applied (it runs after the highlighter's pass).
+class Rich {
+ public:
+  explicit Rich(const QString& text, qreal leading = 1.7) {
+    QFont f = m_doc.defaultFont();
+    f.setPixelSize(15);
+    m_doc.setDefaultFont(f);
+    m_hl.setDocument(&m_doc);
+    m_hl.setMetrics(QVariantMap{{QStringLiteral("body"), 15},
+                                {QStringLiteral("leading"), leading},
+                                {QStringLiteral("codePad"), 5},
+                                {QStringLiteral("ticketChrome"), 28},
+                                {QStringLiteral("ticketScale"), 13.0 / 15.0},
+                                {QStringLiteral("figureSpace"), 206}});
+    m_hl.setLivePreview(true);
+    m_doc.setPlainText(text);
+    m_doc.documentLayout();
+    m_hl.rehighlight();
+    settle();
+  }
+
+  void settle() {
+    QCoreApplication::processEvents();
+    QCoreApplication::processEvents();
+  }
+
+  QTextBlockFormat block(int line) const {
+    return m_doc.findBlockByNumber(line).blockFormat();
+  }
+
+  QTextCharFormat formatAt(int line, int column) const {
+    const QTextBlock b = m_doc.findBlockByNumber(line);
+    for(const QTextLayout::FormatRange& range : b.layout()->formats()) {
+      if(column >= range.start && column < range.start + range.length) {
+        return range.format;
+      }
+    }
+    return {};
+  }
+
+  QTextDocument m_doc;
+  heap::md::MdHighlighter m_hl;
+};
+
+}  // namespace
+
+// a-07: 600 at every level, H1 twice the text and H2 1.2 times it, as
+// pixel sizes (the sheet's 30 and 18 over 15).
+TEST(MdHighlighterRich, HeadingsAreSemiBoldAtTheSheetsRatio) {
+  Rich r(QStringLiteral("# Title\n\n## Section\n\n### Sub\n"));
+  r.m_hl.setHeadingScale(2.0);
+  r.settle();
+  const QTextCharFormat h1 = r.formatAt(0, 3);
+  const QTextCharFormat h2 = r.formatAt(2, 4);
+  EXPECT_EQ(h1.fontWeight(), QFont::DemiBold);
+  EXPECT_EQ(h2.fontWeight(), QFont::DemiBold);
+  EXPECT_EQ(h1.property(QTextFormat::FontPixelSize).toInt(), 30);
+  EXPECT_EQ(h2.property(QTextFormat::FontPixelSize).toInt(), 18);
+  EXPECT_EQ(r.formatAt(4, 4).property(QTextFormat::FontPixelSize).toInt(), 17);
+  EXPECT_FALSE(h1.hasProperty(QTextFormat::FontSizeAdjustment)) << "no coarse size steps";
+}
+
+// a-02: the text at 1.7 (fixed pixels, as TextLeading); headings and table
+// rows keep the font's own height; off rich, the document is left plain.
+TEST(MdHighlighterRich, TheTextReadsAtTheSheetsLeading) {
+  Rich r(QStringLiteral("# Title\n\nSome text\n\n| a | b |\n|---|---|\n| 1 | 2 |\n"));
+  EXPECT_EQ(r.block(2).lineHeightType(), QTextBlockFormat::FixedHeight);
+  EXPECT_DOUBLE_EQ(r.block(2).lineHeight(), 26.0);  // round(15 * 1.7)
+  EXPECT_EQ(r.block(0).lineHeightType(), QTextBlockFormat::SingleHeight) << "a heading keeps its own height";
+  EXPECT_EQ(r.block(4).lineHeightType(), QTextBlockFormat::SingleHeight) << "a table row is made tall by its grid";
+  EXPECT_FALSE(r.m_doc.isUndoAvailable()) << "laying out a loaded text is not an edit to undo";
+  r.m_hl.setLivePreview(false);
+  r.settle();
+  EXPECT_EQ(r.block(2).lineHeightType(), QTextBlockFormat::SingleHeight) << "the source mode is plain";
+}
+
+// a-04: a list item's text starts on a column; its wrapped lines start under
+// that column (a hanging indent), drawn or shown as source.
+TEST(MdHighlighterRich, AListItemHangsItsWrappedLines) {
+  Rich r(QStringLiteral("- one\n  - two\n- [ ] box\nplain\n"));
+  const QTextBlockFormat item = r.block(0);
+  EXPECT_DOUBLE_EQ(item.leftMargin(), 20.0) << "one gutter, the sheet's 20 over 15";
+  EXPECT_DOUBLE_EQ(item.textIndent(), -20.0);
+  EXPECT_DOUBLE_EQ(r.block(1).leftMargin(), 40.0) << "a level deeper, a gutter further";
+  EXPECT_GE(r.block(2).leftMargin(), 24.0) << "a box takes a wider marker";
+  EXPECT_DOUBLE_EQ(r.block(3).leftMargin(), 0.0);
+  // The marker's room is the indent: the text starts where wrapped lines do.
+  const heap::md::MdHighlighter::ListIndent li = r.m_hl.listIndent(QStringLiteral("  - two"));
+  ASSERT_TRUE(li.ok);
+  EXPECT_EQ(li.prefixEnd, 4);
+  EXPECT_DOUBLE_EQ(li.indent, 40.0);
+  EXPECT_EQ(r.formatAt(1, 3).fontLetterSpacingType(), QFont::AbsoluteSpacing) << "the space after the marker takes the room";
+}
+
+// a-09: a line that is only a picture gets the picture's room above it and
+// its alt text is the caption; a-06 / b-25: `code` and links are drawn.
+TEST(MdHighlighterRich, PicturesCodeAndLinksAreDrawn) {
+  const QString text = QStringLiteral("![Retries](attachments/a.png)\n\nkey `login` and [RFC](https://x.test) or https://y.test\n");
+  Rich r(text);
+  EXPECT_DOUBLE_EQ(r.block(0).topMargin(), 206.0);
+  QStringList kinds;
+  QVariantMap image;
+  QVariantMap code;
+  for(const QVariant& v : heap::md::MdHighlighter::decorations(text)) {
+    const QVariantMap d = v.toMap();
+    kinds << d.value(QStringLiteral("kind")).toString();
+    if(kinds.last() == QStringLiteral("image")) {
+      image = d;
+    } else if(kinds.last() == QStringLiteral("inlineCode")) {
+      code = d;
+    }
+  }
+  EXPECT_EQ(kinds.join(QLatin1Char(',')), QStringLiteral("image,inlineCode,link,link"));
+  EXPECT_EQ(image.value(QStringLiteral("src")).toString(), QStringLiteral("attachments/a.png"));
+  EXPECT_EQ(image.value(QStringLiteral("alt")).toString(), QStringLiteral("Retries"));
+  EXPECT_EQ(text.mid(code.value(QStringLiteral("at")).toInt(), code.value(QStringLiteral("to")).toInt() - code.value(QStringLiteral("at")).toInt()),
+            QStringLiteral("`login`"));
+  // `code` in the text's colour, no flat square behind it: the pill is drawn.
+  const QTextCharFormat c = r.formatAt(2, 6);
+  EXPECT_FALSE(c.hasProperty(QTextFormat::BackgroundBrush));
+  EXPECT_EQ(c.property(QTextFormat::FontPixelSize).toInt(), 13);
+  // A link is not underlined by the font: its dim line is drawn lower.
+  EXPECT_FALSE(r.formatAt(2, 18).fontUnderline());
+  // The caption is small.
+  EXPECT_EQ(r.formatAt(0, 3).property(QTextFormat::FontPixelSize).toInt(), 12);
+}
+
+// a-05: a task's id is hidden as wide as its pill: the key and the room for
+// the ring and the padding.
+TEST(MdHighlighterRich, ATaskIdIsAsWideAsItsPill) {
+  Rich r(QStringLiteral("bug in #APP-101 here\n\nnext\n"));
+  r.m_hl.setTicketTitles(QVariantMap{{QStringLiteral("APP-101"), QStringLiteral("APP-101")}});
+  r.m_hl.setRevealStart(r.m_doc.findBlockByNumber(2).position());
+  r.m_hl.setRevealEnd(r.m_doc.findBlockByNumber(2).position());
+  const QTextCharFormat f = r.formatAt(0, 8);
+  ASSERT_EQ(f.fontLetterSpacingType(), QFont::AbsoluteSpacing);
+  QFont key = r.m_doc.defaultFont();
+  key.setPixelSize(13);
+  const qreal want = QFontMetricsF(key).horizontalAdvance(QStringLiteral("APP-101")) + 28;
+  const qreal own = QFontMetricsF(r.m_doc.defaultFont()).horizontalAdvance(QStringLiteral("#APP-101"));
+  EXPECT_NEAR(own + f.fontLetterSpacing() * 8, want, 0.5);
 }
 
 int main(int argc, char** argv) {

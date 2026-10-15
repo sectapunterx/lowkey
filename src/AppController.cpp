@@ -1237,6 +1237,8 @@ AppController::AppController(QObject* parent) :
   connect(&m_tasks, &QAbstractItemModel::rowsInserted, this, queueTaskTitles);
   connect(&m_tasks, &QAbstractItemModel::rowsRemoved, this, queueTaskTitles);
   connect(&m_tasks, &QAbstractItemModel::dataChanged, this, queueTaskTitles);
+  // A column's stage changes every ring of its tasks (taskStages).
+  connect(this, &AppController::statusesChanged, this, queueTaskTitles);
   // Status moves for the Monday recap, noticed the same way: from the model,
   // so a drag, the editor, a bulk move, a sync and an undo are all seen.
   connect(&m_tasks, &QAbstractItemModel::modelReset, this, [this]() {
@@ -8266,8 +8268,21 @@ QVariantMap AppController::statusCounts() const {
 void AppController::refreshTaskTitles() {
   m_taskTitlesQueued = false;
   QVariantMap next;
+  QVariantMap keys;
+  QVariantMap stages;
   for(const Task& t : m_tasks.items()) {
     next.insert(t.id, t.title);
+    const QString key = externalKeyOf(t);
+    keys.insert(t.id, key.isEmpty() ? t.id : key);
+    stages.insert(t.id, statusCategory(t.status));
+  }
+  if(keys != m_taskKeys) {
+    m_taskKeys = keys;
+    emit taskKeysChanged();
+  }
+  if(stages != m_taskStages) {
+    m_taskStages = stages;
+    emit taskStagesChanged();
   }
   if(next == m_taskTitles) {
     return;

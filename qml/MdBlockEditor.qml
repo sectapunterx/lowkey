@@ -454,12 +454,7 @@ Item {
     // The "/" typed at the caret and the insert menu over it.
     function openSlashMenu() {
         if (root.readOnly || !root.editing) return;
-        const at = field.cursorPosition;
-        field.insert(at, "/");
-        field.cursorPosition = at + 1;
-        slashMenu.slashAt = at;
-        slashMenu.popup(field, field.cursorRectangle.x, field.cursorRectangle.y + field.cursorRectangle.height);
-        slashMenu.currentIndex = 0;
+        slashMenu.openAtCaret();
     }
     // Links to stored files, each in a paragraph of its own: at the caret of
     // the open block, else in a new block at the end. Dropped files went to
@@ -861,6 +856,8 @@ Item {
             MdLivePreview {
                 editor: field
                 readOnly: root.readOnly
+                // The task document reads at 1.65 (H2/Q-Task, R3-038, a-02).
+                leading: root.paragraphLineHeight > 0 ? root.paragraphLineHeight : 1.65
                 onInternalLinkActivated: (kind, target) => root.internalLinkActivated(kind, target)
             }
         }
@@ -917,70 +914,17 @@ Item {
         }
     }
 
-    // What "/" inserts (R2-024, sheet X/N-Oth-Knowledge): the six rows, the
-    // markdown each one types on the right.
-    AppMenu {
+    // What "/" inserts (MdSlashMenu, shared with the note's rich editor).
+    MdSlashMenu {
         id: slashMenu
-        objectName: "md-slash-menu"
-        // The sheet's "/" menu is 280px wide (R3-093).
-        minWidth: Theme.px(280)
-        // Where the typed "/" is; a pick replaces it.
-        property int slashAt: -1
-        function _dropSlash() {
-            const at = slashMenu.slashAt;
-            slashMenu.slashAt = -1;
-            if (at >= 0 && field.text.charAt(at) === "/") {
-                field.remove(at, at + 1);
-                field.cursorPosition = at;
-            }
+        field: field
+        live: root.editing
+        holding: fileDialog.visible
+        onFileRequested: {
+            fileDialog.line = view.editFirst;
+            fileDialog.at = slashMenu.slashAt;
+            fileDialog.open();
         }
-        // A table is a block of its own: under a line of text it read as
-        // that paragraph's pipes. The caret goes into the first cell, not
-        // under the table where typing made a row (KNOW-6).
-        function putTable() {
-            slashMenu._dropSlash();
-            const at = field.cursorPosition;
-            const t = field.text;
-            const prev = at > 0 ? t.substring(t.lastIndexOf("\n", at - 2) + 1, at - 1) : "";
-            const lead = prev.trim().length > 0 ? "\n" : "";
-            const s = lead + "|  |  |\n|---|---|\n|  |  |";
-            field.insert(at, s);
-            field.cursorPosition = at + lead.length + 2;
-            field.forceActiveFocus();
-        }
-        function put(s, back) {
-            slashMenu._dropSlash();
-            const at = field.cursorPosition;
-            field.insert(at, s);
-            field.cursorPosition = at + s.length - (back || 0);
-            field.forceActiveFocus();
-        }
-        // Closed without a pick (Esc): the "/" it was opened by goes too
-        // (IDIOT-KNOW-16) — as it starts to close, before the Esc reaches
-        // the block. A pick has already cleared slashAt.
-        onAboutToHide: if (!fileDialog.visible && root.editing) slashMenu._dropSlash()
-        // The caret back where it was.
-        onClosed: Qt.callLater(() => {
-            if (fileDialog.visible) return;
-            slashMenu.slashAt = -1;
-            if (root.editing && !field.activeFocus) field.forceActiveFocus();
-        })
-        AppMenuItem { objectName: "md-slash-check"; text: I18n.t("md.slash.checklist"); keyText: "[]"; onTriggered: slashMenu.put("- [ ] ") }
-        AppMenuItem { objectName: "md-slash-code"; text: I18n.t("md.slash.code"); keyText: "```"; onTriggered: slashMenu.put("```\n\n```", 4) }
-        AppMenuItem { objectName: "md-slash-task"; text: I18n.t("md.slash.task"); keyText: "[["; onTriggered: slashMenu.put("[[]]", 2) }
-        AppMenuItem {
-            objectName: "md-slash-file"
-            text: I18n.t("md.slash.file")
-            onTriggered: {
-                fileDialog.line = view.editFirst;
-                fileDialog.at = slashMenu.slashAt;
-                fileDialog.open();
-            }
-        }
-        AppMenuItem { objectName: "md-slash-table"; text: I18n.t("md.slash.table"); onTriggered: slashMenu.putTable() }
-        // A reference: a titled link (the knowledge base's "RFC 6585 ·
-        // 429 Too Many Requests ↗"); the caret on the title.
-        AppMenuItem { objectName: "md-slash-ref"; text: I18n.t("md.slash.reference"); onTriggered: slashMenu.put("[](https://)", 11) }
     }
 
     // "Картинка или файл": stored under attachments/, linked where the "/" was.

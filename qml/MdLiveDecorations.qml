@@ -5,7 +5,9 @@ import TodoCpp
 
 // What live preview draws over the note's hidden source (Obsidian-style): a
 // bullet on a "- ", a box on a "- [ ]", a bar beside a quote, a line over a
-// "---", a grid over a table, a box behind fenced code. The source stays in
+// "---", a grid over a table, a box behind fenced code, a pill behind `code`
+// and over a task's id, a link's underline, a picture over its line. The
+// source stays in
 // the editor as the one text to select, copy and edit; an element the caret
 // (or the selection) touches is not drawn and its source shows.
 //
@@ -24,6 +26,9 @@ Item {
     property bool under: false
     // Off for read-only text: a box is drawn, a click does not tick it.
     property bool tasksClickable: true
+    // MdLivePreview.metrics: the room the highlighter left for what is drawn.
+    property var metrics: ({})
+    readonly property int _body: root.editor.font.pixelSize
 
     x: editor.x
     y: editor.y
@@ -44,6 +49,38 @@ Item {
     function _rect(pos: int): rect {
         root._rev;
         return root.editor.positionToRectangle(pos);
+    }
+    // The rectangles a span [a, b) takes, one a line it wraps over; a
+    // position at a wrap reads as the start of the next line.
+    function _spans(a: int, b: int): var {
+        const out = [];
+        let s = a;
+        for (let guard = 0; s < b && guard < 64; guard++) {
+            const rs = root._rect(s);
+            const re = root._rect(b);
+            if (Math.abs(re.y - rs.y) < 1) {
+                out.push(Qt.rect(rs.x, rs.y, Math.max(0, re.x - rs.x), rs.height));
+                break;
+            }
+            let lo = s, hi = b;
+            while (lo < hi) {
+                const mid = Math.ceil((lo + hi) / 2);
+                if (Math.abs(root._rect(mid).y - rs.y) < 1) lo = mid;
+                else hi = mid - 1;
+            }
+            out.push(Qt.rect(rs.x, rs.y, Math.max(0, root._rect(lo).x - rs.x), rs.height));
+            s = lo + 1;
+        }
+        return out;
+    }
+    // A picture's address as something Image can load: a stored file, or a
+    // file on disk; a web address is not fetched (as the drawn note).
+    function imageUrl(src: string): string {
+        if (/^attachments\//.test(src)) {
+            const dir = String(AppController.dataDir);
+            return "file://" + (dir.startsWith("/") ? "" : "/") + dir + "/" + src;
+        }
+        return /^file:/.test(src) ? src : "";
     }
     function _shown(d: var): bool {
         if (root.revealStart < 0) return true;
@@ -67,12 +104,16 @@ Item {
         delegate: Loader {
             id: deco
             required property var modelData
-            // Code: the box under the text, its language and Copy over it.
-            active: root._shown(modelData) && (!root.under || modelData.kind === "code"
-                                               || (modelData.kind === "quote" && String(modelData.callout || "").length > 0))
+            // Code: the box under the text, its language and Copy over it;
+            // `code`'s pill under the text. A picture keeps its room with the
+            // caret on its line, so it stays drawn there.
+            active: (modelData.kind === "image" || root._shown(modelData))
+                    && (!root.under || modelData.kind === "code" || modelData.kind === "inlineCode"
+                        || (modelData.kind === "quote" && String(modelData.callout || "").length > 0))
             sourceComponent: {
                 if (deco.modelData.kind === "code" && !root.under) return codeHeader;
                 if (deco.modelData.kind === "quote" && root.under) return calloutBg;
+                if (deco.modelData.kind === "inlineCode") return root.under ? inlineCode : null;
                 switch (deco.modelData.kind) {
                 case "bullet": return bullet;
                 case "task": return task;
@@ -83,21 +124,28 @@ Item {
                 case "math": return deco.modelData.display ? mathBlock : mathInline;
                 case "ticket": return ticketRef;
                 case "footnote": return footnoteRef;
+                case "link": return linkLine;
+                case "image": return figure;
                 }
                 return null;
             }
 
+            // In the middle of the gutter the marker's room makes, the item's
+            // text (and its wrapped lines) on the column after it (a-04).
             Component {
                 id: bullet
                 Text {
+                    objectName: "md-live-bullet"
                     readonly property rect r: root._rect(deco.modelData.at)
-                    x: r.x
+                    readonly property rect t: root._rect(deco.modelData.text)
+                    x: Math.round((r.x + t.x - width) / 2)
                     y: r.y
                     height: r.height
                     verticalAlignment: Text.AlignVCenter
                     text: deco.modelData.depth % 2 === 0 ? "•" : "◦"
                     color: Theme.textMuted
-                    font: root.editor.font
+                    font.family: root.editor.font.family
+                    font.pixelSize: Math.round(root._body * 1.2)
                 }
             }
             Component {
@@ -191,28 +239,140 @@ Item {
                     font.pixelSize: Math.max(1, Math.round(root.editor.font.pixelSize * 0.7))
                 }
             }
-            // A known task's title over its "#jira-APP-1" (hidden, as wide as
-            // the title), as the drawn note reads it. Ctrl+click opens it.
+            // A known task over its "#APP-1" (hidden, as wide as this): the
+            // status ring and the key, in a pill in bold, the key underlined
+            // in quiet (a-05, H2/Q-Knowledge). Ctrl+click opens it.
             Component {
                 id: ticketRef
-                Text {
+                Item {
+                    id: pill
                     objectName: "md-live-ticket"
                     readonly property rect r: root._rect(deco.modelData.at)
+                    readonly property bool filled: Style.chipFill
+                    readonly property int pad: root.metrics.ticketPad || 0
                     x: r.x
                     y: r.y
+                    width: pad * 2 + pillRow.implicitWidth
                     height: r.height
-                    verticalAlignment: Text.AlignVCenter
-                    text: deco.modelData.label
-                    textFormat: Text.PlainText
-                    color: Theme.ticket
-                    font: root.editor.font
                     Rectangle {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-                        anchors.bottomMargin: Theme.px(3)
-                        height: 1
-                        color: Theme.ticket
+                        objectName: "md-live-ticket-fill"
+                        visible: pill.filled
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width
+                        height: Math.min(pill.height, Math.round(keyText.implicitHeight * 1.35))
+                        radius: Theme.radiusMd
+                        color: Theme.panel2
+                    }
+                    Row {
+                        id: pillRow
+                        x: pill.pad
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: root.metrics.ringGap || 0
+                        StatusRing {
+                            anchors.verticalCenter: parent.verticalCenter
+                            size: root.metrics.ring || Theme.statusRingSize
+                            category: AppController.taskStages[deco.modelData.id] || "todo"
+                            ink: Theme.text
+                        }
+                        Text {
+                            id: keyText
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: deco.modelData.label
+                            textFormat: Text.PlainText
+                            color: Theme.text
+                            font.family: root.editor.font.family
+                            font.pixelSize: Math.round(root._body * (root.metrics.ticketScale || 1))
+                            // Quiet: the key underlined as a link is (b-25).
+                            Rectangle {
+                                visible: !pill.filled
+                                x: 0
+                                y: Math.round(keyFm.ascent + keyFm.height * 0.2)
+                                width: parent.width
+                                height: 1
+                                color: Theme.linkUnderline
+                            }
+                            FontMetrics { id: keyFm; font: keyText.font }
+                        }
+                    }
+                }
+            }
+            // `code` in a pill: filled in bold, a hairline in quiet, its
+            // backticks the room either side (a-06, b-02), as MdView draws it.
+            Component {
+                id: inlineCode
+                Item {
+                    Repeater {
+                        model: root._spans(deco.modelData.at, deco.modelData.to)
+                        delegate: Rectangle {
+                            required property rect modelData
+                            objectName: "md-live-inline-code"
+                            x: modelData.x
+                            y: modelData.y
+                            width: modelData.width
+                            height: modelData.height
+                            radius: Theme.radiusSm
+                            color: Style.chipFill ? Theme.mdCodeBg : "transparent"
+                            border.width: Style.chipFill ? 0 : 1
+                            border.color: Theme.borderStrong
+                        }
+                    }
+                }
+            }
+            // A link's text keeps the text's colour over a dim line a little
+            // under its letters (b-25, the sheets' a: #4a525d, 3px down).
+            Component {
+                id: linkLine
+                Item {
+                    Repeater {
+                        model: root._spans(deco.modelData.at, deco.modelData.to)
+                        delegate: Rectangle {
+                            required property rect modelData
+                            objectName: "md-live-link-underline"
+                            x: modelData.x
+                            y: Math.round(modelData.y + fm.ascent + Math.max(2, root._body / 5))
+                            width: modelData.width
+                            height: 1
+                            color: Theme.linkUnderline
+                        }
+                    }
+                }
+            }
+            // A picture in the room above its line, the alt text under it
+            // the caption (a-09, N/X-Oth-Knowledge): the file when it is
+            // stored here, else a box naming it.
+            Component {
+                id: figure
+                Rectangle {
+                    objectName: "md-live-image"
+                    readonly property rect r: root._rect(deco.modelData.at)
+                    readonly property string src: String(deco.modelData.src || "")
+                    x: 0
+                    y: r.y - (root.metrics.figureGap || 0) - height
+                    width: root.width
+                    height: root.metrics.figure || 0
+                    radius: Theme.radiusMd
+                    color: Theme.bg2
+                    border.width: 1
+                    border.color: Theme.border
+                    clip: true
+                    Image {
+                        id: picture
+                        anchors.fill: parent
+                        anchors.margins: 1
+                        source: root.imageUrl(parent.src)
+                        fillMode: Image.PreserveAspectFit
+                        asynchronous: true
+                    }
+                    Text {
+                        objectName: "md-live-image-name"
+                        visible: picture.status !== Image.Ready
+                        anchors.centerIn: parent
+                        width: Math.min(implicitWidth, parent.width - 2 * Theme.spLg)
+                        elide: Text.ElideMiddle
+                        text: parent.src.substring(parent.src.lastIndexOf("/") + 1)
+                        color: Theme.textDim
+                        font.family: Theme.fontUi
+                        font.pixelSize: Theme.fsSm
                     }
                 }
             }
@@ -267,15 +427,26 @@ Item {
             }
             // On the hidden ``` line (or the box's first line, for indented
             // code): the language, "not closed" for a fence that runs to the
-            // end of the note, and Copy, which takes the code without fences.
+            // end of the note, and Copy, which takes the code without fences;
+            // a hairline parts this header from the code (a-10).
             Component {
                 id: codeHeader
                 Item {
                     readonly property rect a: root._rect(deco.modelData.start)
+                    readonly property rect b: root._rect(deco.modelData.bodyAt === undefined ? deco.modelData.start : deco.modelData.bodyAt)
                     x: 0
                     y: a.y
                     width: root.width
                     height: a.height
+                    Rectangle {
+                        objectName: "md-live-code-rule"
+                        visible: deco.modelData.fenced && parent.b.y > parent.a.y
+                        x: -Theme.spSm
+                        y: Math.round((parent.a.height + parent.b.y - parent.a.y) / 2)
+                        width: root.width + 2 * Theme.spSm
+                        height: 1
+                        color: Theme.border
+                    }
                     Text {
                         objectName: "md-live-code-language"
                         anchors.left: parent.left
@@ -284,7 +455,7 @@ Item {
                         text: !deco.modelData.closed ? I18n.t("notes.code.unclosed")
                             : String(deco.modelData.language || "")
                         color: deco.modelData.closed ? Theme.textDim : Theme.warning
-                        font.family: Theme.fontMono
+                        font.family: Theme.fontUi
                         font.pixelSize: Theme.fsXs
                     }
                     Text {

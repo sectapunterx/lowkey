@@ -1,0 +1,87 @@
+pragma ComponentBehavior: Bound
+import QtQuick
+import QtQuick.Controls.Basic as QQC
+import TodoCpp
+
+// What "/" inserts (R2-024, sheet X/N-Oth-Knowledge): the six rows, the
+// markdown each one types on the right. One menu for the task document's
+// field (MdBlockEditor) and the note's rich editor (a-03).
+//
+// The "/" is typed as it is (sheet: "/" and the caret over the menu); a pick
+// replaces it, Esc leaves nothing behind.
+AppMenu {
+    id: menu
+    objectName: "md-slash-menu"
+
+    required property QQC.TextArea field
+    // The field is in use; off (a block that was left), closing edits
+    // nothing in it.
+    property bool live: true
+    // A file picker opened from a row is still open: closing leaves the "/"
+    // and the caret to it.
+    property bool holding: false
+    // "Картинка или файл": the host picks the file; slashAt says where.
+    signal fileRequested()
+
+    // The sheet's "/" menu is 280px wide (R3-093).
+    minWidth: Theme.px(280)
+    // Where the typed "/" is; a pick replaces it.
+    property int slashAt: -1
+
+    // The "/" typed at the caret and the menu under it.
+    function openAtCaret() {
+        const at = menu.field.cursorPosition;
+        menu.field.insert(at, "/");
+        menu.field.cursorPosition = at + 1;
+        menu.slashAt = at;
+        menu.popup(menu.field, menu.field.cursorRectangle.x, menu.field.cursorRectangle.y + menu.field.cursorRectangle.height);
+        menu.currentIndex = 0;
+    }
+    function dropSlash() {
+        const at = menu.slashAt;
+        menu.slashAt = -1;
+        if (at >= 0 && menu.field.text.charAt(at) === "/") {
+            menu.field.remove(at, at + 1);
+            menu.field.cursorPosition = at;
+        }
+    }
+    // A table is a block of its own: under a line of text it read as
+    // that paragraph's pipes. The caret goes into the first cell, not
+    // under the table where typing made a row (KNOW-6).
+    function putTable() {
+        menu.dropSlash();
+        const at = menu.field.cursorPosition;
+        const t = menu.field.text;
+        const prev = at > 0 ? t.substring(t.lastIndexOf("\n", at - 2) + 1, at - 1) : "";
+        const lead = prev.trim().length > 0 ? "\n" : "";
+        const s = lead + "|  |  |\n|---|---|\n|  |  |";
+        menu.field.insert(at, s);
+        menu.field.cursorPosition = at + lead.length + 2;
+        menu.field.forceActiveFocus();
+    }
+    function put(s, back) {
+        menu.dropSlash();
+        const at = menu.field.cursorPosition;
+        menu.field.insert(at, s);
+        menu.field.cursorPosition = at + s.length - (back || 0);
+        menu.field.forceActiveFocus();
+    }
+    // Closed without a pick (Esc): the "/" it was opened by goes too
+    // (IDIOT-KNOW-16) — as it starts to close, before the Esc reaches
+    // the field. A pick has already cleared slashAt.
+    onAboutToHide: if (!menu.holding && menu.live) menu.dropSlash()
+    // The caret back where it was.
+    onClosed: Qt.callLater(() => {
+        if (menu.holding) return;
+        menu.slashAt = -1;
+        if (menu.live && menu.field.visible && !menu.field.activeFocus) menu.field.forceActiveFocus();
+    })
+    AppMenuItem { objectName: "md-slash-check"; text: I18n.t("md.slash.checklist"); keyText: "[]"; onTriggered: menu.put("- [ ] ") }
+    AppMenuItem { objectName: "md-slash-code"; text: I18n.t("md.slash.code"); keyText: "```"; onTriggered: menu.put("```\n\n```", 4) }
+    AppMenuItem { objectName: "md-slash-task"; text: I18n.t("md.slash.task"); keyText: "[["; onTriggered: menu.put("[[]]", 2) }
+    AppMenuItem { objectName: "md-slash-file"; text: I18n.t("md.slash.file"); onTriggered: menu.fileRequested() }
+    AppMenuItem { objectName: "md-slash-table"; text: I18n.t("md.slash.table"); onTriggered: menu.putTable() }
+    // A reference: a titled link (the knowledge base's "RFC 6585 ·
+    // 429 Too Many Requests ↗"); the caret on the title.
+    AppMenuItem { objectName: "md-slash-ref"; text: I18n.t("md.slash.reference"); onTriggered: menu.put("[](https://)", 11) }
+}
