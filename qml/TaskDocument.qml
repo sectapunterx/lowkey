@@ -628,6 +628,10 @@ FocusScope {
     readonly property bool _narrow: root.width < Theme.px(1000)
     readonly property int _padX: root._narrow ? Theme.px(28) : root._quiet ? Theme.px(48) : Theme.px(40)
     readonly property int _sideW: root._quiet ? Theme.px(280) : Theme.px(300)
+    // A short panel (a 720p screen at 125 %): tighter margins and smaller
+    // floors for the tracker text and my notes, so a long ticket still leaves
+    // my notes, the comments and Done on the panel (0.9.4).
+    readonly property bool _short: root.height < Theme.px(640)
 
     RowLayout {
         anchors.fill: parent
@@ -641,13 +645,13 @@ FocusScope {
             Layout.fillHeight: true
             Layout.leftMargin: root._padX
             Layout.rightMargin: root._padX
-            Layout.topMargin: root._quiet ? Theme.px(40) : Theme.px(22)
+            Layout.topMargin: root._short ? Theme.spMd : root._quiet ? Theme.px(40) : Theme.px(22)
             spacing: 0
 
             // Задачи / В работе / APP-101          Сохранено  Esc назад  ⤢
             RowLayout {
                 Layout.fillWidth: true
-                Layout.bottomMargin: Theme.px(26)
+                Layout.bottomMargin: root._short ? Theme.spMd : Theme.px(26)
                 Layout.preferredHeight: Theme.chipHSmall
                 spacing: Theme.spMd
                 Text {
@@ -1078,9 +1082,15 @@ FocusScope {
             }
 
             // The tracker's text, read-only, above my notes (APP-237).
+            // Both this block and my notes fill the height: a Layout keeps an
+            // item that does not fill at its preferred height and never
+            // shrinks it, so a long ticket on a small screen pushed my notes,
+            // the comments and Done off the panel (0.9.4).
             ColumnLayout {
                 Layout.fillWidth: true
-                Layout.bottomMargin: Theme.spLg
+                Layout.fillHeight: root._isTicket && root._trackerText.length > 0
+                Layout.verticalStretchFactor: 3
+                Layout.bottomMargin: root._short ? Theme.spSm : Theme.spLg
                 visible: root._isTicket && root._trackerText.length > 0
                 spacing: 0
                 // One line over the text, why it takes no typing (APP-313)
@@ -1089,7 +1099,7 @@ FocusScope {
                 RowLayout {
                     id: trackerHead
                     objectName: "task-doc-tracker-readonly"
-                    Layout.bottomMargin: Theme.spLg
+                    Layout.bottomMargin: root._short ? Theme.spXs : Theme.spLg
                     spacing: Theme.spSm
                     Text {
                         text: I18n.t("taskdoc.fromTracker.short").arg(root._badge.name || root._ticket.provider || "")
@@ -1155,13 +1165,18 @@ FocusScope {
                     Layout.fillWidth: true
                     Layout.leftMargin: -Theme.px(24)
                     Layout.rightMargin: -Theme.px(24)
-                    // Half the document at most (a long ticket scrolls inside),
-                    // never shorter than a screenful of a few paragraphs; with
-                    // nothing in my notes yet it takes most of the page
+                    // Half the document at most (a long ticket scrolls inside);
+                    // with nothing in my notes yet it takes most of the page
                     // (APP-314: the text scrolled in a box over empty space).
-                    Layout.preferredHeight: Math.min(Math.max(Theme.px(320),
+                    // It grows to that cap from a few lines, taking the room
+                    // first; on a small screen it gives way down to them and
+                    // scrolls, my notes and Done stay on the panel (0.9.4).
+                    Layout.fillHeight: true
+                    Layout.verticalStretchFactor: 3
+                    Layout.maximumHeight: Math.min(Math.max(Theme.px(320),
                         root.height * (body.text.trim().length > 0 ? 0.45 : 0.62)), trackerBody.contentHeight)
-                    Layout.minimumHeight: Math.min(Theme.px(120), trackerBody.contentHeight)
+                    Layout.preferredHeight: Math.min(root._short ? Theme.px(64) : Theme.px(96), trackerBody.contentHeight)
+                    Layout.minimumHeight: Math.min(root._short ? Theme.px(64) : Theme.px(96), trackerBody.contentHeight)
                     clip: true
                     text: root._spacedFences(root._trackerText)
                     readOnly: true
@@ -1235,7 +1250,11 @@ FocusScope {
                 // Under a long tracker text my notes kept no height at all,
                 // and Done sat right under their label (0.9.4): the tracker
                 // box gives way first.
-                Layout.minimumHeight: root._isTicket ? Theme.px(160) : 0
+                Layout.minimumHeight: root._isTicket ? (root._short ? Theme.px(96) : Theme.px(160)) : 0
+                // Its own text does not claim the room: the tracker box above
+                // takes it first, up to its cap, and the rest is my notes'.
+                Layout.preferredHeight: root._isTicket && root._trackerText.length > 0 ? (root._short ? Theme.px(96) : Theme.px(160)) : -1
+                Layout.verticalStretchFactor: 1
                 Layout.leftMargin: -Theme.px(24)
                 Layout.rightMargin: -Theme.px(24)
                 // The text ends above Done: it ran on beneath the button, with
@@ -1279,7 +1298,7 @@ FocusScope {
                 id: doneBottom
                 objectName: "task-doc-done-bottom"
                 visible: !sideCol.visible
-                Layout.bottomMargin: Theme.sp2xl
+                Layout.bottomMargin: root._short ? Theme.spMd : Theme.sp2xl
                 Layout.fillWidth: !root._quiet
             }
         }
