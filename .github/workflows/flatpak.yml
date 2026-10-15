@@ -113,7 +113,7 @@ jobs:
           else echo "::error::no package manager for weston in $PRETTY_NAME"; exit 1
           fi
           export XDG_RUNTIME_DIR=/tmp/xdg-runtime
-          mkdir -p -m 0700 "$XDG_RUNTIME_DIR"
+          mkdir -p "$XDG_RUNTIME_DIR" && chmod 0700 "$XDG_RUNTIME_DIR"
           weston --backend=headless --socket=wayland-ci --idle-time=0 &
           for _ in $(seq 1 50); do [ -S "$XDG_RUNTIME_DIR/wayland-ci" ] && break; sleep 0.2; done
           export WAYLAND_DISPLAY=wayland-ci
