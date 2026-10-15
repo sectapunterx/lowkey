@@ -1431,6 +1431,10 @@ ApplicationWindow {
                         id: panelScrim
                         objectName: "panel-scrim"
                         readonly property bool shown: (taskDoc.opened && !taskDoc.full) || eventEditor.opened
+                        // Over the whole content area, the header and the
+                        // query row too, as the panel now is (APP-314): they
+                        // stayed live beside it.
+                        parent: mainColumn
                         anchors.fill: parent
                         z: 59
                         color: Theme.withAlpha(Theme.scrim, Theme.dark ? 0.5 : 0.28)
@@ -1461,17 +1465,19 @@ ApplicationWindow {
                         easing.type: Theme.easeEnter
                     }
                     // The task document (APP-265): a panel over the right
-                    // of the view, or the whole width.
-                    // Full, it replaces the whole content area, the Tasks
-                    // header and the query row included (DG-060).
+                    // half of the content area, or the whole width.
+                    // Either way it runs the content area's full height, the
+                    // Tasks header and the query row included (DG-060; the
+                    // panel too since APP-314: on a small screen those rows
+                    // took the height the description needed).
                     TaskDocument {
                         id: taskDoc
-                        parent: taskDoc.full ? mainColumn : viewArea
+                        parent: mainColumn
                         anchors.right: parent.right
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
                         width: taskDoc.full ? parent.width
-                             : Math.min(parent.width, Math.max(Theme.px(560), parent.width * 0.68))
+                             : Math.min(parent.width, Math.max(Theme.px(560), parent.width * 0.5))
                         z: 60
                         onClosed: Qt.callLater(win.focusActiveView)
                         onInternalLinkActivated: (kind, target) => win.followMdLink(kind, target)
@@ -1480,6 +1486,8 @@ ApplicationWindow {
                     // A meeting (DG-120): the same panel, saving on its own.
                     EventEditor {
                         id: eventEditor
+                        // Over the scrim, which covers the content area.
+                        parent: mainColumn
                         anchors.right: parent.right
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
