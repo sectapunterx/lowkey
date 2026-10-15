@@ -1399,6 +1399,7 @@ AppController::AppController(QObject* parent) :
   });
   // ---- In-app update (APP-125) ----
   m_packageKind = static_cast<int>(heap::update::detectPackageKind(heap::update::currentPackageEnv()));
+  m_updatesFromStore = heap::update::runningInFlatpak();
   connect(m_updater.get(), &heap::update::Updater::downloadProgress, this, [this](qint64 received, qint64 total) {
     m_updateProgress = total > 0 ? static_cast<double>(received) / static_cast<double>(total) : 0.0;
     emit updateProgressChanged();
@@ -1446,7 +1447,9 @@ AppController::AppController(QObject* parent) :
     // delay lets settings load and the QML toast bar come up first.
     QTimer::singleShot(3000, this, [this]() {
       // A channel build is replaced by the next one, not updated (APP-309).
-      if(!heap::brand::isChannelBuild() && settingsMap().value("updates").toMap().value("autoCheck", true).toBool()) {
+      // A Flatpak's updates come from its store, so it never checks (Flathub).
+      if(!heap::brand::isChannelBuild() && !m_updatesFromStore &&
+         settingsMap().value("updates").toMap().value("autoCheck", true).toBool()) {
         checkForUpdates();
       }
     });
@@ -10363,7 +10366,7 @@ void AppController::openIssueReport(const QString& body) const {
 }
 
 void AppController::checkForUpdates() {
-  if(!m_updater || m_updater->isChecking()) {
+  if(!m_updater || m_updater->isChecking() || m_updatesFromStore) {
     return;
   }
   m_updateStatus = QStringLiteral("update.checking");
@@ -10392,6 +10395,9 @@ void AppController::setUpdatePhase(const QString& phase, const QString& statusKe
 }
 
 void AppController::downloadUpdate() {
+  if(m_updatesFromStore) {
+    return;
+  }
   if(!updateCanInstall()) {
     openLatestRelease();
     return;

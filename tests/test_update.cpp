@@ -415,3 +415,26 @@ TEST_F(UpdateDownload, TheFeatureBuildIsCheckedAgainstItsOwnSums) {
   EXPECT_EQ(fb.error(), QStringLiteral("checksum"));
   EXPECT_FALSE(fb.installed());
 }
+
+// Flathub: a Flatpak is updated by its software centre and may not check for
+// or offer its own updates, feature builds included.
+TEST(UpdateFlatpak, EitherSignOfTheSandboxCounts) {
+  using heap::update::isFlatpak;
+  EXPECT_FALSE(isFlatpak(QString(), false));
+  EXPECT_TRUE(isFlatpak(QStringLiteral("io.github.sectapunterx.tabless"), false));
+  EXPECT_TRUE(isFlatpak(QString(), true)) << "/.flatpak-info alone, $FLATPAK_ID scrubbed";
+}
+
+TEST(UpdateFlatpak, NoFeatureBuildInsideAFlatpak) {
+  const QByteArray before = qgetenv("FLATPAK_ID");
+  const bool had = qEnvironmentVariableIsSet("FLATPAK_ID");
+  qputenv("FLATPAK_ID", "io.github.sectapunterx.tabless");
+  EXPECT_TRUE(heap::update::runningInFlatpak());
+  heap::update::FeatureBuild fb;
+  EXPECT_FALSE(fb.supported());
+  if(had) {
+    qputenv("FLATPAK_ID", before);
+  } else {
+    qunsetenv("FLATPAK_ID");
+  }
+}

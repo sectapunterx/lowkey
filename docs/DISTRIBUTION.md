@@ -8,7 +8,7 @@ free channel, the manifest that feeds it, and the exact steps to submit/update.
 |---------|----------|--------|------------|
 | **Scoop** (Windows) | [`bucket/tabless.json`](../bucket/tabless.json) | ✅ live in this repo | none — this repo *is* the bucket |
 | **winget** (Windows) | [`packaging/winget/`](../packaging/winget/) | ⏳ submitted: [microsoft/winget-pkgs#453436](https://github.com/microsoft/winget-pkgs/pull/453436) | PR to `microsoft/winget-pkgs` |
-| **Flathub** (Linux) | [`packaging/flatpak/`](../packaging/flatpak/) | 📝 draft, test then PR | PR to `flathub/flathub` |
+| **Flathub** (Linux) | [`packaging/flatpak/`](../packaging/flatpak/) | ✅ built + linted in CI, PR from the next tag | PR to `flathub/flathub` |
 | **Homebrew tap** (macOS) | [`packaging/homebrew/`](../packaging/homebrew/) | ✅ live: [`sectapunterx/homebrew-tabless`](https://github.com/sectapunterx/homebrew-tabless) | push the bumped cask to the tap on each release |
 
 Other channels (AUR, Snap, Chocolatey, Homebrew) are not set up yet — they need
@@ -68,30 +68,26 @@ identifier `sectapunterx.Tabless`, moniker `tabless`).
 > The installer is currently **unsigned**; winget's automated validation still
 > accepts it, but signing (see [PACKAGING.md](PACKAGING.md)) is recommended.
 
-## Flathub — draft, test before PR
+## Flathub — ready, submitted from the next release tag
 
 Files in `packaging/flatpak/`: manifest `io.github.sectapunterx.tabless.yaml`,
 `io.github.sectapunterx.tabless.metainfo.xml`, `io.github.sectapunterx.tabless.desktop`
-(app id `io.github.sectapunterx.tabless`).
-The manifest builds from the `v0.4.2` git tag against the KDE 6 runtime.
+(app id `io.github.sectapunterx.tabless`). The manifest builds a release tag against the
+KDE 6.9 runtime, with QtKeychain built as its own module.
 
-1. Build + run locally:
-   ```bash
-   flatpak install flathub org.kde.Platform//6.8 org.kde.Sdk//6.8
-   flatpak-builder --user --install --force-clean build-dir \
-     packaging/flatpak/io.github.sectapunterx.tabless.yaml
-   flatpak run io.github.sectapunterx.tabless
-   ```
-2. Validate metadata:
-   ```bash
-   flatpak run org.freedesktop.appstream.cli validate \
-     packaging/flatpak/io.github.sectapunterx.tabless.metainfo.xml
-   ```
-   (If `post-install` install paths fail, adjust them relative to the build cwd.)
-3. Submit: fork [`flathub/flathub`](https://github.com/flathub/flathub), create a
-   branch off `new-pr`, add the manifest, open a PR. A reviewer runs the build and
-   may request tweaks. On approval you get a dedicated `flathub/io.github.sectapunterx.tabless`
-   repo; bump the `tag`/`commit` there for each release.
+Inside a Flatpak Tabless makes no update check and offers no download or feature build:
+Flathub forbids it, and the software centre updates the app. Settings → About says so.
+
+- **CI:** `.github/workflows/flatpak.yml` builds the manifest from the checkout on every
+  PR that touches `packaging/flatpak/`, runs `tabless --smoke` in it (offscreen, X11 and
+  Wayland), and runs `flatpak-builder-lint` on the manifest and the built repo, as
+  Flathub's own CI does.
+- **At each release:** put the release on top of `<releases>` in the metainfo before
+  tagging, then set the manifest's `tag:` and `commit:` to the new tag.
+- **Submit (once):** fork [`flathub/flathub`](https://github.com/flathub/flathub), branch
+  off `new-pr`, add the manifest (with `tag` + `commit` of a released tag), open a PR. On
+  approval you get `flathub/io.github.sectapunterx.tabless`; bump `tag`/`commit` there for
+  each release.
 
 ---
 

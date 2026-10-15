@@ -4,6 +4,7 @@
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -162,6 +163,14 @@ CheckFailure classifyCheckFailure(int httpStatus, int networkError) {
     }
   }
   return CheckFailure::Other;
+}
+
+bool isFlatpak(const QString& flatpakId, bool hasFlatpakInfo) {
+  return !flatpakId.isEmpty() || hasFlatpakInfo;
+}
+
+bool runningInFlatpak() {
+  return isFlatpak(qEnvironmentVariable("FLATPAK_ID"), QFileInfo::exists(QStringLiteral("/.flatpak-info")));
 }
 
 PackageKind detectPackageKind(const PackageEnv& env) {

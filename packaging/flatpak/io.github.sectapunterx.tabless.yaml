@@ -1,19 +1,18 @@
-# Flathub manifest for Tabless (formerly lowkey, and heap before) — DRAFT.
-# The app id follows the repository's name (APP-283).
+# Flathub manifest for Tabless.
 #
-# Build/test locally BEFORE opening the Flathub PR:
+# Flathub builds this from a release tag: at release time set `tag:` below to
+# the new tag and `commit:` to the commit it points at, and put the release on
+# top of <releases> in the .metainfo.xml before tagging. CI
+# (.github/workflows/flatpak.yml) builds the same manifest from the checkout
+# instead of the tag, runs `tabless --smoke` in it and lints it the way
+# Flathub does. To build it yourself on Linux:
 #   flatpak install flathub org.kde.Platform//6.9 org.kde.Sdk//6.9
 #   flatpak-builder --user --install --force-clean build-dir \
 #     packaging/flatpak/io.github.sectapunterx.tabless.yaml
 #   flatpak run io.github.sectapunterx.tabless
 #
-# Then submit: fork github.com/flathub/flathub (branch `new-pr`), add this repo,
-# open a PR. See docs/DISTRIBUTION.md.
-#
-# TODO before PR:
-#   - Browser OAuth needs Qt 6.9 (KDE runtime 6.9); on 6.8 it stubs out to PAT.
-#   - If post-install paths fail, prefix with the source-checkout root.
-# (Screenshots already wired to docs/assets/img/screens/* in the .metainfo.xml.)
+# Inside a Flatpak, Tabless makes no update check and offers no download
+# (Flathub's rule): updates come from the software centre.
 id: io.github.sectapunterx.tabless
 runtime: org.kde.Platform
 runtime-version: '6.9'
@@ -24,49 +23,58 @@ finish-args:
   - --share=network
   - --socket=wayland
   - --socket=fallback-x11
+  - --socket=pulseaudio
   - --device=dri
+  # Exports, an Obsidian vault to bring in, attachments.
   - --filesystem=xdg-documents
   - --filesystem=xdg-download
-  # Store integration tokens in the OS keyring via the Secret Service portal
-  # (QtKeychain → libsecret). Without it, SecretStore falls back to secrets.json.
+  # Meeting reminders and capture results as desktop notifications.
+  - --talk-name=org.freedesktop.Notifications
+  # The tray icon (StatusNotifierItem).
+  - --talk-name=org.kde.StatusNotifierWatcher
+  # Integration tokens in the OS keyring through the Secret Service
+  # (QtKeychain -> libsecret). Without it SecretStore falls back to secrets.json.
   - --talk-name=org.freedesktop.secrets
 cleanup:
   - /include
   - /lib/cmake
   - /lib/pkgconfig
+  - /mkspecs
   - '*.a'
 modules:
-  # QtKeychain isn't in the KDE runtime — build it so SecretStore can use the
-  # OS keyring (libsecret is provided by the runtime). If dropped, heap still
-  # builds and falls back to a private secrets.json.
+  # QtKeychain is not in the KDE runtime; libsecret is.
   - name: qtkeychain
     buildsystem: cmake-ninja
     config-opts:
       - -DCMAKE_BUILD_TYPE=Release
       - -DBUILD_WITH_QT6=ON
       - -DBUILD_TEST_APPLICATION=OFF
+      - -DBUILD_TRANSLATIONS=OFF
       - -DQTKEYCHAIN_STATIC=OFF
     sources:
       - type: git
         url: https://github.com/frankosterfeld/qtkeychain.git
-        tag: '0.15.0'
-  - name: heap
+        tag: 0.15.0
+        commit: ad7344c45a86a4f66cbafc4b081b5f7b876cb0b7
+
+  # Qt NetworkAuth (browser sign-in) comes with the KDE runtime.
+  - name: tabless
     buildsystem: cmake-ninja
     config-opts:
       - -DCMAKE_BUILD_TYPE=Release
       - -DHEAP_BUILD_TESTS=OFF
     sources:
+      # flatpak.yml swaps this source for the checkout; keep it last and
+      # keep its `url:` line as it is.
       - type: git
         url: https://github.com/sectapunterx/tabless.git
-        tag: v0.5.0
-        commit: 67a79b4122e82a966a43ba177d25bb7114bfc1e2
-    # install(TARGETS heap RUNTIME DESTINATION bin) puts the binary (tabless) in /app/bin.
-    # The desktop/icon/metainfo are shipped under the app-id name, as Flathub
-    # requires.
+        tag: v0.9.5
+    # install(TARGETS heap RUNTIME DESTINATION bin) puts `tabless` in
+    # /app/bin; the desktop file, icon and metainfo go under the app id.
     post-install:
       - install -Dm644 packaging/flatpak/io.github.sectapunterx.tabless.desktop
-          /app/share/applications/io.github.sectapunterx.tabless.desktop
+        /app/share/applications/io.github.sectapunterx.tabless.desktop
       - install -Dm644 packaging/flatpak/io.github.sectapunterx.tabless.metainfo.xml
-          /app/share/metainfo/io.github.sectapunterx.tabless.metainfo.xml
+        /app/share/metainfo/io.github.sectapunterx.tabless.metainfo.xml
       - install -Dm644 design/brand-export/tabless/tabless-icon.svg
-          /app/share/icons/hicolor/scalable/apps/io.github.sectapunterx.tabless.svg
+        /app/share/icons/hicolor/scalable/apps/io.github.sectapunterx.tabless.svg

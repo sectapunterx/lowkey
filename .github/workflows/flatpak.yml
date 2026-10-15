@@ -1,0 +1,111 @@
+name: Flatpak
+
+# Builds packaging/flatpak's manifest the way Flathub will, checks the app
+# starts in it, and runs Flathub's linter on the manifest and the build. The
+# manifest builds from a release tag; here the source is swapped for this
+# checkout, so a PR is built from what it changes.
+on:
+  pull_request:
+    paths:
+      - packaging/flatpak/**
+      - .github/workflows/flatpak.yml
+  push:
+    branches: [feature, master]
+    paths:
+      - packaging/flatpak/**
+      - .github/workflows/flatpak.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flatpak-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_ID: io.github.sectapunterx.tabless
+  MANIFEST: packaging/flatpak/io.github.sectapunterx.tabless.yaml
+
+jobs:
+  flatpak:
+    name: flatpak build + lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.9
+      options: --privileged
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The tabless module's git source (the release tag) becomes this
+      # checkout. Every other module is built as Flathub builds it.
+      - name: Point the manifest at this checkout
+        run: |
+          awk '
+            /^      - type: git$/ { held = $0; next }
+            held != "" {
+              if ($0 ~ /url: https:\/\/github\.com\/sectapunterx\/tabless\.git$/) {
+                print "      - type: dir"
+                print "        path: ../.."
+                print "        skip: [.git, .flatpak-builder, flatpak_app, repo]"
+                skip = 1; held = ""; next
+              }
+              print held; held = ""
+            }
+            skip && /^        (tag|commit|branch):/ { next }
+            { skip = 0; print }
+          ' "$MANIFEST" > packaging/flatpak/ci.yaml
+          grep -q 'type: dir' packaging/flatpak/ci.yaml
+          cat packaging/flatpak/ci.yaml
+
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@79327416609af08178ad73b352877e51450790b3 # v6.8
+        with:
+          manifest-path: packaging/flatpak/ci.yaml
+          bundle: tabless.flatpak
+          build-dir: flatpak_app
+          repo-dir: repo
+          state-dir: .flatpak-builder
+          cache-key: flatpak-builder-${{ hashFiles('packaging/flatpak/io.github.sectapunterx.tabless.yaml') }}
+          # Flathub's own build mirrors the screenshots; the repo lint below
+          # checks they were.
+          mirror-screenshots-url: https://dl.flathub.org/media
+
+      - name: Install the build
+        run: |
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y --noninteractive --bundle tabless.flatpak
+
+      # The whole UI loaded against a throwaway profile, then exit: 0 when
+      # healthy (any QML error, missing plugin or image format fails it).
+      - name: Smoke (offscreen)
+        run: |
+          dbus-run-session -- timeout -k 10 180 \
+            flatpak run --user --env=QT_QPA_PLATFORM=offscreen "$APP_ID" --smoke --data-dir /tmp/smoke-offscreen
+
+      - name: Smoke (X11)
+        run: |
+          dbus-run-session -- xvfb-run -a -s '-screen 0 1280x800x24' timeout -k 10 180 \
+            flatpak run --user --env=QT_QPA_PLATFORM=xcb "$APP_ID" --smoke --data-dir /tmp/smoke-x11
+
+      - name: Smoke (Wayland)
+        run: |
+          dnf install -y -q weston >/dev/null
+          export XDG_RUNTIME_DIR=/tmp/xdg-runtime
+          mkdir -p -m 0700 "$XDG_RUNTIME_DIR"
+          weston --backend=headless --socket=wayland-ci --idle-time=0 &
+          for _ in $(seq 1 50); do [ -S "$XDG_RUNTIME_DIR/wayland-ci" ] && break; sleep 0.2; done
+          export WAYLAND_DISPLAY=wayland-ci
+          dbus-run-session -- timeout -k 10 180 \
+            flatpak run --user --env=QT_QPA_PLATFORM=wayland "$APP_ID" --smoke --data-dir /tmp/smoke-wayland
+
+      - name: Install Flathub's linter
+        run: flatpak install --user -y --noninteractive flathub org.flatpak.Builder
+
+      # What Flathub's CI runs: the manifest as submitted, and the built repo
+      # (metainfo, desktop file, icon, screenshots, finish-args).
+      - name: flatpak-builder-lint manifest
+        run: flatpak run --user --command=flatpak-builder-lint org.flatpak.Builder manifest "$MANIFEST"
+
+      - name: flatpak-builder-lint repo
+        run: flatpak run --user --command=flatpak-builder-lint org.flatpak.Builder repo repo

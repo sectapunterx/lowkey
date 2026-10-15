@@ -212,7 +212,7 @@ PackageEnv currentPackageEnv() {
 #else
   env.os = QStringLiteral("linux");
   env.appImage = qEnvironmentVariable("APPIMAGE");
-  env.sandboxed = qEnvironmentVariableIsSet("FLATPAK_ID") || qEnvironmentVariableIsSet("SNAP");
+  env.sandboxed = runningInFlatpak() || qEnvironmentVariableIsSet("SNAP");
   env.writable = !env.appImage.isEmpty() && canWriteInto(QFileInfo(env.appImage).absolutePath());
 #endif
   return env;

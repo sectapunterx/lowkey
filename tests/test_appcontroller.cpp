@@ -3846,3 +3846,31 @@ int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
+
+// Flathub forbids an app that checks for or offers its own updates: inside a
+// Flatpak, Settings -> About says the software centre updates it, and neither
+// the button nor a call from anywhere else reaches GitHub.
+TEST_F(AppControllerTest, AFlatpakNeverChecksForUpdates) {
+  EXPECT_FALSE(app_->updatesFromStore()) << "not a Flatpak: the updater stays";
+  app_.reset();
+  const bool had = qEnvironmentVariableIsSet("FLATPAK_ID");
+  const QByteArray before = qgetenv("FLATPAK_ID");
+  qputenv("FLATPAK_ID", "io.github.sectapunterx.tabless");
+  const auto restore = qScopeGuard([had, before]() {
+    if(had) {
+      qputenv("FLATPAK_ID", before);
+    } else {
+      qunsetenv("FLATPAK_ID");
+    }
+  });
+  app_ = std::make_unique<AppController>();
+  EXPECT_TRUE(app_->updatesFromStore());
+  QSignalSpy status(app_.get(), &AppController::updateStatusChanged);
+  app_->checkForUpdates();
+  app_->downloadUpdate();
+  EXPECT_EQ(status.count(), 0);
+  EXPECT_TRUE(app_->updateStatus().isEmpty());
+  EXPECT_TRUE(app_->updatePhase().isEmpty());
+  EXPECT_FALSE(app_->updateCanInstall());
+  EXPECT_FALSE(app_->featureBuild()->supported()) << "no feature build beside a store copy";
+}

@@ -2,10 +2,10 @@
 Type=Application
 Name=Tabless
 GenericName=Developer workday planner
-Comment=A developer's workday in one window — tickets, calendar, notes
+Comment=A developer's workday in one window: tickets, meetings, notes
 Exec=tabless
 Icon=io.github.sectapunterx.tabless
 Terminal=false
-Categories=Office;ProjectManagement;Utility;
-Keywords=tasks;todo;kanban;calendar;notes;planner;
+Categories=Office;ProjectManagement;
+Keywords=tasks;tickets;tracker;todo;calendar;notes;planner;
 StartupWMClass=Tabless

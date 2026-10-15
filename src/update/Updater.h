@@ -63,6 +63,14 @@ struct PackageEnv {
 
 PackageKind detectPackageKind(const PackageEnv& env);
 
+// Flathub forbids an app that checks for or offers its own updates (feature
+// builds included): inside a Flatpak the software centre updates it. A Flatpak
+// sets $FLATPAK_ID and mounts /.flatpak-info. Pure — unit-tested.
+bool isFlatpak(const QString& flatpakId, bool hasFlatpakInfo);
+
+// The running process, by isFlatpak's rule.
+bool runningInFlatpak();
+
 // The release asset for this package, e.g. "heap-v0.5.7-windows-setup.exe".
 // `tag` is the release tag as published ("v0.5.7"). Empty for None.
 QString assetNameFor(PackageKind kind, const QString& tag);

@@ -286,6 +286,11 @@ int main(int argc, char* argv[]) {
   QApplication::setApplicationDisplayName(heap::brand::displayName());
   QApplication::setApplicationVersion(QStringLiteral(HEAP_VERSION));
   QApplication::setWindowIcon(QIcon(QStringLiteral(":/brand/tabless/tabless-icon.svg")));
+  // Wayland finds the window's icon and name by its app id, which a Flatpak
+  // ships its .desktop file under.
+  if(qEnvironmentVariableIsSet("FLATPAK_ID")) {
+    QApplication::setDesktopFileName(qEnvironmentVariable("FLATPAK_ID"));
+  }
 
   const CliOptions cli = parseCommandLine(QApplication::arguments());
   if(cli.perfLog) {

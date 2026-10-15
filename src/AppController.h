@@ -199,6 +199,10 @@ class AppController : public QObject {
   Q_PROPERTY(QString updateSha256 READ updateSha256 NOTIFY updateStatusChanged)
   // The feature build beside this one: download, open, update, remove.
   Q_PROPERTY(heap::update::FeatureBuild* featureBuild READ featureBuild CONSTANT)
+  // A Flatpak is updated by its software centre, and Flathub forbids an app
+  // that checks for or offers its own updates: no check, no download, no
+  // update UI, only a line saying where updates come from.
+  Q_PROPERTY(bool updatesFromStore READ updatesFromStore CONSTANT)
 
   // Per tracker: { offline: bool, outOfScope: int }. `offline` is set while
   // the token endpoint or the tracker cannot be reached and heap is retrying
@@ -1110,6 +1114,10 @@ class AppController : public QObject {
   }
 
   bool updateCanInstall() const;
+
+  bool updatesFromStore() const {
+    return m_updatesFromStore;
+  }
 
   QString updatePhase() const {
     return m_updatePhase;
@@ -2907,6 +2915,7 @@ class AppController : public QObject {
   QString m_updateStatusArg;
   QString m_latestReleaseUrl;
   int m_packageKind = 0;  // a heap::update::PackageKind, read once at startup
+  bool m_updatesFromStore = false;  // running in a Flatpak, read once at startup
   QString m_updatePhase;
   double m_updateProgress = 0.0;
   QString m_updateSha256;

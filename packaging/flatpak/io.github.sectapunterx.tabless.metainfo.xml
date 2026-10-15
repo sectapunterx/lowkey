@@ -1,53 +1,95 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Flathub AppStream metainfo — DRAFT.
-     Screenshots point at committed images under docs/assets/img/screens/.
-     Validate with:
-       flatpak run org.freedesktop.appstream.cli validate \
-         packaging/flatpak/io.github.sectapunterx.tabless.metainfo.xml -->
+<!-- Flathub AppStream metainfo. The description is the store text from the
+     copy deck (section 4). Screenshots are the README's, from master.
+     A release adds its <release> on top before it is tagged, since Flathub
+     builds this file from the tag.
+     CI checks it with flatpak-builder-lint (.github/workflows/flatpak.yml). -->
 <component type="desktop-application">
   <id>io.github.sectapunterx.tabless</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
   <name>Tabless</name>
   <summary>A developer's workday in one window</summary>
-  <description>
-    <p>
-      Tickets, calendar, notes and docs in one place — Tabless (formerly lowkey and heap). It is a native
-      desktop app built with Qt 6 / QML / C++20 — a single binary with a
-      per-profile JSON workspace, no accounts and no cloud required.
-    </p>
-    <p>Features:</p>
-    <ul>
-      <li>Kanban board for tasks</li>
-      <li>Calendar and schedule planning</li>
-      <li>Notes and documents</li>
-      <li>Local, per-profile JSON workspace</li>
-    </ul>
-  </description>
-  <launchable type="desktop-id">io.github.sectapunterx.tabless.desktop</launchable>
   <developer id="io.github.sectapunterx">
     <name>sectapunterx</name>
   </developer>
-  <url type="homepage">https://github.com/sectapunterx/tabless</url>
+  <description>
+    <p>Just makes your day easier.</p>
+    <p>
+      Tabless is a desktop app for developers whose work lives in a shared tracker. It brings the tasks
+      assigned to you, today's meetings and your notes into one window, so the morning starts in one place
+      instead of a tracker tab, a calendar tab and a notes app.
+    </p>
+    <p>What it does:</p>
+    <ul>
+      <li>Works with 13 trackers: GitHub, GitLab, Jira, Trello, Gitea, Forgejo, Redmine, Todoist, Asana, ClickUp, Sentry, Bitbucket, and Mattermost for @mentions — one of them or several.</li>
+      <li>Today shows the day's meetings (from your calendar links) and planned tasks in order, with what's in progress and what's due.</li>
+      <li>Capture from any app: press Ctrl+Shift+Space and type "review PR tomorrow 11:00 p1 #api". Date, time, priority and label are read from the words.</li>
+      <li>Check out a branch named after a task and that task moves to the top. PR state comes from your own gh or glab.</li>
+      <li>Markdown notes next to the tasks they mention. Bring an Obsidian vault in, with a preview first.</li>
+      <li>Keyboard throughout: Vim-style keys that work in any layout, a command line on Ctrl+K, every key rebindable.</li>
+      <li>A command line tool too: "tabless today", "tabless add", "tabless now" for your shell prompt.</li>
+    </ul>
+    <p>What it won't do without asking:</p>
+    <ul>
+      <li>Write to your tracker. It's read-only until you turn status updates on for that tracker; titles, descriptions and comments are never written.</li>
+      <li>Send your data anywhere. Everything is one JSON file on your disk. No account, no analytics.</li>
+      <li>Lose your work. Daily backups and a time machine of snapshots.</li>
+    </ul>
+    <p>
+      Good to know: it's a personal desk, not a team board, and there's no mobile app. Moving work between
+      computers is export and import for now.
+    </p>
+    <p>Free and open source (MIT). Windows, macOS and Linux.</p>
+  </description>
+  <launchable type="desktop-id">io.github.sectapunterx.tabless.desktop</launchable>
+  <provides>
+    <binary>tabless</binary>
+  </provides>
+  <url type="homepage">https://tabless.dev</url>
   <url type="bugtracker">https://github.com/sectapunterx/tabless/issues</url>
   <url type="vcs-browser">https://github.com/sectapunterx/tabless</url>
+  <url type="contribute">https://github.com/sectapunterx/tabless/blob/master/CONTRIBUTING.md</url>
+  <branding>
+    <color type="primary" scheme_preference="light">#b1a7f0</color>
+    <color type="primary" scheme_preference="dark">#3a414b</color>
+  </branding>
   <content_rating type="oars-1.1" />
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
   <screenshots>
     <screenshot type="default">
-      <caption>Board view — kanban columns, pinned calendar and people pane</caption>
-      <image>https://raw.githubusercontent.com/sectapunterx/tabless/master/docs/assets/img/screens/board-kanban.png</image>
+      <caption>Today: the day's meetings and planned tasks by the hour</caption>
+      <image>https://raw.githubusercontent.com/sectapunterx/tabless/master/docs/assets/img/readme/today.png</image>
     </screenshot>
     <screenshot>
-      <caption>Week view — 7-day grid with drag/resize events</caption>
-      <image>https://raw.githubusercontent.com/sectapunterx/tabless/master/docs/assets/img/screens/board-week.png</image>
+      <caption>Tasks as a board</caption>
+      <image>https://raw.githubusercontent.com/sectapunterx/tabless/master/docs/assets/img/readme/board.png</image>
     </screenshot>
     <screenshot>
-      <caption>Day calendar — drag-to-create and focus blocks</caption>
-      <image>https://raw.githubusercontent.com/sectapunterx/tabless/master/docs/assets/img/screens/calendar-focus.png</image>
+      <caption>Tasks as a week calendar</caption>
+      <image>https://raw.githubusercontent.com/sectapunterx/tabless/master/docs/assets/img/readme/calendar.png</image>
     </screenshot>
     <screenshot>
-      <caption>Docs — custom sections, snippets and contact cards</caption>
-      <image>https://raw.githubusercontent.com/sectapunterx/tabless/master/docs/assets/img/screens/board-docs.png</image>
+      <caption>A task open as a document</caption>
+      <image>https://raw.githubusercontent.com/sectapunterx/tabless/master/docs/assets/img/readme/task.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Notes with a note open</caption>
+      <image>https://raw.githubusercontent.com/sectapunterx/tabless/master/docs/assets/img/readme/knowledge.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>The command line over Tasks</caption>
+      <image>https://raw.githubusercontent.com/sectapunterx/tabless/master/docs/assets/img/readme/command.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Today in the Quiet style</caption>
+      <image>https://raw.githubusercontent.com/sectapunterx/tabless/master/docs/assets/img/readme/quiet.png</image>
     </screenshot>
   </screenshots>
   <categories>
@@ -55,15 +97,25 @@
     <category>ProjectManagement</category>
   </categories>
   <keywords>
-    <keyword>kanban</keyword>
     <keyword>tasks</keyword>
-    <keyword>todo</keyword>
+    <keyword>tickets</keyword>
+    <keyword>tracker</keyword>
     <keyword>calendar</keyword>
     <keyword>notes</keyword>
     <keyword>planner</keyword>
+    <keyword>developer</keyword>
   </keywords>
   <releases>
-    <release version="0.5.0" date="2026-07-07" />
-    <release version="0.4.2" date="2026-07-07" />
+    <release version="0.9.4" date="2026-10-15">
+      <description>
+        <p>One-time hints that show a feature where you meet it, rich notes, a tracker card that reads on a small screen, and the Tabless Blue theme.</p>
+      </description>
+    </release>
+    <release version="0.9.3" date="2026-10-15" />
+    <release version="0.9.2" date="2026-10-14" />
+    <release version="0.9.1" date="2026-10-13" />
+    <release version="0.8.5" date="2026-10-11" />
+    <release version="0.8.0" date="2026-10-10" />
+    <release version="0.7.0" date="2026-10-07" />
   </releases>
 </component>

@@ -159,7 +159,8 @@ FeatureBuild::FeatureBuild(QObject* parent) :
 FeatureBuild::~FeatureBuild() = default;
 
 bool FeatureBuild::supported() const {
-  return !heap::brand::isChannelBuild() && !currentOs().isEmpty();
+  // A Flatpak takes no build but the store's (Flathub's rules).
+  return !heap::brand::isChannelBuild() && !runningInFlatpak() && !currentOs().isEmpty();
 }
 
 bool FeatureBuild::installed() const {

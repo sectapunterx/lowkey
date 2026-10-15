@@ -4023,17 +4023,20 @@ Item {
                     label: I18n.t("settings.about.updates")
                     // The hint follows the choice (A7-3): "only by hand" never checks
                     // on launch.
-                    hint: root.updatesHint(AppController.updateStatus, root._get("updates", "autoCheck", true) !== false)
+                    // A Flatpak is updated by its software centre (Flathub's rule):
+                    // no check, no download, only where updates come from.
+                    hint: AppController.updatesFromStore ? I18n.t("settings.about.updates.store")
+                        : root.updatesHint(AppController.updateStatus, root._get("updates", "autoCheck", true) !== false)
                     LinkText {
                         objectName: "settings-check-updates"
-                        visible: AppController.updatePhase !== "downloading" && AppController.updatePhase !== "installing"
+                        visible: !AppController.updatesFromStore && AppController.updatePhase !== "downloading" && AppController.updatePhase !== "installing"
                         text: I18n.t("settings.about.checkUpdates")
                         onActivated: AppController.checkForUpdates()
                     }
                     ActionButton {
                         objectName: "settings-download-update"
-                        visible: aboutRoot.updateReady && AppController.updatePhase === ""
-                            || AppController.updatePhase === "error"
+                        visible: !AppController.updatesFromStore && (aboutRoot.updateReady && AppController.updatePhase === ""
+                            || AppController.updatePhase === "error")
                         text: AppController.updateCanInstall ? I18n.t("settings.about.install") : I18n.t("settings.about.download")
                         onActivated: AppController.updateCanInstall ? AppController.downloadUpdate() : AppController.openLatestRelease()
                     }
@@ -4065,6 +4068,7 @@ Item {
                     }
                     SegControl {
                         name: "settings-updates"
+                        visible: !AppController.updatesFromStore
                         accessibleName: I18n.t("settings.about.updates")
                         value: root._get("updates", "autoCheck", true) === false ? "manual" : "auto"
                         options: [ ({ value: "auto", label: I18n.t("settings.about.updates.auto") }), ({ value: "manual", label: I18n.t("settings.about.updates.manual") }) ]
