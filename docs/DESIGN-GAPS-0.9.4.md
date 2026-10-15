@@ -1,6 +1,6 @@
 # Design gaps 0.9.4 — app vs New heap design (2026-10-15)
 
-Two auditors, 78 sheets (both styles), offscreen captures of the real Main.qml at 1440×900, 100 % scale. Only Qt limitation found: native OS notifications — decided in DESIGN-DECISIONS (0.9.4). Everything below is fixable in QML/C++; not fixed yet.
+Two auditors, 78 sheets (both styles), offscreen captures of the real Main.qml at 1440×900, 100 % scale. Only Qt limitation found: native OS notifications — decided in DESIGN-DECISIONS (0.9.4). Everything below is fixable in QML/C++; not fixed yet. **Owner review 2026-10-15:** 19 rows are not gaps (deliberate changes or never visible) — listed at the end; b-11 counts only scale/contrast at rest (font row is APP-314), b-12 only the calendar row (feature build is APP-309). 43 remain.
 
 
 Counts: QT 1 (B) · BUG 37 (2 A, 15 B, 20 C) · HARNESS 7 · DECIDED ~25.
@@ -59,3 +59,25 @@ BUG B: b-01 WeekView.qml:1565/1587/1616 binding loop in day view (width=min(impl
 BUG C: b-06 auto-archive back in column menu vs DG-025; b-10 recap 3rd button; b-12 extra settings rows at rest; b-13 settings hint copy; b-14 event editor tz row/link/sound; b-15 task menu header lacks provider; b-16 profile-move row; b-17 chevron on Длительность; b-18 time range clipped in narrow lane; b-19 estimate sum in header; b-20 card date elides mid-token; b-21 log source col 80px; b-22 conflict shows raw md; b-23 more binding loops KanbanBoard.qml:2393/2483/2551, EventCapture.qml:204; b-24 APP-314 undocumented (lens keys tooltip, keycaps); b-25 link underline colour/offset.
 Harness: scrollbar always, schedule popup at (0,0), no tracker connect, etc.
 Captures: b\out\{bold,quiet}-*.png, crops b\sheets\.
+
+## Not gaps (owner review 2026-10-15)
+
+- **a-08** (осознанно): Rich-режим (#317) показывает строку под курсором исходником, поэтому «# » у заголовка при открытии — его поведение, а не сбой.
+- **a-12** (осознанно): «Мои виды» скрыты на первом запуске и текст подсказки переписан в правке EYES-3 («одно слово на одну вещь»).
+- **a-13** (осознанно): Тексты первого запуска переписаны в аудитах A5-13 и PERSONA-2; список трекеров длиннее, чем на листе.
+- **a-14** (осознанно): Строка «Вне поля (Esc — выйти из него)» добавлена правкой A5-13: клавиши страницы говорят, где они работают.
+- **a-15** (осознанно): Тусклая рамка в покое — правка PERSONA-2; размер заголовка — следствие масштаба APP-314.
+- **a-16** (осознанно): Тот же переписанный первый запуск (A5-13, PERSONA-2), в тихом стиле.
+- **a-21** (осознанно): Клавиши в рамке шрифтом текста — APP-314 (KeyHint.qml).
+- **a-22** (осознанно): Время шрифтом интерфейса с табличными цифрами — A2-27 и APP-314.
+- **a-25** (не проявится): Компактный вид не появляется только при масштабе 100 %. По умолчанию масштаб 110–125 % (APP-314), и окно 1280 px уходит в компактный вид.
+- **a-32** (осознанно): «Ctrl M встреча · Tab документ» в подвале быстрого ввода — правка A2-14: Tab открывал документ без предупреждения.
+- **a-37** (осознанно): Пустые колонки сворачиваются в полосу (APP-314), плитка «+ колонка» вернулась в APP-289.
+- **b-01** (не проявится): Предупреждение binding loop видно только в логе; человек его не видит. Стоит починить, но это не расхождение с листом.
+- **b-05** (осознанно): «Новая колонка…» в меню колонки — APP-289 (колонка с доски).
+- **b-06** (осознанно): «Автоархив…» в меню колонки — APP-295.
+- **b-13** (осознанно): Подпись раздела «Внешний вид» сменили, когда «Твики» убрали; старая отсылает к тому, чего нет.
+- **b-16** (осознанно): Перенос в профиль из меню задачи и панели выбора — A5-14 («Shift M везде»).
+- **b-19** (осознанно): Сумма оценок рядом со счётчиком колонки — APP-246.
+- **b-23** (не проявится): Ещё четыре binding loop — только в логе, на экране не видны.
+- **b-24** (осознанно): Клавиши вкладок перенесены в подсказку, рамки у клавиш — APP-314.
