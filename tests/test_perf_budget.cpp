@@ -144,6 +144,12 @@ const QStringList& columnStatuses() {
 }  // namespace
 
 TEST(PerfBudget, HeavyProfileOperationsWithinBudget) {
+#if defined(__SANITIZE_ADDRESS__)
+  // ASan runs the 10k-task profile several times slower, so the budgets
+  // measure the sanitizer; the test sat at 116 of its 120 s under it and
+  // timed out on the 0.9.4 release run. The plain builds check the budgets.
+  GTEST_SKIP() << "timing is not meaningful under AddressSanitizer";
+#endif
   QDir(appDataDir()).removeRecursively();
   QDir().mkpath(appDataDir());
 
