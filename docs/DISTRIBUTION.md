@@ -9,6 +9,7 @@ free channel, the manifest that feeds it, and the exact steps to submit/update.
 | **Scoop** (Windows) | [`bucket/tabless.json`](../bucket/tabless.json) | ✅ live in this repo | none — this repo *is* the bucket |
 | **winget** (Windows) | [`packaging/winget/`](../packaging/winget/) | 📝 ready to PR | PR to `microsoft/winget-pkgs` |
 | **Flathub** (Linux) | [`packaging/flatpak/`](../packaging/flatpak/) | 📝 draft, test then PR | PR to `flathub/flathub` |
+| **Homebrew tap** (macOS) | [`packaging/homebrew/`](../packaging/homebrew/) | 📝 cask ready, tap repo not created | own repo `sectapunterx/homebrew-tabless` |
 
 Other channels (AUR, Snap, Chocolatey, Homebrew) are not set up yet — they need
 external accounts. See "Not yet done" below.
@@ -26,11 +27,12 @@ scoop bucket add tabless https://github.com/sectapunterx/tabless
 scoop install tabless
 ```
 
-Until the first release under the new name, the manifest installs lowkey 0.8.4
-(`lowkey-v0.8.4-windows-portable.zip`, `bin: lowkey.exe`). The first Tabless
-release needs a hand bump of all three files, as the 0.8.0 rename did: `version`,
-`url`, `hash`, and `bin`/`shortcuts` → `tabless.exe` — `autoupdate` rewrites the
-URL and hash but never `bin`.
+The manifest installs Tabless 0.9.4 (`tabless-v0.9.4-windows-portable.zip`) with
+`tabless` and `tabless-cli` on PATH. Its `post_install` deletes `tabless-portable.txt`
+from the unpacked folder: Scoop owns the updates of that folder, and with the marker
+the in-app updater would overwrite it. The app then points to the release page
+instead. `autoupdate` rewrites the URL and hash but never `bin`, so a rename of the
+executable is a hand edit of all three files.
 
 `checkver: github` + `autoupdate` mean the manifest tracks the latest GitHub
 release automatically; on a new release update `version`/`url`/`hash` in all three files (or run
@@ -97,7 +99,7 @@ The manifest builds from the `v0.4.2` git tag against the KDE 6 runtime.
 
 | Channel | What's needed |
 |---------|---------------|
-| **Homebrew Cask** (macOS) | own tap repo `homebrew-tabless` with a cask pointing at the `.dmg`, or PR to `homebrew/homebrew-cask` (has a notability bar) |
+| **Homebrew Cask** (official) | PR to `homebrew/homebrew-cask` — needs notarization and has a notability bar; the own tap above covers it until then |
 | **AUR** (Arch) | AUR account + SSH key; push a `PKGBUILD` |
 | **Snap Store** | Snapcraft account; `snapcraft.yaml` + `snapcraft upload` |
 | **Chocolatey** | community account + API key; `.nuspec` + `choco push` |

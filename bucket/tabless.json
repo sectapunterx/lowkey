@@ -1,20 +1,27 @@
 {
-    "version": "0.8.4",
+    "version": "0.9.4",
     "description": "A developer's workday in one window: the tasks assigned to you from 13 trackers, today's meetings and your notes, from the keyboard.",
     "homepage": "https://tabless.dev/",
     "license": "MIT",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/sectapunterx/tabless/releases/download/v0.8.4/lowkey-v0.8.4-windows-portable.zip",
-            "hash": "e0c30495873decc10832455d159ad3f5f6f8b0b132235747d82ce8cc1cfd29dd"
+            "url": "https://github.com/sectapunterx/tabless/releases/download/v0.9.4/tabless-v0.9.4-windows-portable.zip",
+            "hash": "750529fe20ba6d23565c29d0e0ac0febb4928b540e61d62248f6c6c3c73dbc59"
         }
     },
-    "bin": "lowkey.exe",
+    "bin": [
+        "tabless.exe",
+        "tabless-cli.exe"
+    ],
     "shortcuts": [
         [
-            "lowkey.exe",
+            "tabless.exe",
             "Tabless"
         ]
+    ],
+    "post_install": [
+        "# Scoop updates this copy; the portable marker would let the in-app updater rewrite Scoop's folder.",
+        "Remove-Item \"$dir\tabless-portable.txt\" -ErrorAction SilentlyContinue"
     ],
     "persist": [],
     "checkver": "github",
