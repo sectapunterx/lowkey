@@ -219,6 +219,10 @@ class AppController : public QObject {
   // Settings → Git → "Show whose move" (APP-156). On by default: it is a fact
   // read off the PR, not a nudge.
   Q_PROPERTY(bool showWhoseMove READ showWhoseMove NOTIFY showWhoseMoveChanged)
+  // The one-time coach mark on the first issue a review was folded into
+  // (0.9.4): {taskId, provider, providerName, mr, issueKey}; empty when
+  // there is none to show or it was seen.
+  Q_PROPERTY(QVariantMap reviewFoldHint READ reviewFoldHint NOTIFY reviewFoldHintChanged)
 
   // ---- Storage health (PLAT-1/4/5) ----
   // "ok", "unreadable" (state.json exists but could not be opened: read-only
@@ -2047,6 +2051,19 @@ class AppController : public QObject {
     return m_focusedRepoState;
   }
 
+  QVariantMap reviewFoldHint() const {
+    return m_reviewFoldHint;
+  }
+
+  // Integration setting "reviewFold" (on by default): a merge / pull
+  // request about a Jira issue shows on the issue's card instead of a card
+  // of its own (APP-293). Off brings the folded cards back.
+  Q_INVOKABLE bool reviewFoldOn(const QString& providerId) const;
+  Q_INVOKABLE void setReviewFold(const QString& providerId, bool on);
+  // The coach mark was read (Got it, Esc, or the settings it points to).
+  Q_INVOKABLE void dismissReviewFoldHint();
+  // Unread again, nothing on offer: the next fold offers it anew.
+  void forgetReviewFoldHint();
   bool showWhoseMove() const {
     return m_showWhoseMove;
   }
@@ -2215,6 +2232,7 @@ class AppController : public QObject {
   void trackerWriteNotice(const QString& message);
   void focusedGitChanged();
   void showWhoseMoveChanged();
+  void reviewFoldHintChanged();
   // `profileId` is the profile the task lives in; the window switches there
   // only once the editor's unsaved edits are settled (PRES-1).
   void openTaskRequested(const QString& id, const QString& profileId);
@@ -2253,6 +2271,11 @@ class AppController : public QObject {
   // colliding id replaces the other task rather than adding one.
   QString uniqueTaskId(const QString& base) const;
   QHash<QString, QString> jiraIssuesByKey() const;
+  // A review's card folded into `issueId`: archived, and marked so turning
+  // folding off can bring back exactly these cards.
+  void markReviewFolded(const QString& cardId, const QString& issueId);
+  void offerReviewFoldHint(const QString& issueId, const Task& review);
+  QVariantMap m_reviewFoldHint;
   static QVariantMap reviewGitFacts(const QJsonObject& details, const QString& externalId, const QString& url);
 
   TaskModel m_tasks;

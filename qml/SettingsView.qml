@@ -3292,6 +3292,17 @@ Item {
                                     checked: intCard.conf.reviewMovable === true
                                     onToggled: (checked) => root.setNested("integrations", intCard.intKey, "reviewMovable", checked)
                                 }
+                                // A review that closes a Jira issue shows on the
+                                // issue's card (APP-293); off, it is a card of its
+                                // own and the folded ones come back (0.9.4).
+                                SwitchRow {
+                                    objectName: "int-review-fold-" + intCard.intKey
+                                    visible: intCard.hasReviews && intCard.reviewsOn
+                                    label: I18n.t("settings.int.review.fold")
+                                    hint: I18n.t(checked ? "settings.int.review.fold.hint" : "settings.int.review.fold.hintOff")
+                                    checked: intCard.conf.reviewFold !== false
+                                    onToggled: (checked) => AppController.setReviewFold(intCard.intKey, checked)
+                                }
                             }
                             Text {
                                 objectName: "int-last-error-" + intCard.intKey

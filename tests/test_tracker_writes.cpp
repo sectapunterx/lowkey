@@ -911,6 +911,63 @@ TEST_F(TrackerWrites, Review_FoldedBefore_ComesBackWhenTheProfileLoads) {
   EXPECT_EQ(app_->tasks()->gitFactsFor(QStringLiteral("jira-HT-9")).value(QStringLiteral("prState")).toString(), QStringLiteral("opened"));
 }
 
+// Settings → GitLab → "Fold a request into its Jira ticket", off: the
+// request is a card of its own, and the issue shows no "PR #n" (0.9.4).
+TEST_F(TrackerWrites, Review_FoldingOff_KeepsItsOwnCard) {
+  app_->forgetReviewFoldHint();
+  writeConfig(QStringLiteral("gitlab"), QJsonObject{{QStringLiteral("reviewFold"), false}});
+  app_->mergeExternalTasks(QStringLiteral("jira"), QStringLiteral("jira-"), {jiraIssue(QStringLiteral("HT-10"))}, false);
+  app_->mergeExternalTasks(
+      QStringLiteral("gitlab"), QStringLiteral("gitlab-"), {reviewFor(QStringLiteral("HT-10"), QStringLiteral("opened"))}, false);
+  ASSERT_NE(task(QStringLiteral("gitlab-MR17")), nullptr);
+  EXPECT_FALSE(task(QStringLiteral("gitlab-MR17"))->archived);
+  EXPECT_EQ(app_->tasks()->gitFactsFor(QStringLiteral("jira-HT-10")).value(QStringLiteral("prNumber")).toInt(), 0);
+  EXPECT_TRUE(app_->reviewFoldHint().isEmpty()) << "nothing folded, nothing to tell";
+}
+
+// Turned off after the fact, the folded card comes back and the issue loses
+// its "PR #n"; on again, it folds again. A card the user archived by hand
+// stays archived.
+TEST_F(TrackerWrites, Review_FoldingTurnedOff_BringsTheFoldedCardBack) {
+  app_->mergeExternalTasks(
+      QStringLiteral("gitlab"), QStringLiteral("gitlab-"), {reviewFor(QStringLiteral("HT-11"), QStringLiteral("opened"))}, false);
+  app_->mergeExternalTasks(QStringLiteral("jira"), QStringLiteral("jira-"), {jiraIssue(QStringLiteral("HT-11"))}, false);
+  ASSERT_TRUE(task(QStringLiteral("gitlab-MR17"))->archived);
+
+  app_->setReviewFold(QStringLiteral("gitlab"), false);
+  EXPECT_FALSE(app_->reviewFoldOn(QStringLiteral("gitlab")));
+  EXPECT_FALSE(task(QStringLiteral("gitlab-MR17"))->archived) << "the folded card is back on the board";
+  EXPECT_FALSE(task(QStringLiteral("gitlab-MR17"))->externalMeta.details.contains(QStringLiteral("foldedInto")));
+  EXPECT_EQ(app_->tasks()->gitFactsFor(QStringLiteral("jira-HT-11")).value(QStringLiteral("prNumber")).toInt(), 0);
+
+  app_->setReviewFold(QStringLiteral("gitlab"), true);
+  EXPECT_TRUE(task(QStringLiteral("gitlab-MR17"))->archived);
+  EXPECT_EQ(app_->tasks()->gitFactsFor(QStringLiteral("jira-HT-11")).value(QStringLiteral("prNumber")).toInt(), 17);
+}
+
+// The coach mark is offered once, on the first live issue a review folds
+// into, and never again once read.
+TEST_F(TrackerWrites, Review_FoldHint_IsOfferedOnce) {
+  app_->forgetReviewFoldHint();
+  QSignalSpy changed(app_.get(), &AppController::reviewFoldHintChanged);
+  app_->mergeExternalTasks(QStringLiteral("jira"), QStringLiteral("jira-"), {jiraIssue(QStringLiteral("HT-12"))}, false);
+  app_->mergeExternalTasks(
+      QStringLiteral("gitlab"), QStringLiteral("gitlab-"), {reviewFor(QStringLiteral("HT-12"), QStringLiteral("opened"))}, false);
+  const QVariantMap hint = app_->reviewFoldHint();
+  EXPECT_EQ(hint.value(QStringLiteral("taskId")).toString(), QStringLiteral("jira-HT-12"));
+  EXPECT_EQ(hint.value(QStringLiteral("issueKey")).toString(), QStringLiteral("HT-12"));
+  EXPECT_EQ(hint.value(QStringLiteral("provider")).toString(), QStringLiteral("gitlab"));
+  EXPECT_EQ(hint.value(QStringLiteral("mr")).toString(), QStringLiteral("!17"));
+  EXPECT_EQ(changed.count(), 1);
+
+  app_->dismissReviewFoldHint();
+  EXPECT_TRUE(app_->reviewFoldHint().isEmpty());
+  app_->mergeExternalTasks(QStringLiteral("jira"), QStringLiteral("jira-"), {jiraIssue(QStringLiteral("HT-12"))}, false);
+  app_->mergeExternalTasks(
+      QStringLiteral("gitlab"), QStringLiteral("gitlab-"), {reviewFor(QStringLiteral("HT-12"), QStringLiteral("opened"))}, false);
+  EXPECT_TRUE(app_->reviewFoldHint().isEmpty()) << "read once, never again";
+}
+
 // ── APP-255: the Jira sprint, read-only ──
 
 TEST_F(TrackerWrites, Sprint_MarkersLabelAndSearch) {

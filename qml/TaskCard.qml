@@ -811,6 +811,14 @@ Rectangle {
                         font.family: Theme.fontUi
                         font.features: Theme.tabularNums
                         font.pixelSize: Theme.fsXs
+                        // On a Jira card the request was folded in from
+                        // another tracker (APP-293): the line says so on
+                        // hover, and where to keep them apart (0.9.4).
+                        readonly property bool folded: card._ticket.provider === "jira"
+                        HoverHandler { id: prHover; enabled: prT.folded }
+                        ToolTip.visible: prT.folded && prHover.hovered
+                        ToolTip.delay: 500
+                        ToolTip.text: I18n.t("foldhint.tip").arg(String(card.task ? card.task.prUrl || "" : "").indexOf("github") >= 0 ? "GitHub" : "GitLab")
                     }
                     // Whose move it is on that PR (APP-156): read off the PR — a
                     // review asked of me, red CI, an approval — and only ever
@@ -1047,6 +1055,20 @@ Rectangle {
         dragArea.enabled = false;
         Qt.callLater(function () { dragArea.enabled = true; });
         return true;
+    }
+
+    // The first card a review was folded into tells about it once (0.9.4):
+    // a coach mark beside the card, made only for that one card.
+    Loader {
+        id: foldHint
+        active: card.visible && !!card.task && String(AppController.reviewFoldHint.taskId || "") === String(card.task.id || "")
+        sourceComponent: ReviewFoldCoachmark {
+            parent: card
+            x: card.width + Theme.spMd
+            y: 0
+            hint: AppController.reviewFoldHint
+        }
+        onLoaded: Qt.callLater(function () { if (foldHint.item) foldHint.item.open(); })
     }
 
     // The task menu, shared by every view (APP-268): TaskMenuHost builds

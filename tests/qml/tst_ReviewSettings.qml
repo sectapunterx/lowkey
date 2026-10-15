@@ -91,17 +91,59 @@ TestCase {
         tryVerify(function () { return movable.checked; }, 1000);
     }
 
+    // On by default: a request that closes a Jira ticket shows on its card
+    // (APP-293); the switch keeps them apart (0.9.4).
+    function test_gitlab_folding_is_on_and_the_switch_writes_it() {
+        const card = openCard("gitlab");
+        const fold = find(card, "int-review-fold-gitlab");
+        verify(fold && fold.visible);
+        verify(fold.checked, "requests fold into their ticket by default");
+        compare(fold.hint, I18n.t("settings.int.review.fold.hint"));
+        fold.toggled(false);
+        tryVerify(function () { return conf("gitlab").reviewFold === false; }, 1000, JSON.stringify(conf("gitlab")));
+        tryVerify(function () { return !fold.checked; }, 1000);
+        compare(fold.hint, I18n.t("settings.int.review.fold.hintOff"));
+        compare(AppController.reviewFoldOn("gitlab"), false);
+        fold.toggled(true);
+        tryVerify(function () { return AppController.reviewFoldOn("gitlab"); }, 1000);
+    }
+
+    // The coach mark (0.9.4): two steps, and every way out marks it read.
+    function test_fold_coachmark_walks_two_steps() {
+        const anchor = createTemporaryQmlObject('import QtQuick; Rectangle { width: 260; height: 120 }', host);
+        const cm = createTemporaryQmlObject('import TodoCpp; ReviewFoldCoachmark {}', anchor);
+        cm.hint = { taskId: "jira-HT-1", issueKey: "HT-1", provider: "gitlab", providerName: "GitLab", mr: "!17" };
+        cm.open();
+        tryVerify(function () { return cm.opened; }, 1000);
+        const body = find(cm.contentItem, "review-fold-body");
+        verify(body.text.indexOf("!17") >= 0 && body.text.indexOf("HT-1") >= 0 && body.text.indexOf("GitLab") >= 0, body.text);
+        compare(find(cm.contentItem, "review-fold-title").text, I18n.t("foldhint.title"));
+        find(cm.contentItem, "review-fold-secondary").clicked();
+        compare(cm.step, 2);
+        compare(find(cm.contentItem, "review-fold-title").text, I18n.t("foldhint.title2"));
+        compare(find(cm.contentItem, "review-fold-primary").text, I18n.t("foldhint.openSettings"));
+        find(cm.contentItem, "review-fold-secondary").clicked();
+        compare(cm.step, 1);
+        find(cm.contentItem, "review-fold-primary").clicked();
+        tryVerify(function () { return !cm.visible; }, 1000);
+        compare(Object.keys(AppController.reviewFoldHint).length, 0);
+    }
+
     function test_a_tracker_without_requests_shows_none_of_it() {
         const card = openCard("jira");
         verify(!find(card, "int-review-pull-jira").visible);
         verify(!find(card, "int-review-roles-jira").visible);
         verify(!find(card, "int-review-movable-jira").visible);
+        verify(!find(card, "int-review-fold-jira").visible);
     }
 
     function test_strings_exist_in_both_languages() {
         const keys = ["settings.int.review.pull", "settings.int.review.roles", "settings.int.review.movable",
                       "settings.int.review.movable.hint", "settings.int.review.role.author",
-                      "settings.int.review.role.assignee", "settings.int.review.role.reviewer"];
+                      "settings.int.review.role.assignee", "settings.int.review.role.reviewer",
+                      "settings.int.review.fold", "settings.int.review.fold.hint", "settings.int.review.fold.hintOff",
+                      "foldhint.badge", "foldhint.title", "foldhint.body", "foldhint.title2", "foldhint.body2",
+                      "foldhint.gotIt", "foldhint.how", "foldhint.openSettings", "foldhint.back", "foldhint.close", "foldhint.tip"];
         for (let i = 0; i < keys.length; ++i) {
             verify(I18n.dict.en[keys[i]] !== undefined, keys[i] + " missing in en");
             verify(I18n.dict.ru[keys[i]] !== undefined, keys[i] + " missing in ru");

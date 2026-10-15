@@ -117,6 +117,7 @@ var ITEMS = [
     ["integrations", "row", "settings.int.review.pull"],
     ["integrations", "row", "settings.int.review.roles"],
     ["integrations", "row", "settings.int.review.movable"],
+    ["integrations", "row", "settings.int.review.fold"],
     ["git", "row", "settings.git.repos"],
     ["git", "row", "settings.git.link"],
     ["git", "row", "settings.git.prState"],

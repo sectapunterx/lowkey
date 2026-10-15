@@ -10554,7 +10554,7 @@ int AppController::foldReviewCardsIntoIssues(bool archive) {
   const QSet<QString> issueKeys(issueByKey.keyBegin(), issueByKey.keyEnd());
   QStringList folded;
   for(const Task& cur : m_tasks.items()) {
-    if(cur.externalProvider.isEmpty() || cur.externalProvider == QLatin1String("jira")) {
+    if(cur.externalProvider.isEmpty() || cur.externalProvider == QLatin1String("jira") || !reviewFoldOn(cur.externalProvider)) {
       continue;
     }
     const QJsonObject& details = cur.externalMeta.details;
@@ -10579,13 +10579,120 @@ int AppController::foldReviewCardsIntoIssues(bool archive) {
     }
     if(archive && !cur.archived) {
       folded.append(cur.id);
+      folded.append(issueId);
     }
+    offerReviewFoldHint(issueId, cur);
   }
   // Archived, not deleted: the card may hold notes.
-  for(const QString& id : folded) {
-    m_tasks.setArchived(id, true);
+  for(int i = 0; i + 1 < folded.size(); i += 2) {
+    markReviewFolded(folded.at(i), folded.at(i + 1));
   }
-  return static_cast<int>(folded.size());
+  return static_cast<int>(folded.size() / 2);
+}
+
+void AppController::markReviewFolded(const QString& cardId, const QString& issueId) {
+  const int at = m_tasks.indexOfId(cardId);
+  if(at < 0) {
+    return;
+  }
+  // The one key of `details` written here: the next pull of a folded card
+  // skips it, so the mark stays until folding is turned off.
+  Task t = m_tasks.items().at(at);
+  t.externalMeta.details.insert(QStringLiteral("foldedInto"), issueId);
+  m_tasks.upsert(t);
+  m_tasks.setArchived(cardId, true);
+}
+
+bool AppController::reviewFoldOn(const QString& providerId) const {
+  return integrationConfig(providerId).value(QStringLiteral("reviewFold"), true).toBool();
+}
+
+void AppController::setReviewFold(const QString& providerId, bool on) {
+  if(reviewFoldOn(providerId) == on) {
+    return;
+  }
+  setIntegrationField(providerId, QStringLiteral("reviewFold"), on);
+  // Seen from the settings it points to: the coach mark has done its job.
+  dismissReviewFoldHint();
+  if(on) {
+    if(foldReviewCardsIntoIssues() > 0) {
+      scheduleSave();
+    }
+    return;
+  }
+  // Off: the cards folding archived come back, and the issues they were
+  // folded into stop showing their "PR #n".
+  const QScopedValueRollback<bool> fromTracker(m_historySync, true);
+  QStringList back;
+  QSet<QString> issues;
+  for(const Task& cur : m_tasks.items()) {
+    if(cur.externalProvider != providerId) {
+      continue;
+    }
+    const QString into = cur.externalMeta.details.value(QStringLiteral("foldedInto")).toString();
+    if(!into.isEmpty()) {
+      back.append(cur.id);
+      issues.insert(into);
+    }
+  }
+  for(const QString& id : back) {
+    const int at = m_tasks.indexOfId(id);
+    if(at < 0) {
+      continue;
+    }
+    Task t = m_tasks.items().at(at);
+    t.externalMeta.details.remove(QStringLiteral("foldedInto"));
+    m_tasks.upsert(t);
+    m_tasks.setArchived(id, false);
+  }
+  const QVariantMap none{{QStringLiteral("prState"), QString()},
+                         {QStringLiteral("prNumber"), 0},
+                         {QStringLiteral("prUrl"), QString()},
+                         {QStringLiteral("prChecks"), QString()}};
+  for(const QString& issueId : issues) {
+    m_tasks.setGitInfoForId(issueId, none);
+  }
+  if(!back.isEmpty()) {
+    scheduleSave();
+  }
+}
+
+void AppController::offerReviewFoldHint(const QString& issueId, const Task& review) {
+  if(!m_reviewFoldHint.isEmpty() || m_settingsExtra.value(QStringLiteral("reviewFoldHintSeen")).toBool()) {
+    return;
+  }
+  const int at = m_tasks.indexOfId(issueId);
+  // An archived issue is on no board: the coach mark waits for a live one.
+  if(at < 0 || m_tasks.items().at(at).archived) {
+    return;
+  }
+  m_reviewFoldHint = {{QStringLiteral("taskId"), issueId},
+                      {QStringLiteral("issueKey"), m_tasks.items().at(at).externalId},
+                      {QStringLiteral("provider"), review.externalProvider},
+                      {QStringLiteral("providerName"), providerDisplayName(review.externalProvider)},
+                      {QStringLiteral("mr"), review.externalId}};
+  emit reviewFoldHintChanged();
+}
+
+void AppController::forgetReviewFoldHint() {
+  m_settingsExtra.remove(QStringLiteral("reviewFoldHintSeen"));
+  if(!m_reviewFoldHint.isEmpty()) {
+    m_reviewFoldHint.clear();
+    emit reviewFoldHintChanged();
+  }
+}
+
+void AppController::dismissReviewFoldHint() {
+  const bool shown = !m_reviewFoldHint.isEmpty();
+  if(m_settingsExtra.value(QStringLiteral("reviewFoldHintSeen")).toBool() && !shown) {
+    return;
+  }
+  m_settingsExtra.insert(QStringLiteral("reviewFoldHintSeen"), true);
+  m_reviewFoldHint.clear();
+  scheduleSave();
+  if(shown) {
+    emit reviewFoldHintChanged();
+  }
 }
 
 AppController::MergeStats AppController::mergeExternalTasks(const QString& providerId,
@@ -10653,7 +10760,8 @@ AppController::MergeStats AppController::mergeExternalTasks(const QString& provi
   // A merge / pull request about a Jira issue is that issue's work, not a
   // card of its own (APP-293): it shows on the issue's card as "PR #n state"
   // and its own card is not made. Keyed by the issue's key, "PROJ-123".
-  const QHash<QString, QString> issueByKey = providerId != QLatin1String("jira") ? jiraIssuesByKey() : QHash<QString, QString>{};
+  const QHash<QString, QString> issueByKey =
+      providerId != QLatin1String("jira") && reviewFoldOn(providerId) ? jiraIssuesByKey() : QHash<QString, QString>{};
   const QSet<QString> issueKeys(issueByKey.keyBegin(), issueByKey.keyEnd());
   // The issue a review was folded into this pull: an open one wins over a
   // merged or closed one for the same issue.
@@ -10713,9 +10821,15 @@ AppController::MergeStats AppController::mergeExternalTasks(const QString& provi
             seenIds.insert(existingId);
             const int at = m_tasks.indexOfId(existingId);
             if(at >= 0 && !m_tasks.items().at(at).archived) {
-              m_tasks.setArchived(existingId, true);
+              markReviewFolded(existingId, issueId);
               ++stats.updated;
             }
+          }
+          {
+            Task review;
+            review.externalProvider = providerId;
+            review.externalId = ext.externalId;
+            offerReviewFoldHint(issueId, review);
           }
           continue;
         }
@@ -13209,7 +13323,12 @@ void AppController::applyProfileToModels(const Profile& p) {
     }
   }
   m_tasks.reset(tasks);
-  // The reset dropped every "PR #n" the issues showed.
+  // The reset dropped every "PR #n" the issues showed, and a coach mark
+  // pointing at the last profile's card.
+  if(!m_reviewFoldHint.isEmpty()) {
+    m_reviewFoldHint.clear();
+    emit reviewFoldHintChanged();
+  }
   foldReviewCardsIntoIssues(/*archive=*/false);
   m_people.reset(p.people);
   m_statuses = p.statuses;

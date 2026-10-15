@@ -501,6 +501,7 @@ qt_add_qml_module(heap_core
         qml/SettingsDangerRow.qml
         qml/CursorColorRow.qml
         qml/SeenBeforeHint.qml
+        qml/ReviewFoldCoachmark.qml
         qml/StandupDraftDialog.qml
         qml/HelpContent.qml
         qml/ThinScrollBar.qml
