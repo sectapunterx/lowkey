@@ -88,17 +88,6 @@ jobs:
           dbus-run-session -- xvfb-run -a -s '-screen 0 1280x800x24' timeout -k 10 180 \
             flatpak run --user --env=QT_QPA_PLATFORM=xcb "$APP_ID" --smoke --data-dir /tmp/smoke-x11
 
-      - name: Smoke (Wayland)
-        run: |
-          dnf install -y -q weston >/dev/null
-          export XDG_RUNTIME_DIR=/tmp/xdg-runtime
-          mkdir -p -m 0700 "$XDG_RUNTIME_DIR"
-          weston --backend=headless --socket=wayland-ci --idle-time=0 &
-          for _ in $(seq 1 50); do [ -S "$XDG_RUNTIME_DIR/wayland-ci" ] && break; sleep 0.2; done
-          export WAYLAND_DISPLAY=wayland-ci
-          dbus-run-session -- timeout -k 10 180 \
-            flatpak run --user --env=QT_QPA_PLATFORM=wayland "$APP_ID" --smoke --data-dir /tmp/smoke-wayland
-
       - name: Install Flathub's linter
         run: flatpak install --user -y --noninteractive flathub org.flatpak.Builder
 
@@ -108,4 +97,25 @@ jobs:
         run: flatpak run --user --command=flatpak-builder-lint org.flatpak.Builder manifest "$MANIFEST"
 
       - name: flatpak-builder-lint repo
+        if: ${{ !cancelled() }}
         run: flatpak run --user --command=flatpak-builder-lint org.flatpak.Builder repo repo
+
+      - name: Smoke (Wayland)
+        if: ${{ !cancelled() }}
+        run: |
+          # A headless compositor, from whatever the image is built on.
+          . /etc/os-release && echo "image: $PRETTY_NAME"
+          if command -v weston >/dev/null; then :
+          elif command -v apt-get >/dev/null; then apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q weston >/dev/null
+          elif command -v dnf >/dev/null; then dnf install -y -q weston >/dev/null
+          elif command -v microdnf >/dev/null; then microdnf install -y weston >/dev/null
+          elif command -v pacman >/dev/null; then pacman -Sy --noconfirm weston >/dev/null
+          else echo "::error::no package manager for weston in $PRETTY_NAME"; exit 1
+          fi
+          export XDG_RUNTIME_DIR=/tmp/xdg-runtime
+          mkdir -p -m 0700 "$XDG_RUNTIME_DIR"
+          weston --backend=headless --socket=wayland-ci --idle-time=0 &
+          for _ in $(seq 1 50); do [ -S "$XDG_RUNTIME_DIR/wayland-ci" ] && break; sleep 0.2; done
+          export WAYLAND_DISPLAY=wayland-ci
+          dbus-run-session -- timeout -k 10 180 \
+            flatpak run --user --env=QT_QPA_PLATFORM=wayland "$APP_ID" --smoke --data-dir /tmp/smoke-wayland
