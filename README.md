@@ -27,14 +27,14 @@
 
 - **Your tracker tasks, one list** — GitHub, GitLab, Jira, Trello, Gitea, Forgejo, Redmine, Todoist, Asana,
   ClickUp, Sentry, Bitbucket, plus Mattermost for @mentions. Read-only unless you switch writes on.
-- **Capture from any app** — `Ctrl+Shift+Space`, type `fix login 15:00 p1 #auth`, done.
+- **Capture from any app** — `Ctrl+Shift+Space`, type `Review PR tomorrow 10:00 p1 #api`, done.
 - **Knows your branch** — check out `APP-112-…` and APP-112 is at the top of the window.
 - **Vim-style keys** — `j` `k`, `g b`, `d`, `/`; any layout, every key rebindable.
 - **Yours, on disk** — one readable `state.json`. No account, no analytics, works offline. Free, MIT.
 
 <p align="center">
   <img src="docs/assets/img/readme/capture.gif" width="100%" alt="From the keyboard: g b, j and l move around the board, g c, g n and g t switch views, then quick capture reads 'Review PR tomorrow 10:00 p1 #api' and the task lands on Friday at 10:00 in the week">
-  <br><sub>Vim keys between the views, then one line of quick capture and the task is in the week</sub>
+  <br><sub>Moving around on <code>g</code> keys, then quick capture turns one line into a task on Friday at 10:00</sub>
 </p>
 
 ## Up and running in two minutes
@@ -145,11 +145,13 @@ status:blocked  due:week  is:overdue  priority:p0,p1  branch:login  estimate:>2h
 
 ## And from the terminal
 
-```sh
-tabless today                                  # overdue first, then what's on today
-tabless add "fix login tomorrow 14:00 p1 #backend"
-tabless now                                    # the current task — fits a shell prompt
-```
+See what you're on or note a task without leaving the shell. `tabless now` prints the task your branch names,
+or the one with a running timer, so it can sit in your prompt.
+
+<p align="center">
+  <img src="docs/assets/img/readme/cli.gif" width="100%" alt="In a terminal: tabless today lists what is overdue and due today, tabless add captures a task from one line, and after checking out APP-112-flaky-sync-test the prompt and tabless now show APP-112">
+  <br><sub>Today's list, a task in one line, and the branch's task in the prompt</sub>
+</p>
 
 Changes show up in the open window at once. On Windows the command is `tabless-cli`. Starship snippet and
 the rest: [docs/CLI.md](docs/CLI.md).
