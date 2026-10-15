@@ -1439,6 +1439,7 @@ void MdHighlighter::applyBlockLook() {
   if(doc == nullptr || m_applyingLook) {
     return;
   }
+
   struct Look {
     bool fixed = false;
     qreal height = 0;

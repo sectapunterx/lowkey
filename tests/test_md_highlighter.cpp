@@ -478,7 +478,8 @@ TEST(MdHighlighterRich, PicturesCodeAndLinksAreDrawn) {
   EXPECT_EQ(kinds.join(QLatin1Char(',')), QStringLiteral("image,inlineCode,link,link"));
   EXPECT_EQ(image.value(QStringLiteral("src")).toString(), QStringLiteral("attachments/a.png"));
   EXPECT_EQ(image.value(QStringLiteral("alt")).toString(), QStringLiteral("Retries"));
-  EXPECT_EQ(text.mid(code.value(QStringLiteral("at")).toInt(), code.value(QStringLiteral("to")).toInt() - code.value(QStringLiteral("at")).toInt()),
+  EXPECT_EQ(text.mid(code.value(QStringLiteral("at")).toInt(),
+                     code.value(QStringLiteral("to")).toInt() - code.value(QStringLiteral("at")).toInt()),
             QStringLiteral("`login`"));
   // `code` in the text's colour, no flat square behind it: the pill is drawn.
   const QTextCharFormat c = r.formatAt(2, 6);

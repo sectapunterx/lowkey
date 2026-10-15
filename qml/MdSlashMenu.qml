@@ -71,8 +71,12 @@ AppMenu {
     // the field. A pick has already cleared slashAt.
     onAboutToHide: if (!menu.holding && menu.live) menu.dropSlash()
     // The caret back where it was.
+    // Not when a second "/" has opened it again in the meantime (seen on
+    // Qt 6.9): run that late, this cleared the new slashAt and took the
+    // keyboard back, which closed the menu just opened and left the "/" in
+    // the text.
     onClosed: Qt.callLater(() => {
-        if (menu.holding) return;
+        if (menu.holding || menu.visible) return;
         menu.slashAt = -1;
         if (menu.live && menu.field.visible && !menu.field.activeFocus) menu.field.forceActiveFocus();
     })

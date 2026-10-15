@@ -48,7 +48,9 @@ Item {
     }
     function _rect(pos: int): rect {
         root._rev;
-        return root.editor.positionToRectangle(pos);
+        // Clamped: while a note is switched the positions of the last one
+        // are read once against the new text, and Qt warned for each.
+        return root.editor.positionToRectangle(Math.max(0, Math.min(pos, root.editor.length)));
     }
     // The rectangles a span [a, b) takes, one a line it wraps over; a
     // position at a wrap reads as the start of the next line.
