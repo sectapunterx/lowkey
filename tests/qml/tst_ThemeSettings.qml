@@ -71,12 +71,20 @@ TestCase {
         const ts = make();
         const lang = AppController.language;
         AppController.language = "ru";
-        compare(ts.nameOf(Presets.resolve("tabless-blue", [], "dark")), "Синяя");
+        compare(ts.nameOf(Presets.resolve("tabless-blue", [], "dark")), "Tabless Blue");
         AppController.language = "en";
-        compare(ts.nameOf(Presets.resolve("tabless-blue", [], "dark")), "Tabless blue");
+        compare(ts.nameOf(Presets.resolve("tabless-blue", [], "dark")), "Tabless Blue");
         compare(ts.nameOf(Presets.resolve("graphite", [], "dark")), "Graphite");
         AppController.language = lang;
         verify(ts.themes.some((x) => x.id === "tabless-blue"), "no Tabless blue card in the picker");
+    }
+
+    // 0.9.4: a profile whose colour was never picked (the old default
+    // #5cc2dd) shows the theme's accent; a picked colour stays.
+    function test_profile_dot_follows_the_accent_unless_picked() {
+        compare(String(Theme.profileInk("#5cc2dd")), String(Theme.accent));
+        compare(String(Theme.profileInk("")), String(Theme.accent));
+        compare(String(Theme.profileInk("#c48e8a")), "#c48e8a");
     }
 
     // APP-119: the picker groups themes by contrast. Every built-in names its

@@ -139,7 +139,7 @@ SmallDialog {
                         implicitWidth: Theme.spSm
                         implicitHeight: Theme.spSm
                         radius: width / 2
-                        color: row.modelData.color || Theme.textDim
+                        color: Theme.profileInk(row.modelData.color)
                     }
                     Text {
                         Layout.fillWidth: true

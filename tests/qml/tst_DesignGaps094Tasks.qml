@@ -271,6 +271,23 @@ TestCase {
         verify(font.visible && !inside(font, more), "the font row left the sheet");
     }
 
+    // 0.9.4 owner: the fold reads as a control (a chevron that turns, the
+    // muted text colour), and opens on a click.
+    function test_more_is_a_visible_control() {
+        const sv = createTemporaryQmlObject('import TodoCpp; SettingsView { anchors.fill: parent }', host);
+        sv.activeSection = "appearance";
+        let head = null;
+        tryVerify(() => { head = findChild(findChild(sv, "settings-block-appearance"), "settings-more-toggle"); return head !== null; }, 2000);
+        const more = head.parent;
+        const text = findChild(head, "settings-more-text");
+        compare(text.color, Theme.textMuted);
+        verify(!more.open);
+        const click = findChild(head, "settings-more-click");
+        compare(click.width, head.width);
+        click.activated();
+        tryVerify(() => more.open, 1000);
+    }
+
     // ── b-25: Settings' text links ──
     function test_settings_link_underline_is_dim() {
         const sv = createTemporaryQmlObject('import TodoCpp; SettingsView { anchors.fill: parent }', host);

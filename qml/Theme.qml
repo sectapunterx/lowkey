@@ -611,6 +611,14 @@ QtObject {
     readonly property int fwTaskTitle: Style.fills ? Font.DemiBold : Font.Medium
 
     function withAlpha(c, a) { return Qt.rgba(c.r, c.g, c.b, a); }
+    // A profile's dot: the colour the user picked, or — for one never picked
+    // (the old default #5cc2dd every profile was made with) — the theme's
+    // accent, so the dot follows the theme (0.9.4: the example's dot was the
+    // retired cyan).
+    function profileInk(c) {
+        const s = String(c || "").toLowerCase();
+        return s.length === 0 || s === "#5cc2dd" || s === "#ff5cc2dd" ? accent : c;
+    }
 
     // Reactive hour formatter — picks 12h/24h based on settings.calendar.timeFormat.
     // Use everywhere a binding needs to refresh on the user flipping the setting;

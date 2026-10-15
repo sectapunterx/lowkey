@@ -27,9 +27,9 @@ var notes = {
             { title: { en: "Notes as on the page", ru: "Заметки как на листе" },
               body: { en: "rich mode by default: airier lines, “/” on an empty line for blocks, task links as pills, inline code and pictures drawn in place",
                       ru: "rich-режим по умолчанию: просторные строки, «/» на пустой строке — блоки, ссылки на задачи плашками, код и картинки рисуются на месте" } },
-            { title: { en: "Blue theme", ru: "Синяя тема" },
-              body: { en: "Settings → Appearance → Themes: “Tabless blue”, the blue-black palette of the first designs; grey stays the default",
-                      ru: "Настройки → Внешний вид → Темы: «Синяя», сине-чёрная палитра первых макетов; серая остаётся по умолчанию" } },
+            { title: { en: "Tabless Blue", ru: "Tabless Blue" },
+              body: { en: "Settings → Appearance → Themes: “Tabless Blue”, the blue-black palette of the first designs; grey stays the default",
+                      ru: "Настройки → Внешний вид → Темы: «Tabless Blue», сине-чёрная палитра первых макетов; серая остаётся по умолчанию" } },
             { title: { en: "Fewer stumbles", ru: "Меньше заминок" },
               body: { en: "about two hundred fixes from a day-long test by twenty kinds of engineers: keys, dates in Russian, the week grid, end of day, undo",
                       ru: "около двухсот исправлений после теста «рабочий день» двадцати разных инженеров: клавиши, даты по-русски, сетка недели, конец дня, отмена" } }

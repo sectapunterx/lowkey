@@ -1021,7 +1021,9 @@ Item {
         Rectangle {
             id: switchTrack
             Layout.preferredWidth: Theme.px(34); Layout.preferredHeight: Theme.px(20); radius: height / 2
-            color: switchRow.checked ? (root.quiet ? Theme.switchOn : Theme.info) : "transparent"
+            // The accent, as every other "on" in the app (0.9.4: it was the
+            // meeting blue); quiet keeps its neutral fill (DG-004).
+            color: switchRow.checked ? (root.quiet ? Theme.switchOn : Theme.accent) : "transparent"
             border.color: switchRow.checked ? "transparent" : Theme.switchOffLine
             border.width: 1
             FocusRing { target: switchRow; radius: 13 }
@@ -1100,17 +1102,40 @@ Item {
         default property alias content: moreCol.data
         Layout.fillWidth: true
         spacing: 0
-        Text {
+        // A control, not a footnote: a chevron that turns and the row's
+        // own text colour, so the fold reads as something to open (0.9.4:
+        // the dim line was missed).
+        RowLayout {
+            id: moreHead
             objectName: "settings-more-toggle"
+            readonly property alias text: moreText.text
             Layout.topMargin: Theme.spLg
             Layout.bottomMargin: Theme.spSm
-            text: root.opt(I18n.t(more.open ? "settings.more.close" : "settings.more.open"))
-            color: moreMA.hovered ? Theme.text : Theme.textDim
-            Behavior on color { ColorAnimation { duration: Theme.durTap; easing.type: Theme.easeEnter } }
-            font.pixelSize: Theme.fsSm
+            spacing: Theme.spXs
+            Icon {
+                name: "chevron-right"
+                size: Theme.iconSize - 2
+                color: moreText.color
+                rotation: more.open ? 90 : 0
+                Behavior on rotation { NumberAnimation { duration: Theme.durTap; easing.type: Theme.easeEnter } }
+            }
+            Text {
+                id: moreText
+                objectName: "settings-more-text"
+                text: root.opt(I18n.t(more.open ? "settings.more.close" : "settings.more.open"))
+                color: moreMA.hovered ? Theme.text : Theme.textMuted
+                Behavior on color { ColorAnimation { duration: Theme.durTap; easing.type: Theme.easeEnter } }
+                font.family: Theme.fontUi
+                font.pixelSize: Theme.fsSm
+                font.weight: Theme.fwTitle
+            }
             ClickArea {
                 id: moreMA
-                label: parent.text
+                objectName: "settings-more-click"
+                // The whole row: the chevron and the words.
+                parent: moreHead
+                anchors.fill: moreHead
+                label: moreText.text
                 showTip: false
                 role: Accessible.CheckBox
                 checkable: true

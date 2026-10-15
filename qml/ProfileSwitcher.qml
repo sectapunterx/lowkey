@@ -146,7 +146,7 @@ Item {
                         width: Theme.spSm
                         height: Theme.spSm
                         radius: height / 2
-                        color: syncDot.profileDot ? (root.active.color || Theme.accent)
+                        color: syncDot.profileDot ? Theme.profileInk(root.active.color)
                              : !Style.urgency ? Theme.textMuted
                              : root.syncState === "syncing" ? Theme.warning
                              : root.syncState === "error" ? Theme.danger : Theme.success

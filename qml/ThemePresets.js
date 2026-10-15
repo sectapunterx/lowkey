@@ -346,7 +346,7 @@ var PROFILE_SWATCHES = ["#8aa4c2", "#7fae9a", "#b49cc8", "#c2a27a",
 // neutral grey). Kept as a card of its own for those who liked it; grey stays
 // the default dark (owner, 2026-10-15).
 var TABLESS_BLUE = {
-    id: "tabless-blue", name: "Tabless blue", nameKey: "theme.preset.tablessBlue", base: "dark", contrast: "high", builtin: true,
+    id: "tabless-blue", name: "Tabless Blue", nameKey: "theme.preset.tablessBlue", base: "dark", contrast: "high", builtin: true,
     colors: {
         bg: "#0c0e11", bg2: "#0f1216", panel: "#14181d", panel2: "#1a1f26", panel3: "#1f252d",
         border: "#1f252d", borderStrong: "#2a313b",
