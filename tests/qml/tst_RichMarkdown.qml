@@ -151,9 +151,9 @@ TestCase {
     // A long tracker text scrolls inside its box under the wheel, over the
     // text itself (the field lies over the view, not in it).
     function test_a_long_tracker_text_scrolls_under_the_wheel() {
-        let long = "";
-        for (let i = 1; i <= 60; i++) long += "Paragraph " + i + " with some words.\n\n";
-        const id = importTicket(long);
+        let text = "";
+        for (let i = 1; i <= 60; i++) text += "Paragraph " + i + " with some words.\n\n";
+        const id = importTicket(text);
         const doc = make();
         doc.open(id);
         const tracker = findChild(doc, "task-doc-tracker-body");
