@@ -40,6 +40,52 @@ format = "[$output]($style) "
 PS1='$(tabless now --format "[{id}] ")'"$PS1"
 ```
 
+More prompts, all reading the same line. Each one shows nothing when there is no current task.
+
+```fish
+# fish — ~/.config/fish/functions/fish_right_prompt.fish
+function fish_right_prompt
+    tabless now --format '{id} {title}'
+end
+```
+
+```zsh
+# powerlevel10k — in ~/.p10k.zsh, then add `tabless` to POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS
+function prompt_tabless() {
+  local t=$(tabless now --format '{id} {title}')
+  [[ -n $t ]] && p10k segment -f 208 -t "$t"
+}
+```
+
+```json
+// oh-my-posh — a segment in your theme's blocks
+{
+  "type": "command",
+  "style": "plain",
+  "foreground": "#f2a65a",
+  "properties": {
+    "shell": "bash",
+    "command": "tabless now --format '{id} {title}'"
+  }
+}
+```
+
+```tmux
+# tmux — the status bar, refreshed every 15 s
+set -g status-interval 15
+set -g status-right '#(tabless now --format "{id} {title}") %H:%M'
+```
+
+```powershell
+# PowerShell — in $PROFILE; tabless-cli answers `now` itself, fast enough for every prompt
+function prompt {
+  $t = tabless-cli now --format '[{id}] '
+  "$t" + "PS $($executionContext.SessionState.Path.CurrentLocation)> "
+}
+```
+
+`{title}` can be long in a prompt; `{id}` alone is the short form.
+
 Exit codes: `0` ok, `1` usage, `2` no such task, profile or column, `3` data error. `--data-dir` and
 `HEAP_DATA_DIR` work as for the app.
 

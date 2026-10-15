@@ -2,6 +2,9 @@
 
 Thanks for taking a look. This page covers building, testing, what CI checks, and where things live.
 
+Want a tracker Tabless doesn't read yet? [Add your tracker](docs/ADD_A_TRACKER.md) walks through it; most are one
+function and a test.
+
 ## Build and test
 
 Toolchain setup per platform is in [docs/BUILDING.md](docs/BUILDING.md). Once Qt 6.9+ is in place:

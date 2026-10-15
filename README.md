@@ -167,7 +167,8 @@ the rest: [docs/CLI.md](docs/CLI.md).
 ## Docs
 
 - [Keyboard](docs/HOTKEYS.md) — every key, and how to rebind them
-- [Trackers](docs/INTEGRATIONS.md) — connecting each one; what is read, what may be written
+- [Trackers](docs/INTEGRATIONS.md) — connecting each one; what is read, what may be written ·
+  [Add your tracker](docs/ADD_A_TRACKER.md)
 - [Data and backups](docs/DATA.md) — where files live, restores, moving between machines
 - [Command line](docs/CLI.md) · [Tutorial](docs/TUTORIAL.md)
 - [Building from source](docs/BUILDING.md) — Qt 6.9+, C++20 · [Contributing](CONTRIBUTING.md)

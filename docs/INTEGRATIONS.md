@@ -5,6 +5,7 @@ is **descriptor-driven**: every tracker is one `ProviderDescriptor` in
 [`src/integrations/ProviderRegistry.cpp`](../src/integrations/ProviderRegistry.cpp),
 executed by the generic `RestIssueProvider`. Adding a REST tracker is a registry
 entry — no networking or UI code. Jira and Trello are the two bespoke exceptions.
+Step by step, with a worked example: [Add your tracker](ADD_A_TRACKER.md).
 
 Access tokens never go into `state.json`. Builds with QtKeychain (the Windows
 release) keep them in the **OS keychain**; the macOS and Linux release builds
