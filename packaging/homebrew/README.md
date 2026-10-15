@@ -3,7 +3,11 @@
 `Casks/tabless.rb` is the cask for a tap of our own, `sectapunterx/homebrew-tabless`.
 The official `homebrew/cask` needs a notarized app, so it waits for that (see DISTRIBUTION.md).
 
-## Set the tap up (once)
+## The tap
+
+Live at [`sectapunterx/homebrew-tabless`](https://github.com/sectapunterx/homebrew-tabless) since 2026-10-15.
+
+## Set the tap up (done once)
 
 1. Create the public repository `sectapunterx/homebrew-tabless`. The `homebrew-` prefix makes it a tap.
 2. Copy `Casks/tabless.rb` into it, at the same path, and push.

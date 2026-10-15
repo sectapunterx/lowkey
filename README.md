@@ -41,7 +41,8 @@
 
 1. **Install** — from [the latest release](https://github.com/sectapunterx/tabless/releases/latest): Windows
    `setup.exe` or portable `.zip`, macOS `.dmg`, Linux `.AppImage` (Qt inside, nothing else to install).
-   Or `scoop bucket add tabless https://github.com/sectapunterx/tabless` then `scoop install tabless`.
+   Or `scoop bucket add tabless https://github.com/sectapunterx/tabless` then `scoop install tabless` on Windows,
+   `brew install --cask sectapunterx/tabless/tabless` on a Mac.
 2. **Connect a tracker** — Settings → Integrations → **Connect with browser**. A token works everywhere too.
 3. **Add your calendar** — paste an `.ics` link from Outlook, Google or iCloud. Read-only.
 4. **Press `?`** — every key on one screen.

@@ -7,9 +7,9 @@ free channel, the manifest that feeds it, and the exact steps to submit/update.
 | Channel | Manifest | Status | Submission |
 |---------|----------|--------|------------|
 | **Scoop** (Windows) | [`bucket/tabless.json`](../bucket/tabless.json) | ✅ live in this repo | none — this repo *is* the bucket |
-| **winget** (Windows) | [`packaging/winget/`](../packaging/winget/) | 📝 ready to PR | PR to `microsoft/winget-pkgs` |
+| **winget** (Windows) | [`packaging/winget/`](../packaging/winget/) | ⏳ submitted: [microsoft/winget-pkgs#453436](https://github.com/microsoft/winget-pkgs/pull/453436) | PR to `microsoft/winget-pkgs` |
 | **Flathub** (Linux) | [`packaging/flatpak/`](../packaging/flatpak/) | 📝 draft, test then PR | PR to `flathub/flathub` |
-| **Homebrew tap** (macOS) | [`packaging/homebrew/`](../packaging/homebrew/) | 📝 cask ready, tap repo not created | own repo `sectapunterx/homebrew-tabless` |
+| **Homebrew tap** (macOS) | [`packaging/homebrew/`](../packaging/homebrew/) | ✅ live: [`sectapunterx/homebrew-tabless`](https://github.com/sectapunterx/homebrew-tabless) | push the bumped cask to the tap on each release |
 
 Other channels (AUR, Snap, Chocolatey, Homebrew) are not set up yet — they need
 external accounts. See "Not yet done" below.
@@ -42,9 +42,9 @@ To also get into the shared **Extras** bucket (more discoverable), open a PR to
 [`ScoopInstaller/Extras`](https://github.com/ScoopInstaller/Extras) with a copy
 of `bucket/tabless.json`.
 
-## winget — ready to PR
+## winget — submitted
 
-Manifests live in `packaging/winget/` (schema 1.6.0):
+Manifests live in `packaging/winget/` (schema 1.12.0, what winget-pkgs asks for):
 `sectapunterx.Tabless.yaml`, `.installer.yaml`, `.locale.en-US.yaml` (package
 identifier `sectapunterx.Tabless`, moniker `tabless`).
 
