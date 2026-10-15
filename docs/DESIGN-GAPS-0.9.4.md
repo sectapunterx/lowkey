@@ -1,6 +1,6 @@
 # Design gaps 0.9.4 — app vs New heap design (2026-10-15)
 
-Two auditors, 78 sheets (both styles), offscreen captures of the real Main.qml at 1440×900, 100 % scale. Only Qt limitation found: native OS notifications — decided in DESIGN-DECISIONS (0.9.4). Everything below is fixable in QML/C++; not fixed yet. **Owner review 2026-10-15:** 25 rows are not gaps (deliberate, never visible, or owner: keep) — listed at the end; b-11 counts only scale/contrast at rest (font row is APP-314). 37 remain. Decisions for a-07, a-23, b-09, b-21 below.
+Two auditors, 78 sheets (both styles), offscreen captures of the real Main.qml at 1440×900, 100 % scale. Only Qt limitation found: native OS notifications — decided in DESIGN-DECISIONS (0.9.4). Everything below is fixable in QML/C++; not fixed yet. **Owner review 2026-10-15:** 25 rows are not gaps (deliberate, never visible, or owner: keep) — listed at the end; b-11 counts only scale/contrast at rest (font row is APP-314). 37 remain, plus the binding loops b-01/b-23 (log only, fixed anyway on the owner's call). Decisions for a-07, a-23, b-09, b-21 below.
 
 
 Counts: QT 1 (B) · BUG 37 (2 A, 15 B, 20 C) · HARNESS 7 · DECIDED ~25.
@@ -67,6 +67,8 @@ Captures: b\out\{bold,quiet}-*.png, crops b\sheets\.
 - **b-09 recap bars:** blue in bold is the bold style's colour (present in the grey theme too) — a bug, fix. Separately (proposal): a "Синяя" theme card in Appearance → Themes with the sheets' palette (#0c0e11 ground; the pre-APP-314 Tabless values from git history).
 - **b-21 log source column:** width = widest of the five source labels in the current language (TextMetrics), no elide.
 
+- **b-01, b-23 binding loops:** not a sheet gap, but on the fix list (owner, 2026-10-15): WeekView.qml:1565/1587/1616 (day view: width from its own implicitWidth on an elided Text → TextMetrics), KanbanBoard.qml:2393/2483/2551 (Dialog implicitWidth), EventCapture.qml:204 (SpanHighlighter spans).
+
 ## Not gaps (owner review 2026-10-15)
 
 - **a-08** (осознанно): Rich-режим (#317) показывает строку под курсором исходником, поэтому «# » у заголовка при открытии — его поведение, а не сбой.
@@ -80,13 +82,11 @@ Captures: b\out\{bold,quiet}-*.png, crops b\sheets\.
 - **a-25** (не проявится): Компактный вид не появляется только при масштабе 100 %. По умолчанию масштаб 110–125 % (APP-314), и окно 1280 px уходит в компактный вид.
 - **a-32** (осознанно): «Ctrl M встреча · Tab документ» в подвале быстрого ввода — правка A2-14: Tab открывал документ без предупреждения.
 - **a-37** (осознанно): Пустые колонки сворачиваются в полосу (APP-314), плитка «+ колонка» вернулась в APP-289.
-- **b-01** (не проявится): Предупреждение binding loop видно только в логе; человек его не видит. Стоит починить, но это не расхождение с листом.
 - **b-05** (осознанно): «Новая колонка…» в меню колонки — APP-289 (колонка с доски).
 - **b-06** (осознанно): «Автоархив…» в меню колонки — APP-295.
 - **b-13** (осознанно): Подпись раздела «Внешний вид» сменили, когда «Твики» убрали; старая отсылает к тому, чего нет.
 - **b-16** (осознанно): Перенос в профиль из меню задачи и панели выбора — A5-14 («Shift M везде»).
 - **b-19** (осознанно): Сумма оценок рядом со счётчиком колонки — APP-246.
-- **b-23** (не проявится): Ещё четыре binding loop — только в логе, на экране не видны.
 - **b-24** (осознанно): Клавиши вкладок перенесены в подсказку, рамки у клавиш — APP-314.
 - **a-20** (не расхождение): Дубля нет: «+ Добавить человека» — единственный путь мышью в список «Кому написать» (окно «Люди» добавляет в справочник, это другое). Владелец: ок.
 - **a-26** (осознанно): Значок «Сегодня» — день календаря вместо солнца, APP-296. Владелец: не менять.
