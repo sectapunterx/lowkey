@@ -1,6 +1,6 @@
 # Design gaps 0.9.4 — app vs New heap design (2026-10-15)
 
-Two auditors, 78 sheets (both styles), offscreen captures of the real Main.qml at 1440×900, 100 % scale. Only Qt limitation found: native OS notifications — decided in DESIGN-DECISIONS (0.9.4). Everything below is fixable in QML/C++; not fixed yet. **Owner review 2026-10-15:** 19 rows are not gaps (deliberate changes or never visible) — listed at the end; b-11 counts only scale/contrast at rest (font row is APP-314), b-12 only the calendar row (feature build is APP-309). 43 remain.
+Two auditors, 78 sheets (both styles), offscreen captures of the real Main.qml at 1440×900, 100 % scale. Only Qt limitation found: native OS notifications — decided in DESIGN-DECISIONS (0.9.4). Everything below is fixable in QML/C++; not fixed yet. **Owner review 2026-10-15:** 25 rows are not gaps (deliberate, never visible, or owner: keep) — listed at the end; b-11 counts only scale/contrast at rest (font row is APP-314). 37 remain. Decisions for a-07, a-23, b-09, b-21 below.
 
 
 Counts: QT 1 (B) · BUG 37 (2 A, 15 B, 20 C) · HARNESS 7 · DECIDED ~25.
@@ -60,6 +60,13 @@ BUG C: b-06 auto-archive back in column menu vs DG-025; b-10 recap 3rd button; b
 Harness: scrollbar always, schedule popup at (0,0), no tracker connect, etc.
 Captures: b\out\{bold,quiet}-*.png, crops b\sheets\.
 
+## Decisions (owner review 2026-10-15)
+
+- **a-07 headings:** no new settings. Weight 600 (SemiBold is bundled; the 700 the highlighter asks for is not, so Qt fakes it), sizes as the sheet's ratio to body text (H1 2x, H2 1.2x) set as pixel sizes instead of coarse FontSizeAdjustment steps. Size follows Appearance → Scale, the face Appearance → Font.
+- **a-23 sidebar:** not deliberate (unchanged since APP-258) — match the sheet: row pitch 32, first row at the sheet's y.
+- **b-09 recap bars:** blue in bold is the bold style's colour (present in the grey theme too) — a bug, fix. Separately (proposal): a "Синяя" theme card in Appearance → Themes with the sheets' palette (#0c0e11 ground; the pre-APP-314 Tabless values from git history).
+- **b-21 log source column:** width = widest of the five source labels in the current language (TextMetrics), no elide.
+
 ## Not gaps (owner review 2026-10-15)
 
 - **a-08** (осознанно): Rich-режим (#317) показывает строку под курсором исходником, поэтому «# » у заголовка при открытии — его поведение, а не сбой.
@@ -81,3 +88,9 @@ Captures: b\out\{bold,quiet}-*.png, crops b\sheets\.
 - **b-19** (осознанно): Сумма оценок рядом со счётчиком колонки — APP-246.
 - **b-23** (не проявится): Ещё четыре binding loop — только в логе, на экране не видны.
 - **b-24** (осознанно): Клавиши вкладок перенесены в подсказку, рамки у клавиш — APP-314.
+- **a-20** (не расхождение): Дубля нет: «+ Добавить человека» — единственный путь мышью в список «Кому написать» (окно «Люди» добавляет в справочник, это другое). Владелец: ок.
+- **a-26** (осознанно): Значок «Сегодня» — день календаря вместо солнца, APP-296. Владелец: не менять.
+- **a-36** (не расхождение): «+6 ещё · 3 встречи» в месяце — владелец: ок.
+- **b-10** (не расхождение): Кнопка «← Неделя раньше» в сводке — владелец: оставить.
+- **b-12** (не расхождение): Строка «„Сегодня“ показывает» в календаре — владелец: оставить.
+- **b-14** (не расхождение): Часовой пояс, ссылка и напоминание в панели встречи — владелец: оставить.
