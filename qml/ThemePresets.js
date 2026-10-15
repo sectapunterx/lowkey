@@ -341,7 +341,36 @@ var SWATCHES = ["#5cc2dd", "#5aa9e6", "#a4a4d6", "#c07acf", "#e6624c",
 var PROFILE_SWATCHES = ["#8aa4c2", "#7fae9a", "#b49cc8", "#c2a27a",
                         "#c48e8a", "#9aa4b1", "#6f8fa8", "#a3a86e"];
 
-var PRESETS = [HEAP_DARK, HEAP_LIGHT, HEAP_INK, CRIMSON, GRAPHITE, OCHRE, FJORD, DUSK, MINIMAL_DARK];
+// Tabless blue: the palette the "New heap design" sheets are drawn in, and
+// Tabless's own until 0.9.3 (the blue-black #0c0e11 ground that APP-314 made
+// neutral grey). Kept as a card of its own for those who liked it; grey stays
+// the default dark (owner, 2026-10-15).
+var TABLESS_BLUE = {
+    id: "tabless-blue", name: "Tabless blue", nameKey: "theme.preset.tablessBlue", base: "dark", contrast: "high", builtin: true,
+    colors: {
+        bg: "#0c0e11", bg2: "#0f1216", panel: "#14181d", panel2: "#1a1f26", panel3: "#1f252d",
+        border: "#1f252d", borderStrong: "#2a313b",
+        text: "#e9edf2", textMuted: "#c4ccd6", textDim: "#8f99a6",
+        textOnAccent: "#0c0e11", textOnDanger: "#0c0e11", textOnBadge: "#0c0e11",
+        accent: "#b1a7f0", accentStrong: "#c4bcf5", accentSoft: "#26b1a7f0", knob: "#e9edf2",
+        danger: "#ef6b63", warning: "#f2a65a", success: "#6fcf97", info: "#7aa7ff",
+        toastBg: "#1a1f26", toastBorder: "#2a313b", toastText: "#e9edf2",
+        scrim: "#99000000",
+        p0: "#ef6b63", p1: "#f2a65a", p2: "#8f99a6", p3: "#858e9b",
+        stBacklog: "#7a8390", stTodo: "#aeb7c2", stProg: "#c4ccd6", stHalf: "#c4ccd6",
+        stBlocked: "#ef6b63", stReview: "#c4ccd6", stDone: "#6fcf97",
+        mStandup: "#7aa7ff", mOneone: "#7aa7ff", mSync: "#7aa7ff", mFocus: "#7aa7ff", nowLine: "#f2a65a",
+        synKeyword: "#7aa7ff", synString: "#6fcf97", synNumber: "#f2a65a", synComment: "#7a8390",
+        synType: "#aeb7c2", synBuiltin: "#e9edf2", codeBg: "#14181d", code: "#c4ccd6",
+        mention: "#7aa7ff", ticket: "#c4ccd6", tag: "#de8fbd", math: "#f2a65a", heading: "#c4ccd6",
+        highlightBg: "#4df2a65a",
+        mdLink: "#e9edf2", mdCode: "#e9edf2", mdCodeBg: "#14181d", mdMention: "#7aa7ff",
+        mdTicket: "#e9edf2", mdTag: "#de8fbd", mdMath: "#f2a65a", mdHighlight: "#4df2a65a",
+        card: "#13161b", cardHover: "#181c22", nav: "#0f1216", meetingBg: "#172131"
+    }
+};
+
+var PRESETS = [HEAP_DARK, HEAP_LIGHT, HEAP_INK, TABLESS_BLUE, CRIMSON, GRAPHITE, OCHRE, FJORD, DUSK, MINIMAL_DARK];
 
 // Built-ins that were retired, and the one that replaces each, so a user who
 // picked one lands on its nearest relative instead of the slot default.
@@ -626,7 +655,7 @@ function resolve(id, customThemes, slot) {
         var x = t.colors ? t.colors[EXTRA_KEYS[j]] : undefined;
         if (isHex(x)) colors[EXTRA_KEYS[j]] = x;
     }
-    return { id: t.id, name: t.name || t.id, base: base.base, builtin: !!t.builtin, colors: colors };
+    return { id: t.id, name: t.name || t.id, nameKey: t.nameKey || "", base: base.base, builtin: !!t.builtin, colors: colors };
 }
 
 // A theme from outside (pasted JSON) cut down to what resolve() accepts:

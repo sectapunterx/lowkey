@@ -58,6 +58,27 @@ TestCase {
         compare(String(Theme.bg), "#f7f8fa");
     }
 
+    // 0.9.4: the sheets' blue-black palette is a built-in card of its own,
+    // named in the UI language; grey Tabless stays the default dark.
+    function test_tabless_blue_is_a_builtin_and_grey_stays_default() {
+        const t = Presets.builtin("tabless-blue");
+        verify(t !== null, "tabless-blue is not a built-in");
+        compare(t.base, "dark");
+        compare(t.colors.bg, "#0c0e11");
+        compare(Presets.category(t, []), "high");
+        compare(Presets.DEFAULT_DARK, "heap-ink");
+        compare(Presets.resolve("tabless-blue", [], "dark").nameKey, "theme.preset.tablessBlue");
+        const ts = make();
+        const lang = AppController.language;
+        AppController.language = "ru";
+        compare(ts.nameOf(Presets.resolve("tabless-blue", [], "dark")), "Синяя");
+        AppController.language = "en";
+        compare(ts.nameOf(Presets.resolve("tabless-blue", [], "dark")), "Tabless blue");
+        compare(ts.nameOf(Presets.resolve("graphite", [], "dark")), "Graphite");
+        AppController.language = lang;
+        verify(ts.themes.some((x) => x.id === "tabless-blue"), "no Tabless blue card in the picker");
+    }
+
     // APP-119: the picker groups themes by contrast. Every built-in names its
     // group, a copy follows its source, and a theme with no source is measured.
     function test_themes_are_grouped_by_contrast() {
@@ -65,7 +86,7 @@ TestCase {
         const high = findChild(ts, "theme-cards-high");
         const low = findChild(ts, "theme-cards-low");
         verify(high !== null && low !== null);
-        for (const id of ["heap-dark", "heap-light", "heap-ink", "crimson", "graphite"])
+        for (const id of ["heap-dark", "heap-light", "heap-ink", "tabless-blue", "crimson", "graphite"])
             compare(Presets.category(Presets.builtin(id), []), "high", id);
         for (const id of ["ochre", "fjord", "dusk", "minimal-dark"])
             compare(Presets.category(Presets.builtin(id), []), "low", id);

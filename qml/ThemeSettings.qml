@@ -68,9 +68,15 @@ ColumnLayout {
         return id;
     }
 
+    // A built-in may name itself in the UI language ("Синяя"); custom themes
+    // keep the name they were given.
+    function nameOf(t) {
+        return !t ? "" : (t.nameKey ? I18n.t(t.nameKey) : t.name);
+    }
+
     function duplicate(id) {
         const t = Presets.resolve(id, customs, slot);
-        return _add(I18n.t("settings.theme.copyName").arg(t.name), t.base,
+        return _add(I18n.t("settings.theme.copyName").arg(ts.nameOf(t)), t.base,
                     Object.assign({}, t.colors), Presets.builtin(id) ? id : (_custom(id) && _custom(id).from) || "");
     }
 
@@ -91,7 +97,7 @@ ColumnLayout {
             const t = current;
             const colors = Object.assign({}, t.colors);
             colors[key] = hex;
-            _add(I18n.t("settings.theme.copyName").arg(t.name), t.base, colors, t.id);
+            _add(I18n.t("settings.theme.copyName").arg(ts.nameOf(t)), t.base, colors, t.id);
             return;
         }
         _updateCustom(currentId, (t) => { t.colors[key] = hex; });
@@ -254,7 +260,7 @@ ColumnLayout {
                         Text {
                             x: 10; y: 58
                             width: parent.width - 20
-                            text: card.t.name
+                            text: ts.nameOf(card.t)
                             color: card.t.colors.text
                             elide: Text.ElideRight
                             font.pixelSize: Theme.fsSm
@@ -271,7 +277,7 @@ ColumnLayout {
                         ClickArea {
                             id: cardMA
                             objectName: "theme-card-area-" + card.modelData.id
-                            label: card.t.name
+                            label: ts.nameOf(card.t)
                             showTip: false
                             role: Accessible.RadioButton
                             checkable: true
@@ -295,7 +301,7 @@ ColumnLayout {
             objectName: "theme-name"
             Layout.preferredWidth: 200
             enabled: !ts.currentIsBuiltin
-            text: ts.current.name
+            text: ts.nameOf(ts.current)
             color: Theme.text
             font.pixelSize: Theme.fsMd
             selectByMouse: true

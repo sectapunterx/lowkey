@@ -35,9 +35,11 @@ Popup {
 
     // Settings, opened on the switch this step names (APP-210's reveal).
     function _openSettings(provider) {
+        // Main.qml's own function: the window type does not declare it.
         const w = root.ApplicationWindow.window;
-        if (w && w.openSettingsItem)
-            w.openSettingsItem({ section: "integrations", objectName: "int-review-fold-" + provider });
+        const reveal = w ? Reflect.get(w, "openSettingsItem") : null;
+        if (typeof reveal === "function")
+            reveal({ section: "integrations", objectName: "int-review-fold-" + provider });
     }
 
     onClosed: AppController.dismissReviewFoldHint()
