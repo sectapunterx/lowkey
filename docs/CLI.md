@@ -1,5 +1,7 @@
 # Tabless from the terminal
 
+<img src="assets/img/readme/cli.gif" width="100%" alt="tabless today lists what is overdue and due, tabless add captures a task, and after git checkout of a task branch tabless now and the shell prompt show that task">
+
 
 Note a task or check the current one without leaving the terminal. With Tabless open on the same data
 directory, commands go to the window — a change shows up there at once and can be undone there; with it

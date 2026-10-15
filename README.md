@@ -33,8 +33,8 @@
 - **Yours, on disk** — one readable `state.json`. No account, no analytics, works offline. Free, MIT.
 
 <p align="center">
-  <img src="docs/assets/img/readme/capture.gif" width="100%" alt="Quick capture: typing 'fix login 15:00 p1 #auth' over the Today screen puts the task into today's plan at 15:00">
-  <br><sub>One line, and the task is in today's plan at 15:00</sub>
+  <img src="docs/assets/img/readme/capture.gif" width="100%" alt="From the keyboard: g b, j and l move around the board, g c, g n and g t switch views, then quick capture reads 'Review PR tomorrow 10:00 p1 #api' and the task lands on Friday at 10:00 in the week">
+  <br><sub>Vim keys between the views, then one line of quick capture and the task is in the week</sub>
 </p>
 
 ## Up and running in two minutes
