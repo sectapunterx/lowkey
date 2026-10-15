@@ -1,0 +1,67 @@
+---
+// A page for one search query ("offline kanban board", "offline task manager"), one per language.
+// Copy: src/data/topics.ts. One h1, a real picture, plain facts, a FAQ with its own JSON-LD.
+import Page from '../layouts/Page.astro';
+import { copy, type Lang } from '../data/i18n';
+import { topic } from '../data/topics';
+import { getLatestRelease } from '../lib/github';
+import { primaryAssets } from '../lib/releases';
+import { url } from '../lib/site';
+import { faqPage } from '../lib/seo';
+
+interface Props {
+  lang: Lang;
+  slug: string;
+}
+const { lang, slug } = Astro.props;
+const t = copy[lang];
+const p = topic(lang, slug);
+const downloadPage = url((lang === 'ru' ? 'ru/' : '') + 'download/');
+const latest = await getLatestRelease();
+// `code` in the copy becomes <code>, the rest is escaped.
+const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const rich = (v: string) => esc(v).replace(/`([^`]+)`/g, '<code>$1</code>');
+---
+
+<Page
+  lang={lang}
+  path={`${slug}/`}
+  title={p.title}
+  description={p.description}
+  downloadHref={downloadPage}
+  primary={JSON.stringify(primaryAssets(latest))}
+  jsonLd={[faqPage(p.faq)]}
+>
+  <article class="dlp topic">
+    <p class="kicker">{p.kicker}</p>
+    <h1 class="h2">{p.h}</h1>
+    <p class="lede">{p.lede}</p>
+    <div class="cta">
+      <a class="btn solid dl" href={downloadPage} data-os-cta><span class="dl-label" data-app>{t.downloadApp}</span></a>
+    </div>
+
+    <figure class="topic-shot">
+      <img src={url(p.img.src)} alt={p.img.alt} width="1960" height="1225" loading="lazy" decoding="async" />
+    </figure>
+
+    <div class="trio">
+      {p.cards.map(([h, text]) => <div class="tcard"><h2>{h}</h2><p>{text}</p></div>)}
+    </div>
+
+    <h2 class="topic-h">{p.moreH}</h2>
+    <ul class="topic-list">
+      {p.more.map((m) => <li set:html={rich(m)} />)}
+    </ul>
+
+    <h2 class="topic-h">{p.faqH}</h2>
+    <div class="faq-list topic-faq">
+      {p.faq.map(([q, a]) => <details><summary>{q}</summary><p>{a}</p></details>)}
+    </div>
+
+    <h2 class="topic-h">{p.ctaH}</h2>
+    <p class="lede">{p.ctaP}</p>
+    <div class="cta">
+      <a class="btn solid lg dl" href={downloadPage} data-os-cta><span class="dl-label" data-app>{t.downloadApp}</span></a>
+    </div>
+  </article>
+</Page>

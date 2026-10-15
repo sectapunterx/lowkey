@@ -1,0 +1,32 @@
+# Tabless
+
+> Tabless is a free, open-source (MIT) desktop app for developers: the tasks assigned to you from 13 issue trackers, today's meetings and your Markdown notes in one keyboard-driven window. It works offline, needs no account, sends no analytics and keeps all data in one JSON file on your disk. Windows, macOS and Linux. Tagline: Just makes your day easier.
+
+## What it is
+
+- An offline kanban board, list, week and month calendar, and a Today screen for your own tasks and tracker issues.
+- An offline task manager with no sign-up: everything is one `state.json` on disk, with daily backups and a time machine of snapshots.
+- Trackers (read-only by default): GitHub, GitLab, Jira, Trello, Gitea, Forgejo, Redmine, Todoist, Asana, ClickUp, Sentry, Bitbucket, and Mattermost for @mentions. The only write it can make is a task's status, per tracker, off by default.
+- Keyboard-first, Vim-style keys read by key position, so they work in any keyboard layout; every key rebindable; Ctrl+K command line.
+- Quick capture from any app (Ctrl+Shift+Space): "fix login tomorrow 14:00 p1 #auth" reads date, time, priority and label, in English or Russian.
+- Knows your git branch: checking out `APP-112-fix-login` puts APP-112 at the top; PR state from your own `gh` or `glab`.
+- A CLI: `tabless today`, `tabless add`, `tabless now` (prints the current task, fits a shell prompt).
+- Native Qt 6 / C++20, no browser engine.
+
+## What it is not
+
+- Not a team board: the team's tracker stays the shared place.
+- No mobile or web app. No live sync between machines (export/import for now).
+- It doesn't plan your day for you.
+
+## Links
+
+- [Website](https://tabless.dev/)
+- [Offline kanban board](https://tabless.dev/offline-kanban-board/)
+- [Offline task manager](https://tabless.dev/offline-task-manager/)
+- [Download](https://tabless.dev/download/)
+- [Source code (GitHub)](https://github.com/sectapunterx/tabless)
+- [Keyboard reference](https://github.com/sectapunterx/tabless/blob/master/docs/HOTKEYS.md)
+- [Tracker integrations](https://github.com/sectapunterx/tabless/blob/master/docs/INTEGRATIONS.md)
+- [Data and backups](https://github.com/sectapunterx/tabless/blob/master/docs/DATA.md)
+- [Command line](https://github.com/sectapunterx/tabless/blob/master/docs/CLI.md)

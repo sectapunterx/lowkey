@@ -15,9 +15,12 @@ const all = import.meta.glob<string>('../screens/*.html', { query: '?raw', impor
 // English pages use the translated copy made by tools/translate-screens.mjs
 const html = (lang === 'en' && all[`../screens/${name}.en.html`]) || all[`../screens/${name}.html`];
 if (!html) throw new Error(`no screen ${name}`);
+// The mockups' headings are part of a picture (role="img"), not of the page: as h1–h6 they
+// would give every page a dozen top-level headings for search engines. Their styles are inline.
+const flat = html.replace(/<(\/?)h[1-6](?=[\s>])/g, '<$1div');
 // :host starts from initial values, like the mockup's own <body> did; card meta rows
 // (id · date · priority) wrap between items, never inside an id like TASK-3
-const shadow = `<template shadowrootmode="open"><style>:host{all:initial;display:block}*{scrollbar-width:none}*::-webkit-scrollbar{display:none}div[style*="align-items: baseline"]{flex-wrap:wrap;row-gap:2px}div[style*="align-items: baseline"]>span{white-space:nowrap}</style>${html}</template>`;
+const shadow = `<template shadowrootmode="open"><style>:host{all:initial;display:block}*{scrollbar-width:none}*::-webkit-scrollbar{display:none}div[style*="align-items: baseline"]{flex-wrap:wrap;row-gap:2px}div[style*="align-items: baseline"]>span{white-space:nowrap}</style>${flat}</template>`;
 ---
 
 <div class:list={['screen', cls]} role="img" aria-label={label} data-crop={crop?.join(' ')}>

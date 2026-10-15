@@ -11,6 +11,8 @@ import '../styles/site.css';
 import wordmark from '../assets/tabless-wordmark.svg?raw';
 import { copy, type Lang } from '../data/i18n';
 import { GITHUB_URL, LICENSE_URL, RELEASES_URL, url } from '../lib/site';
+import { topics } from '../data/topics';
+import { ld, softwareApplication } from '../lib/seo';
 
 interface Props {
   lang: Lang;
@@ -26,8 +28,10 @@ interface Props {
   downloadHref: string;
   /** Primary file per platform, as JSON, for the download buttons (see scripts/site.ts). */
   primary: string;
+  /** Extra schema.org blocks for this page (the app itself is on every page). */
+  jsonLd?: unknown[];
 }
-const { lang, path, title, description, ogTitle = title, ogDescription = description, home = false, downloadHref, primary } = Astro.props;
+const { lang, path, title, description, ogTitle = title, ogDescription = description, home = false, downloadHref, primary, jsonLd = [] } = Astro.props;
 const t = copy[lang];
 const other = copy[t.otherLang.lang as Lang];
 const prefix = (l: Lang) => (l === 'ru' ? 'ru/' : '');
@@ -38,6 +42,8 @@ const sec = (id: string) => (home ? `#${id}` : `${homeHref}#${id}`);
 const canonical = new URL(here, Astro.site).href;
 // The social card: the same 1280×640 picture as the repository's social preview.
 const ogImage = new URL(url('og.png'), Astro.site).href;
+const structured = [softwareApplication(lang, description, canonical, ogImage), ...jsonLd];
+const topicLinks = topics[lang].map((x) => ({ href: url(prefix(lang) + x.slug + '/'), text: x.link }));
 ---
 
 <!doctype html>
@@ -63,6 +69,7 @@ const ogImage = new URL(url('og.png'), Astro.site).href;
     <meta property="og:image:alt" content="Tabless — Just makes your day easier. A developer’s workday in one window." />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="color-scheme" content="dark" />
+    {structured.map((d) => <script type="application/ld+json" set:html={ld(d)} />)}
   </head>
   <body data-primary={primary}>
     <a class="skip" href="#main">{t.skip}</a>
@@ -91,6 +98,7 @@ const ogImage = new URL(url('og.png'), Astro.site).href;
         </span>
         <span class="foot-links">
           <a href={url(prefix(lang) + 'download/')}>{t.download}</a>
+          {topicLinks.map((l) => <a href={l.href}>{l.text}</a>)}
           <a href={there} hreflang={t.otherLang.lang} lang={t.otherLang.lang}>{other.selfName}</a>
           <a href={LICENSE_URL}>MIT</a>
           <a href={GITHUB_URL}>GitHub</a>

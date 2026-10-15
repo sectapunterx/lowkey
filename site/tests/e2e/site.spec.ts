@@ -3,7 +3,7 @@ import { BASE, REPO } from '../../repo.mjs';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 
-const PAGES = ['', 'ru/', 'download/', 'ru/download/'];
+const PAGES = ['', 'ru/', 'download/', 'ru/download/', 'offline-kanban-board/', 'ru/offline-kanban-board/', 'offline-task-manager/', 'ru/offline-task-manager/'];
 
 function collectErrors(page: Page): string[] {
   const errors: string[] = [];
