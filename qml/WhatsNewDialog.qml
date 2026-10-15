@@ -19,6 +19,10 @@ Popup {
     anchors.centerIn: Overlay.overlay
     parent: Overlay.overlay
     width: Math.min(460, (parent ? parent.width : 460) - 2 * Theme.sp2xl)
+    // Never taller than the window: the sections scroll between the title and
+    // Got it, which stays on screen (0.9.4: eight sections ran it off a short
+    // window).
+    height: Math.min(implicitHeight, (parent ? parent.height : implicitHeight) - 2 * Theme.sp2xl)
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     Overlay.modal: ModalScrim {}
     background: ModalSurface {}
@@ -69,61 +73,79 @@ Popup {
             font.pixelSize: Theme.fsMd
             wrapMode: Text.Wrap
         }
-        Repeater {
-            model: root.notes ? root.notes.sections : []
-            delegate: ColumnLayout {
-                id: sec
-                required property var modelData
-                Layout.fillWidth: true
-                Layout.leftMargin: Theme.inset; Layout.rightMargin: Theme.inset
-                spacing: Theme.sp2xs
-                Rectangle {
+        Flickable {
+            id: notesFlick
+            objectName: "whats-new-scroll"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            Layout.preferredHeight: notesCol.implicitHeight
+            Layout.minimumHeight: Math.min(notesCol.implicitHeight, Theme.px(120))
+            contentWidth: width
+            contentHeight: notesCol.implicitHeight
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ThinScrollBar {}
+            ColumnLayout {
+                id: notesCol
+                width: notesFlick.width
+                spacing: 0
+            Repeater {
+                model: root.notes ? root.notes.sections : []
+                delegate: ColumnLayout {
+                    id: sec
+                    required property var modelData
                     Layout.fillWidth: true
-                    Layout.topMargin: Theme.spMd
-                    Layout.bottomMargin: Theme.spMd
-                    implicitHeight: 1
-                    color: Theme.border
-                }
-                Text {
-                    Layout.fillWidth: true
-                    text: sec.modelData.title[root.lang]
-                    color: Theme.text
-                    font.family: Theme.fontUi
-                    font.pixelSize: Theme.fsMd
-                }
-                Text {
-                    Layout.fillWidth: true
-                    text: sec.modelData.body[root.lang]
-                    color: Theme.textDim
-                    font.family: Theme.fontUi
-                    font.pixelSize: Theme.fsMd
-                    lineHeight: 1.2
-                    wrapMode: Text.Wrap
+                    Layout.leftMargin: Theme.inset; Layout.rightMargin: Theme.inset
+                    spacing: Theme.sp2xs
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.topMargin: Theme.spMd
+                        Layout.bottomMargin: Theme.spMd
+                        implicitHeight: 1
+                        color: Theme.border
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: sec.modelData.title[root.lang]
+                        color: Theme.text
+                        font.family: Theme.fontUi
+                        font.pixelSize: Theme.fsMd
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: sec.modelData.body[root.lang]
+                        color: Theme.textDim
+                        font.family: Theme.fontUi
+                        font.pixelSize: Theme.fsMd
+                        lineHeight: 1.2
+                        wrapMode: Text.Wrap
+                    }
                 }
             }
-        }
-        Text {
-            visible: !!(root.notes && root.notes.moved)
-            Layout.fillWidth: true
-            Layout.topMargin: Theme.sp2xl
-            Layout.leftMargin: Theme.inset; Layout.rightMargin: Theme.inset
-            text: I18n.t("whatsnew.moved")
-            color: Theme.textDim
-            font.family: Theme.fontUi
-            font.pixelSize: Theme.fsXs
-        }
-        Text {
-            objectName: "whats-new-moved"
-            visible: !!(root.notes && root.notes.moved)
-            Layout.fillWidth: true
-            Layout.topMargin: Theme.spSm
-            Layout.leftMargin: Theme.inset; Layout.rightMargin: Theme.inset
-            text: root.notes && root.notes.moved ? root.notes.moved[root.lang] : ""
-            color: Theme.textMuted
-            font.family: Theme.fontUi
-            font.pixelSize: Theme.fsMd
-            lineHeight: 1.4
-            wrapMode: Text.Wrap
+            Text {
+                visible: !!(root.notes && root.notes.moved)
+                Layout.fillWidth: true
+                Layout.topMargin: Theme.sp2xl
+                Layout.leftMargin: Theme.inset; Layout.rightMargin: Theme.inset
+                text: I18n.t("whatsnew.moved")
+                color: Theme.textDim
+                font.family: Theme.fontUi
+                font.pixelSize: Theme.fsXs
+            }
+            Text {
+                objectName: "whats-new-moved"
+                visible: !!(root.notes && root.notes.moved)
+                Layout.fillWidth: true
+                Layout.topMargin: Theme.spSm
+                Layout.leftMargin: Theme.inset; Layout.rightMargin: Theme.inset
+                text: root.notes && root.notes.moved ? root.notes.moved[root.lang] : ""
+                color: Theme.textMuted
+                font.family: Theme.fontUi
+                font.pixelSize: Theme.fsMd
+                lineHeight: 1.4
+                wrapMode: Text.Wrap
+            }
+            }
         }
         RowLayout {
             Layout.fillWidth: true
