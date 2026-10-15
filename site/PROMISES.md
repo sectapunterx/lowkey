@@ -53,16 +53,16 @@ Only the card whose branch is checked out shows it (branch icon + name); every o
 |---|---|---|---|---|
 | 19 | `j` `k` through a list, a board column and the Today feed | shortcut list | built | ☐ |
 | 20 | `d` — done; on a done task brings it back; Ctrl Z undoes | `AppController.h:602` | built | ☐ |
-| 21 | `s` — schedule, date in words | keymap.md | planned | ☐ |
+| 21 | `s` — schedule, date in words | `docs/HOTKEYS.md` (Schedule, `S`); quick-schedule field | built | ☐ |
 | 22 | Ctrl 1–3 — Today, Tasks, Knowledge | shortcut list | built | ☐ |
-| 23 | `g b` / `g l` / `g c` / `g t` | keymap.md (no prefix handling in code yet) | planned | ☐ |
-| 24 | `y y` copy id, `y b` branch name, `y l` tracker link | keymap.md | planned | ☐ |
+| 23 | `g b` / `g l` / `g c` / `g t` | `src/keys/KeyRouter.*` (prefix sequences); `docs/HOTKEYS.md` "Go to — g" | built | ☐ |
+| 24 | `y y` copy id, `y b` branch name, `y l` tracker link | `src/keys/KeyRouter.*`; `docs/HOTKEYS.md` (`Y, Y` / `Y, B` / `Y, L`) | built | ☐ |
 | 25 | Ctrl K — command line | shortcut list | built | ☐ |
-| 26 | `?` — cheat sheet with every key | APP-272 | planned | ☐ |
-| 27 | Keys follow the physical key, so they work in any layout | keymap.md rule 4 | planned | ☐ |
-| 28 | Any shortcut can be rebound | keymap.md rule 7 (APP-272) | planned | ☐ |
-| 29 | Single letters only act while you aren't typing; Ctrl shortcuts work everywhere | keymap.md rule 1 | planned | ☐ |
-| 30 | Site demo ignores a second `d` within 0.5 s | keymap.md rule 6 (site mimics it) | planned | ☐ |
+| 26 | `?` — cheat sheet with every key | cheat sheet (`?` or `Ctrl+/`), `docs/HOTKEYS.md` | built | ☐ |
+| 27 | Keys follow the physical key, so they work in any layout | `src/keys/KeyNames.*` (native VK / kVK / X11 keycode, ЙЦУКЕН fallback) | built | ☐ |
+| 28 | Any shortcut can be rebound | Settings → Keys, `docs/HOTKEYS.md` "Change shortcuts…" | built | ☐ |
+| 29 | Single letters only act while you aren't typing; Ctrl shortcuts work everywhere | `src/keys/KeyRouter.*`; `docs/HOTKEYS.md` "How the keys read" | built | ☐ |
+| 30 | Site demo ignores a second `d` within 0.5 s | the app does the same (`src/keys/KeyRouter.cpp`, the "dd" rule); the site mimics it | built | ☐ |
 
 The site's own keys: Ctrl K and `/` open the search, `g g` goes to the top, Shift G to the end.
 
