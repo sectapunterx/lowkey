@@ -299,6 +299,33 @@ TestCase {
         verify(String(about.sub).indexOf(AppController.appVersion) >= 0, about.sub);
     }
 
+    // a-31: a meeting found by name sits under "Встречи", not "Заметки,
+    // доки, люди", and its date has no locale dot ("15 окт 2026", DG-031).
+    function test_a_found_meeting_has_its_own_group() {
+        const was = AppController.language;
+        const ev = AppController.newEventDraft(11.5, new Date(2026, 9, 15));
+        ev.title = "Zebrafinch palette probe";
+        ev.date = new Date(2026, 9, 15);
+        AppController.saveEvent(ev);
+        AppController.language = "ru";
+        try {
+            const cp = make('import TodoCpp; CommandPalette { }');
+            cp.openWith("zebrafinch");
+            tryVerify(function () { return cp._matches.some(m => m.kind === "event"); }, 2000, "the meeting is not found");
+            const rows = cp._rows;
+            const at = rows.findIndex(r => r.kind === "event");
+            let head = "";
+            for (let i = at; i >= 0; i--) if (rows[i].header) { head = rows[i].label; break; }
+            compare(head, I18n.t("cmd.group.meetings"));
+            const sub = String(rows[at].sub);
+            verify(sub.indexOf("15 окт 2026") >= 0 && sub.indexOf("окт.") < 0, sub);
+            cp.close();
+        } finally {
+            AppController.language = was;
+            AppController.deleteEvent(ev.id);
+        }
+    }
+
     // F3-EYES-7: in the Russian UI a command is found by its English name too.
     function test_english_words_find_commands_in_russian() {
         const was = AppController.language;

@@ -26,7 +26,8 @@ SmallDialog {
         PillButton {
             objectName: "done-column-create"
             primary: true
-            solid: true
+            // Filled only in bold; quiet draws it outlined (a-29, X-Err-Empty).
+            solid: Style.fills
             text: I18n.t("done.noColumn.create")
             onClicked: root.create()
         },

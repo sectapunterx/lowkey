@@ -168,6 +168,33 @@ TestCase {
         compare(dismiss.Accessible.name, I18n.t("topbar.git.dismiss"));
     }
 
+    // a-11 (N/X-Oth-Knowledge): the git line is a plain 32px row with a
+    // hairline — "работаю над APP-101 fix/… PR #482 · CI прошёл ×"; the ID
+    // opens the task, no "Открыть" button, no framed badges.
+    function test_git_working_line_is_plain() {
+        const line = createTemporaryQmlObject('import TodoCpp; GitWorkingLine { width: 600 }', host);
+        line.taskId = "APP-101";
+        line.branch = "fix/login-throttle";
+        line.pr = { number: 482, state: "open", checks: "passing", url: "https://example.invalid/pr/482" };
+        waitForRendering(line);
+        compare(line.height, Theme.px(32));
+        verify(find(line, "git-working-line-rule").visible);
+        compare(find(line, "git-working-line-branch").text, "fix/login-throttle");
+        compare(find(line, "git-working-line-branch").font.family, Theme.fontMono);
+        compare(line.prText, "PR #482 · CI " + I18n.t("topbar.ci.passing"));
+        let opened = 0;
+        line.openTask.connect(function () { opened++; });
+        const id = find(line, "topbar-git-open");
+        compare(id.parent.objectName, "git-working-line-task", "the ID is the way to the task");
+        mouseClick(id);
+        compare(opened, 1);
+        // Merged and draft say so; no PR, no CI: the ID and branch alone.
+        line.pr = { number: 7, state: "merged", draft: false };
+        compare(line.prText, "PR #7 " + I18n.t("topbar.pr.merged"));
+        line.pr = null;
+        verify(!find(line, "git-working-line-pr").visible);
+    }
+
     // ── Toast ──────────────────────────────────────────────────────────
     function test_toast_action_runs_on_return() {
         const t = createTemporaryQmlObject(

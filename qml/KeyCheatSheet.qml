@@ -421,19 +421,23 @@ Popup {
             }
         }
 
+        // The footer is one dim line (a-33, N/X-Keys): "Изменить сочетание
+        // — Настройки → Клавиши · Ctrl / тоже открывает этот экран". No
+        // accent, no scroll hint (the fade says there is more; the keys
+        // scroll it all the same).
         RowLayout {
             Layout.fillWidth: true
             Layout.leftMargin: Theme.sp2xl
             Layout.rightMargin: Theme.sp2xl
             Layout.bottomMargin: Theme.spXl
-            spacing: Theme.spXl
+            spacing: Theme.spXs
             Text {
                 objectName: "key-sheet-edit"
                 text: I18n.t("keys.sheet.edit")
-                color: editCA.hovered ? Theme.text : Theme.accentStrong
+                color: editCA.hovered ? Theme.text : Theme.textDim
                 Behavior on color { ColorAnimation { duration: Theme.durTap; easing.type: Theme.easeEnter } }
                 font.family: Theme.fontUi
-                font.pixelSize: Theme.fsSm
+                font.pixelSize: Theme.fsXs
                 ClickArea {
                     id: editCA
                     label: parent.text
@@ -443,18 +447,10 @@ Popup {
                     }
                 }
             }
-            // More below than the window shows: which keys bring it up.
             Text {
-                objectName: "key-sheet-scroll-hint"
-                visible: root.scrolls
-                text: I18n.t("keys.sheet.scrollHint")
-                color: Theme.textDim
-                font.family: Theme.fontUi
-                font.pixelSize: Theme.fsXs
-            }
-            Text {
+                objectName: "key-sheet-footer"
                 Layout.fillWidth: true
-                text: I18n.t("keys.sheet.footer").arg(AppController.shortcuts.length >= 0 ? AppController.shortcutText("hotkeys.open") : "")
+                text: "· " + I18n.t("keys.sheet.footer").arg(AppController.shortcuts.length >= 0 ? AppController.shortcutText("hotkeys.open") : "")
                 color: Theme.textDim
                 font.family: Theme.fontUi
                 font.pixelSize: Theme.fsXs

@@ -136,6 +136,8 @@ Popup {
                 objectName: "whats-new-ok"
                 text: I18n.t("whatsnew.ok")
                 primary: true
+                // Filled in bold, outlined in quiet (a-28, N-Ntf-OS).
+                solid: Style.fills
                 Keys.onReturnPressed: root.close()
                 Keys.onEnterPressed: root.close()
                 onClicked: root.close()

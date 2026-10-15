@@ -15326,7 +15326,8 @@ QVariantList AppController::commandPaletteEntries() const {
     m["kind"] = "event";
     m["label"] = e.title;
     // In the UI language: QDate::toString always wrote English month names.
-    const QString day = dateLabel(e.date, QStringLiteral("dayMonthYear"));
+    // "15 окт 2026", without the locale's dot (a-31, DG-031).
+    const QString day = heap::text::withoutMonthDot(dateLabel(e.date, QStringLiteral("dayMonthYear")), m_language);
     const QString when = day.isEmpty() ? QString() : (e.allDay ? day : QStringLiteral("%1 %2").arg(day, eventHourLabel(e.start)));
     QStringList sub;
     if(!profileName.isEmpty()) {

@@ -75,6 +75,19 @@ TestCase {
         }
     }
 
+    // a-23 (H2-Today): rows on a 32px pitch, the first one under a 16px top,
+    // a 34px "New task…" field and 14px of air (y = 104 at 100 %).
+    function test_rows_sit_on_the_sheet_pitch() {
+        const sb = bar(true);
+        tryCompare(sb, "width", sb.expandedWidth, 1000);
+        const today = findChild(sb, "sidebar-section-today");
+        const tasks = findChild(sb, "sidebar-section-tasks");
+        waitForRendering(sb);
+        if (Theme.compact || Theme.spacious || Qt.platform.os === "osx") skip("the sheet is the default density");
+        fuzzyCompare(tasks.y - today.y, Theme.px(32), 1, "row pitch");
+        fuzzyCompare(today.mapToItem(sb, 0, 0).y, Theme.px(104), 3, "first row");
+    }
+
     function test_exactly_one_row_is_active() {
         const sb = bar(true);
         AppController.currentView = "month";

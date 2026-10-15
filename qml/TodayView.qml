@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Shapes
 import QtQuick.Controls.Basic as QQC
 import TodoCpp
 import "Reschedule.js" as Resched
@@ -431,8 +432,11 @@ FocusScope {
 
         // ── the header: the date, the facts, the day's arrows on the right ──
         RowLayout {
+            objectName: "today-header"
             Layout.fillWidth: true
-            Layout.bottomMargin: root.plain ? Theme.sp2xl : Theme.sp2xl
+            // Quiet: 36px under the header, the day starts lower (a-24,
+            // H2-Today-Calm); bold keeps 16 over its "День" head.
+            Layout.bottomMargin: root.plain && !root.stacked ? Theme.sp3xl + Theme.spXl : Theme.sp2xl
             spacing: Theme.spMd
 
             ColumnLayout {
@@ -709,13 +713,8 @@ FocusScope {
                                         font.family: Theme.fontUi
                                         font.pixelSize: Theme.fsXs
                                     }
-                                    Text {
-                                        visible: !leadCard.pr && String(leadCard.t.branch || "").length > 0
-                                        text: leadCard.t.branch || ""
-                                        color: Theme.textMuted
-                                        font.family: Theme.fontMono
-                                        font.pixelSize: Theme.fsXs
-                                    }
+                                    // ID · PR · CI · timer, never the branch
+                                    // (a-18, H2-Today; no branch on cards).
                                     Row {
                                         visible: !!leadCard.pr && leadCard.pr.number > 0
                                         spacing: Theme.spXs
@@ -1439,15 +1438,25 @@ FocusScope {
             onActivated: dr.meeting ? root.eventClicked(dr.b.id, dr.b.occurrence || null) : root._openTask(dr.b)
         }
 
-        // Bold: a free window and the end of the day, facts beside a line.
-        Rectangle {
+        // Bold: a free window and the end of the day, facts beside a dashed
+        // line (a-19, H2-Today: 1px dashed, not solid).
+        Shape {
+            objectName: "today-free-rule"
             visible: !root.plain && (dr.modelData.kind === "free" || dr.modelData.kind === "end")
             anchors.left: timeT.right
             anchors.leftMargin: Theme.spLg
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             width: 1
-            color: Theme.border
+            ShapePath {
+                strokeColor: Theme.borderStrong
+                strokeWidth: 1
+                strokeStyle: ShapePath.DashLine
+                dashPattern: [3, 3]
+                fillColor: "transparent"
+                startX: 0.5; startY: 0
+                PathLine { x: 0.5; y: dr.height }
+            }
         }
         Text {
             visible: !root.plain && (dr.modelData.kind === "free" || dr.modelData.kind === "end")

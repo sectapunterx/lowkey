@@ -198,6 +198,32 @@ Rectangle {
         anchors.topMargin: root.section === "tasks" ? Theme.pagePadTop : Theme.spLg
         anchors.bottomMargin: root.section === "tasks" ? Theme.px(14) : Theme.spLg
         spacing: Style.fills ? Theme.px(14) : Theme.spMd
+    // The git "working on" line (a-11, N/X-Oth-Knowledge): over the view,
+    // full width, a hairline under it. Appears when GitWatcher finds a
+    // checkout matching a registered task prefix; dismiss holds until the
+    // next branchChanged.
+    GitWorkingLine {
+        id: gitBanner
+        Layout.fillWidth: true
+        visible: AppController.focusedTaskId.length > 0
+              && !AppController.focusedBannerDismissed
+              && Theme.gitWorkingLine
+        taskId: AppController.focusedTaskId
+        branch: AppController.focusedBranch
+        pr: AppController.focusedRepoState ? (AppController.focusedRepoState.pr || null) : null
+        onOpenTask: AppController.openFocusedTask()
+        onDismiss: AppController.dismissGitBanner()
+        // The first branch switch that found its task (coach mark), under
+        // the line that shows it.
+        CoachMarkHost {
+            markId: "branchLink"
+            when: gitBanner.visible && String(AppController.coachMark.taskId || "") === AppController.focusedTaskId
+            sourceComponent: BranchLinkCoachmark {
+                anchor: gitBanner
+                hint: AppController.coachMark
+            }
+        }
+    }
     RowLayout {
         id: headRow
         Layout.fillWidth: true
@@ -376,181 +402,6 @@ Rectangle {
                             checked: word.on
                             onActivated: root.zoomSelected(word.modelData.id)
                         }
-                    }
-                }
-            }
-        }
-
-        // Git focus banner — appears when GitWatcher detects a checkout
-        // matching a registered task prefix. Dismiss persists until next
-        // branchChanged.
-        Rectangle {
-            id: gitBanner
-            visible: AppController.focusedTaskId.length > 0
-                  && !AppController.focusedBannerDismissed
-                  && Theme.gitWorkingLine
-            Layout.preferredHeight: 26
-            Layout.alignment: Qt.AlignVCenter
-            radius: Theme.radiusMd
-            color: Theme.accentSoft
-            border.color: Theme.accent
-            border.width: 1
-            implicitWidth: bannerRow.implicitWidth + 14
-            // The first branch switch that found its task (coach mark), under
-            // the line that shows it.
-            CoachMarkHost {
-                markId: "branchLink"
-                when: gitBanner.visible && String(AppController.coachMark.taskId || "") === AppController.focusedTaskId
-                sourceComponent: BranchLinkCoachmark {
-                    anchor: gitBanner
-                    hint: AppController.coachMark
-                }
-            }
-            RowLayout {
-                id: bannerRow
-                anchors.fill: parent
-                anchors.leftMargin: Theme.spMd; anchors.rightMargin: Theme.spSm
-                spacing: Theme.spMd
-                Icon {
-                    name: "branch"
-                    color: Theme.accentStrong
-                }
-                Text {
-                    text: I18n.t("topbar.git.workingOn").arg(AppController.focusedTaskId)
-                    color: Theme.accentStrong
-                    font.family: Theme.fontMono
-                    font.pixelSize: Theme.fsMd
-                    font.weight: Theme.fwTitle
-                }
-                // ── Live PR state on the focused repo (HEAP-76) ──
-                Rectangle {
-                    id: prBadge
-                    property var pr: AppController.focusedRepoState
-                                     ? AppController.focusedRepoState.pr : null
-                    // !! — with no PR the leading `pr &&` yields null, and QML
-                    // logs "Unable to assign [undefined] to bool" on every start.
-                    visible: !!(pr && String(pr.state || "").length > 0
-                                   && Number(pr.number || 0) > 0)
-                    radius: Theme.radiusSm
-                    implicitWidth: prBadgeT.implicitWidth + 12
-                    implicitHeight: 18
-                    color: {
-                        const s = prBadge.pr ? String(prBadge.pr.state || "") : "";
-                        if (s === "merged") return Theme.withAlpha(Theme.success, 0.16);
-                        if (s === "closed") return Theme.withAlpha(Theme.textDim, 0.16);
-                        return Theme.withAlpha(Theme.info, 0.16);
-                    }
-                    border.width: 1
-                    border.color: {
-                        const s = prBadge.pr ? String(prBadge.pr.state || "") : "";
-                        if (s === "merged") return Theme.success;
-                        if (s === "closed") return Theme.textDim;
-                        return Theme.info;
-                    }
-                    Text {
-                        id: prBadgeT
-                        anchors.centerIn: parent
-                        text: {
-                            if (!prBadge.pr) return "";
-                            const n = prBadge.pr.number || 0;
-                            const s = String(prBadge.pr.state || "");
-                            const d = prBadge.pr.draft === true ? " · " + I18n.t("topbar.pr.draft") : "";
-                            const st = s === "open" || s === "merged" || s === "closed" ? I18n.t("topbar.pr." + s) : s;
-                            return "PR #" + n + " " + st + d;
-                        }
-                        color: Theme.accentStrong
-                        font.family: Theme.fontUi
-                        font.features: Theme.tabularNums
-                        font.pixelSize: Theme.fsXs
-                        font.weight: Theme.fwTitle
-                    }
-                    ClickArea {
-                        objectName: "topbar-pr-badge"
-                        enabled: !!(prBadge.pr && prBadge.pr.url)
-                        label: prBadgeT.text
-                        tip: I18n.t("topbar.pr.openTip")
-                        onActivated: Qt.openUrlExternally(prBadge.pr.url)
-                    }
-                }
-                // ── CI check rollup on the focused repo (HEAP-76) ──
-                Rectangle {
-                    id: ciBadge
-                    property string ci: (AppController.focusedRepoState
-                                         && AppController.focusedRepoState.pr)
-                        ? String(AppController.focusedRepoState.pr.checks || "") : ""
-                    visible: ci.length > 0
-                    radius: Theme.radiusSm
-                    implicitWidth: ciT.implicitWidth + 12
-                    implicitHeight: 18
-                    color: {
-                        if (ciBadge.ci === "passing") return Theme.withAlpha(Theme.success, 0.16);
-                        if (ciBadge.ci === "failing") return Theme.withAlpha(Theme.danger, 0.16);
-                        return Theme.withAlpha(Theme.warning, 0.16);
-                    }
-                    border.width: 1
-                    border.color: {
-                        if (ciBadge.ci === "passing") return Theme.success;
-                        if (ciBadge.ci === "failing") return Theme.danger;
-                        return Theme.warning;
-                    }
-                    Text {
-                        id: ciT
-                        anchors.centerIn: parent
-                        // Words, not glyphs (DG-003).
-                        text: "CI " + I18n.t(ciBadge.ci === "passing" ? "topbar.ci.passing"
-                                             : ciBadge.ci === "failing" ? "topbar.ci.failing" : "topbar.ci.running")
-                        color: Theme.text
-                        font.family: Theme.fontUi
-                        font.features: Theme.tabularNums
-                        font.pixelSize: Theme.fsXs
-                        font.weight: Theme.fwTitle
-                    }
-                }
-                Rectangle {
-                    radius: Theme.radiusSm
-                    color: openMA.hovered ? Theme.accentStrong : "transparent"
-                    Behavior on color { ColorAnimation { duration: Theme.durTap; easing.type: Theme.easeEnter } }
-                    border.color: Theme.accentStrong
-                    border.width: 1
-                    implicitWidth: openT.implicitWidth + 12
-                    implicitHeight: 18
-                    Text {
-                        id: openT
-                        anchors.centerIn: parent
-                        text: I18n.t("topbar.git.open")
-                        color: openMA.hovered ? Theme.bg : Theme.accentStrong
-                        Behavior on color { ColorAnimation { duration: Theme.durTap; easing.type: Theme.easeEnter } }
-                        font.pixelSize: Theme.fsXs
-                        font.weight: Theme.fwTitle
-                    }
-                    ClickArea {
-                        id: openMA
-                        objectName: "topbar-git-open"
-                        label: I18n.t("topbar.git.open")
-                        showTip: false
-                        onActivated: AppController.openFocusedTask()
-                    }
-                }
-                // Dismiss. The hit area used to be the glyph's own bounds —
-                // roughly 8x16px — so the banner was hard to get rid of.
-                Rectangle {
-                    Layout.preferredWidth: 20
-                    Layout.preferredHeight: 20
-                    radius: Theme.radiusSm
-                    color: dismissMA.hovered ? Theme.withAlpha(Theme.accentStrong, 0.18) : "transparent"
-                    Behavior on color { ColorAnimation { duration: Theme.durTap; easing.type: Theme.easeEnter } }
-                    Icon {
-                        anchors.centerIn: parent
-                        name: "close"
-                        size: Theme.px(12)
-                        color: dismissMA.hovered ? Theme.accentStrong : Theme.textDim
-                        Behavior on color { ColorAnimation { duration: Theme.durTap; easing.type: Theme.easeEnter } }
-                    }
-                    ClickArea {
-                        id: dismissMA
-                        objectName: "topbar-git-dismiss"
-                        label: I18n.t("topbar.git.dismiss")
-                        onActivated: AppController.dismissGitBanner()
                     }
                 }
             }

@@ -1,6 +1,7 @@
 // Today (APP-260): the day by the hours, facts with only the non-zero parts,
 // plurals through I18n, the side sections hidden when empty.
 import QtQuick
+import QtQuick.Shapes
 import QtTest
 import TodoCpp
 
@@ -71,6 +72,10 @@ TestCase {
         compare(facts, I18n.count(1, "today.n.planned"), "only the non-zero parts");
         verify(findChild(v, "today-back").visible, "another day offers the way back");
         compare(v.dayData.load.tasks, 90);
+        // a-19 (H2-Today): the free window hangs on a dashed rule.
+        const rule = findChild(v, "today-free-rule");
+        verify(rule !== null, "no rule beside the free window");
+        compare(rule.data[0].strokeStyle, ShapePath.DashLine);
     }
 
     // R3-001: a task due today that also has a block in the day is still
@@ -136,6 +141,12 @@ TestCase {
             Style.apply("quiet");
             const v = createTemporaryQmlObject('import TodoCpp; TodayView { width: 1300; height: 800 }', host);
             verify(v.plain, "quiet is not plain");
+            // a-24 (H2-Today-Calm): 36px under the header, not 16.
+            const head = findChild(v, "today-header");
+            const dayRows = findChild(v, "today-day");
+            waitForRendering(v);
+            if (!v.stacked && !findChild(v, "today-more-above").visible && !findChild(v, "today-empty").visible)
+                fuzzyCompare(dayRows.mapToItem(v, 0, 0).y - head.mapToItem(v, 0, head.height).y, Theme.sp3xl + Theme.spXl, 1);
             const m = v.rows.filter(r => r.kind === "meeting")[0];
             verify(!!m, "no meeting row");
             // The type in the editor's words (A3-20): "team sync", not "meeting".
@@ -166,6 +177,32 @@ TestCase {
             verify(v.inProgress.length >= 2, "fewer than two in progress");
             verify(findChild(v, "today-lead").visible);
             compare(v.otherInProgress.length, v.inProgress.length - 1);
+        } finally {
+            AppController.appSettingsJson = saved;
+        }
+    }
+
+    // a-18 (H2-Today): the in-progress card reads ID · PR · CI · timer; the
+    // branch name is never on it, PR or not (no branch on cards).
+    function test_the_lead_card_never_names_the_branch() {
+        const saved = AppController.appSettingsJson;
+        try {
+            Style.apply("bold");
+            const d = AppController.newTaskDraft("prog");
+            d._isNew = true;
+            d.title = "branch probe";
+            d.branch = "fix/branch-probe-a18";
+            AppController.saveTask(d);
+            tc.tasks.push(d.id);
+            const v = createTemporaryQmlObject('import TodoCpp; TodayView { width: 1300; height: 800 }', host);
+            const lead = findChild(v, "today-lead");
+            verify(lead.visible);
+            const texts = [];
+            (function walk(it) {
+                if (it.text !== undefined && it.visible) texts.push(String(it.text));
+                for (const c of it.children) walk(c);
+            })(lead);
+            verify(texts.every(s => s.indexOf("branch-probe-a18") < 0), texts.join(" | "));
         } finally {
             AppController.appSettingsJson = saved;
         }

@@ -258,7 +258,9 @@ TestCase {
         const inSheet = function (name) { return find(sheet.contentItem, function (it) { return it.objectName === name; }); };
         const flick = inSheet("key-sheet-fade").parent;
         verify(flick.contentHeight > flick.height, "nothing to scroll at 1280x720");
-        verify(inSheet("key-sheet-scroll-hint").visible, "the scroll keys are not said");
+        // a-33 (N/X-Keys): one dim footer line, no scroll hint of its own.
+        verify(inSheet("key-sheet-scroll-hint") === null, "the footer has a scroll hint again");
+        compare(inSheet("key-sheet-edit").color, Theme.textDim);
         compare(flick.contentY, 0);
         keyClick(Qt.Key_PageDown);
         tryVerify(function () { return flick.contentY > 0; }, 1000, "PgDn did not scroll");
@@ -281,6 +283,7 @@ TestCase {
         try {
             AppController.setSafetySetting("immersion", true);
             seed("R3T-5", "r3 focus probe", "");
+            AppController.setTaskChecklistText("R3T-5", "- [ ] one");
             AppController.currentView = "today";
             wait(100);
             tc.win.focusActiveView();
@@ -290,6 +293,9 @@ TestCase {
             AppController.startImmersion("R3T-5");
             tryVerify(function () { return AppController.immersion; }, 1000);
             wait(100);
+            // a-35 (N/X-Ntf-Focus): 13px checkboxes, the clock at 15px.
+            compare(byName("immersion-check-box").width, Theme.px(13));
+            compare(byName("immersion-timer").font.pixelSize, Theme.px(15));
             keyClick(Qt.Key_Escape);
             tryVerify(function () { return !AppController.immersion; }, 1000);
             tryVerify(function () { return tc.win.activeFocusItem === before; }, 1000,

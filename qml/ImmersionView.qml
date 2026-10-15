@@ -155,8 +155,10 @@ FocusScope {
                     id: checkRow
                     anchors.fill: parent
                     spacing: Theme.spMd
+                    // A 13px box, as the sheet's checkboxes (a-35, N/X-Ntf-Focus).
                     Rectangle {
-                        implicitWidth: Theme.spLg; implicitHeight: Theme.spLg
+                        objectName: "immersion-check-box"
+                        implicitWidth: Theme.px(13); implicitHeight: Theme.px(13)
                         radius: Theme.radiusXs
                         color: item.modelData.done ? Theme.accent : "transparent"
                         border.width: 1

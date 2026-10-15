@@ -34,6 +34,13 @@ TestCase {
         }
     }
 
+    // a-38 (N/X-Oth-Archive-People): the people dialog's subtitle is the
+    // sheet's, with the product's name.
+    function test_people_dialog_subtitle_is_the_sheet_copy() {
+        compare(I18n.dict.ru["people.dialog.sub"], "Полный список открывается со «Сегодня». Вы отмечаете, Tabless только помнит.");
+        compare(I18n.dict.en["people.dialog.sub"], "The full list opens from Today. You mark, Tabless only remembers.");
+    }
+
     // The documented contract: a missing key returns itself, so a regression is
     // loud in the UI instead of rendering as blank.
     function test_an_unknown_key_returns_itself() {
