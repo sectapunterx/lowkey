@@ -125,6 +125,9 @@ FocusScope {
         root._load();
         if (intoTitle === true) root.focusTitle();
         else root.takeFocus();
+        // The first tracker text opened says whose it is, once (coach mark).
+        if (root._isTicket && root._trackerText.length > 0)
+            AppController.offerCoachMark("trackerText", { taskId: id, tracker: String(root._badge.name || root._ticket.provider || "") });
     }
     // Where the keyboard goes in the document: a task with no title yet into
     // its title; any other onto the document, where its keys work at once —
@@ -1084,6 +1087,7 @@ FocusScope {
                 // in the tip of the mark beside it (APP-314: two lines of
                 // explanation sat on the description and read as part of it).
                 RowLayout {
+                    id: trackerHead
                     objectName: "task-doc-tracker-readonly"
                     Layout.bottomMargin: Theme.spLg
                     spacing: Theme.spSm
@@ -1093,6 +1097,20 @@ FocusScope {
                         font.family: Theme.fontUi
                         font.pixelSize: Theme.fsSm
                         font.weight: Theme.fwTitle
+
+                        // The first tracker text opened (coach mark): whose
+                        // text this is, then where the user's own goes.
+                        CoachMarkHost {
+                            markId: "trackerText"
+                            inPanel: true
+                            when: root.opened && trackerHead.visible
+                                  && String(AppController.coachMark.taskId || "") === root.taskId
+                            sourceComponent: TrackerTextCoachmark {
+                                hint: AppController.coachMark
+                                headAnchor: trackerHead
+                                notesAnchor: myNotesHead
+                            }
+                        }
                     }
                     Rectangle {
                         objectName: "task-doc-tracker-why"
@@ -1160,6 +1178,8 @@ FocusScope {
             // My notes on a tracker card: never sent, never pulled over.
             // Its own section, labelled like the tracker's (APP-314).
             RowLayout {
+                id: myNotesHead
+                objectName: "task-doc-mynotes-head"
                 visible: root._isTicket
                 Layout.topMargin: root._trackerText.length > 0 ? Theme.spSm : 0
                 spacing: Theme.spMd

@@ -1057,18 +1057,35 @@ Rectangle {
         return true;
     }
 
-    // The first card a review was folded into tells about it once (0.9.4):
-    // a coach mark beside the card, made only for that one card.
-    Loader {
-        id: foldHint
-        active: card.visible && !!card.task && String(AppController.reviewFoldHint.taskId || "") === String(card.task.id || "")
+    // One-time coach marks about this card (CoachMark.qml): the first card a
+    // review was folded into, the first tracker card moved only here, and the
+    // first one changed on both sides. Made only for that one card.
+    readonly property bool _coachMine: card.visible && !!card.task
+                                       && String(AppController.coachMark.taskId || "") === String(card.task.id || "")
+    CoachMarkHost {
+        markId: "reviewFold"
+        when: card._coachMine
         sourceComponent: ReviewFoldCoachmark {
-            parent: card
-            x: card.width + Theme.spMd
-            y: 0
-            hint: AppController.reviewFoldHint
+            anchor: card
+            hint: AppController.coachMark
         }
-        onLoaded: Qt.callLater(function () { if (foldHint.item) foldHint.item.open(); })
+    }
+    CoachMarkHost {
+        markId: "trackerMove"
+        when: card._coachMine
+        sourceComponent: TrackerMoveCoachmark {
+            anchor: card
+            hint: AppController.coachMark
+        }
+    }
+    CoachMarkHost {
+        markId: "conflict"
+        when: card._coachMine && markT.visible
+        sourceComponent: ConflictCoachmark {
+            anchor: markT
+            hint: AppController.coachMark
+            onCompare: card.openConflictDialog()
+        }
     }
 
     // The task menu, shared by every view (APP-268): TaskMenuHost builds

@@ -48,6 +48,19 @@ Item {
         return AppController.sprintMarkers(from, to);
     }
 
+    // Main.qml's window (coachMarksAwake), or none in a test.
+    readonly property var _win: root.Window.window
+    onSprintsChanged: {
+        // Not the start view's own first look: never on startup.
+        const w = root._win;
+        const awake = !w || w.coachMarksAwake === undefined || w.coachMarksAwake;
+        if (awake && root.visible && root.sprints.length > 0 && !AppController.coachMarkSeen("sprint")) {
+            const sp = root.sprints[0];
+            AppController.offerCoachMark("sprint", { name: String(sp.name || ""), state: String(sp.state || ""),
+                                                     end: sp.end, tasks: Number(sp.tasks || 0) });
+        }
+    }
+
     // The tray takes what the grid leaves once every day holds two
     // readable lanes side by side (F2-REG-2..4): narrower on a tight
     // window, in its compact form under 180px, and gone only when not even
@@ -71,6 +84,7 @@ Item {
             // APP-255: the Jira sprints that end in the range on screen, above
             // the grid. A fact from the last pull; nothing here moves a card.
             Flow {
+                id: sprintRow
                 objectName: "calendar-sprints"
                 Layout.fillWidth: true
                 Layout.leftMargin: Theme.spMd
@@ -79,6 +93,18 @@ Item {
                 Layout.bottomMargin: Theme.spXs
                 visible: root.sprints.length > 0
                 spacing: Theme.spSm
+                // The first Jira sprint end shown (coach mark): where the mark
+                // comes from, and that it changes nothing.
+                CoachMarkHost {
+                    visible: false
+                    markId: "sprint"
+                    when: root.visible && sprintRow.visible
+                    anchorItem: sprintRow
+                    sourceComponent: SprintCoachmark {
+                        side: "below"
+                        hint: AppController.coachMark
+                    }
+                }
                 Repeater {
                     model: root.sprints
                     delegate: SprintMarker {

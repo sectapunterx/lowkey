@@ -469,6 +469,8 @@ target_compile_definitions(heap_upgrade_lossless_tests PRIVATE
 heap_add_appcontroller_test(heap_tracker_writes_tests test_tracker_writes.cpp)
 target_compile_definitions(heap_tracker_writes_tests PRIVATE
         HEAP_STATE_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/state")
+# One-time coach marks: the seen-set, one at a time, one per session.
+heap_add_appcontroller_test(heap_coach_marks_tests test_coach_marks.cpp)
 # ── audit-int: end ──
 # ── audit-perf: begin ──
 # Search/filter input latency at 3k tasks (TASKS-23). Wall-clock budgets, so it

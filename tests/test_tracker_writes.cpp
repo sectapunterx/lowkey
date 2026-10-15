@@ -914,7 +914,8 @@ TEST_F(TrackerWrites, Review_FoldedBefore_ComesBackWhenTheProfileLoads) {
 // Settings → GitLab → "Fold a request into its Jira ticket", off: the
 // request is a card of its own, and the issue shows no "PR #n" (0.9.4).
 TEST_F(TrackerWrites, Review_FoldingOff_KeepsItsOwnCard) {
-  app_->forgetReviewFoldHint();
+  app_->setCoachMarksEnabled(true);
+  app_->forgetCoachMarks();
   writeConfig(QStringLiteral("gitlab"), QJsonObject{{QStringLiteral("reviewFold"), false}});
   app_->mergeExternalTasks(QStringLiteral("jira"), QStringLiteral("jira-"), {jiraIssue(QStringLiteral("HT-10"))}, false);
   app_->mergeExternalTasks(
@@ -922,7 +923,7 @@ TEST_F(TrackerWrites, Review_FoldingOff_KeepsItsOwnCard) {
   ASSERT_NE(task(QStringLiteral("gitlab-MR17")), nullptr);
   EXPECT_FALSE(task(QStringLiteral("gitlab-MR17"))->archived);
   EXPECT_EQ(app_->tasks()->gitFactsFor(QStringLiteral("jira-HT-10")).value(QStringLiteral("prNumber")).toInt(), 0);
-  EXPECT_TRUE(app_->reviewFoldHint().isEmpty()) << "nothing folded, nothing to tell";
+  EXPECT_TRUE(app_->coachMark().isEmpty()) << "nothing folded, nothing to tell";
 }
 
 // Turned off after the fact, the folded card comes back and the issue loses
@@ -948,24 +949,85 @@ TEST_F(TrackerWrites, Review_FoldingTurnedOff_BringsTheFoldedCardBack) {
 // The coach mark is offered once, on the first live issue a review folds
 // into, and never again once read.
 TEST_F(TrackerWrites, Review_FoldHint_IsOfferedOnce) {
-  app_->forgetReviewFoldHint();
-  QSignalSpy changed(app_.get(), &AppController::reviewFoldHintChanged);
+  app_->setCoachMarksEnabled(true);
+  app_->forgetCoachMarks();
+  QSignalSpy changed(app_.get(), &AppController::coachMarkChanged);
   app_->mergeExternalTasks(QStringLiteral("jira"), QStringLiteral("jira-"), {jiraIssue(QStringLiteral("HT-12"))}, false);
   app_->mergeExternalTasks(
       QStringLiteral("gitlab"), QStringLiteral("gitlab-"), {reviewFor(QStringLiteral("HT-12"), QStringLiteral("opened"))}, false);
-  const QVariantMap hint = app_->reviewFoldHint();
+  const QVariantMap hint = app_->coachMark();
   EXPECT_EQ(hint.value(QStringLiteral("taskId")).toString(), QStringLiteral("jira-HT-12"));
   EXPECT_EQ(hint.value(QStringLiteral("issueKey")).toString(), QStringLiteral("HT-12"));
   EXPECT_EQ(hint.value(QStringLiteral("provider")).toString(), QStringLiteral("gitlab"));
   EXPECT_EQ(hint.value(QStringLiteral("mr")).toString(), QStringLiteral("!17"));
   EXPECT_EQ(changed.count(), 1);
 
-  app_->dismissReviewFoldHint();
-  EXPECT_TRUE(app_->reviewFoldHint().isEmpty());
+  app_->dismissCoachMark(QStringLiteral("reviewFold"));
+  EXPECT_TRUE(app_->coachMark().isEmpty());
   app_->mergeExternalTasks(QStringLiteral("jira"), QStringLiteral("jira-"), {jiraIssue(QStringLiteral("HT-12"))}, false);
   app_->mergeExternalTasks(
       QStringLiteral("gitlab"), QStringLiteral("gitlab-"), {reviewFor(QStringLiteral("HT-12"), QStringLiteral("opened"))}, false);
-  EXPECT_TRUE(app_->reviewFoldHint().isEmpty()) << "read once, never again";
+  EXPECT_TRUE(app_->coachMark().isEmpty()) << "read once, never again";
+}
+
+// ── Coach marks on tracker cards ──
+
+// A tracker card moved with writing off says so once, on that card: the
+// tracker's own status, and nothing sent. With writing on there is nothing
+// to explain.
+TEST_F(TrackerWrites, CoachMark_TrackerMove_OfferedOnAMoveWithWritesOff) {
+  app_->setCoachMarksEnabled(true);
+  app_->forgetCoachMarks();
+  FakeHttpServer server;
+  const Tracker tr = trackerFor(QStringLiteral("jira"));
+  connectTracker(tr, server, /*writes=*/false);
+  add(card(tr));
+  app_->moveTaskTo(tr.cardId, QStringLiteral("prog"), QString());
+  const QVariantMap mark = app_->coachMark();
+  EXPECT_EQ(mark.value(QStringLiteral("id")).toString(), QStringLiteral("trackerMove"));
+  EXPECT_EQ(mark.value(QStringLiteral("taskId")).toString(), tr.cardId);
+  EXPECT_EQ(mark.value(QStringLiteral("provider")).toString(), QStringLiteral("jira"));
+  EXPECT_EQ(mark.value(QStringLiteral("remoteStatus")).toString(), QStringLiteral("To Do"));
+  settle();
+  EXPECT_EQ(count(server, tr.writeKey), 0) << "the coach mark turned writing on";
+  EXPECT_FALSE(app_->trackerWriteEnabled(QStringLiteral("jira")));
+
+  app_->dismissCoachMark(QStringLiteral("trackerMove"));
+  app_->moveTaskTo(tr.cardId, QStringLiteral("todo"), QString());
+  EXPECT_TRUE(app_->coachMark().isEmpty()) << "read once, never again";
+}
+
+TEST_F(TrackerWrites, CoachMark_TrackerMove_NotOfferedWithWritesOn) {
+  app_->setCoachMarksEnabled(true);
+  app_->forgetCoachMarks();
+  FakeHttpServer server;
+  const Tracker tr = trackerFor(QStringLiteral("jira"));
+  connectTracker(tr, server, /*writes=*/true);
+  add(card(tr));
+  app_->moveTaskTo(tr.cardId, QStringLiteral("prog"), QString());
+  EXPECT_TRUE(app_->coachMark().isEmpty());
+}
+
+// A field changed on both sides: the first such card gets the coach mark,
+// and the local value stays.
+TEST_F(TrackerWrites, CoachMark_Conflict_OfferedOnTheFirstConflictedCard) {
+  app_->setCoachMarksEnabled(true);
+  app_->forgetCoachMarks();
+  ExternalTask e = jiraIssue(QStringLiteral("HT-20"));
+  app_->mergeExternalTasks(QStringLiteral("jira"), QStringLiteral("jira-"), {e}, false);
+  ASSERT_NE(task(QStringLiteral("jira-HT-20")), nullptr);
+  EXPECT_TRUE(app_->coachMark().isEmpty()) << "a plain pull has nothing to explain";
+  edit(QStringLiteral("jira-HT-20"), [](Task& t) {
+    t.title = QStringLiteral("mine");
+  });
+  e.title = QStringLiteral("theirs");
+  app_->mergeExternalTasks(QStringLiteral("jira"), QStringLiteral("jira-"), {e}, false);
+  EXPECT_EQ(task(QStringLiteral("jira-HT-20"))->title, QStringLiteral("mine"));
+  const QVariantMap mark = app_->coachMark();
+  EXPECT_EQ(mark.value(QStringLiteral("id")).toString(), QStringLiteral("conflict"));
+  EXPECT_EQ(mark.value(QStringLiteral("taskId")).toString(), QStringLiteral("jira-HT-20"));
+  EXPECT_EQ(mark.value(QStringLiteral("field")).toString(), QStringLiteral("title"));
+  EXPECT_EQ(mark.value(QStringLiteral("tracker")).toString(), QStringLiteral("Jira"));
 }
 
 // ── APP-255: the Jira sprint, read-only ──

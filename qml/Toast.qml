@@ -77,6 +77,8 @@ Item {
     readonly property string kind: _items.length ? _items[_items.length - 1].kind : "info"
     readonly property string actionLabel: _items.length ? _items[_items.length - 1].actionLabel : ""
     readonly property int count: _items.length
+    // The cards as drawn: what a coach mark about a toast stands beside.
+    readonly property Item cardsItem: stack
 
     implicitWidth: stack.width
     implicitHeight: stack.height

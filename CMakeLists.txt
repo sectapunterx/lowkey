@@ -262,6 +262,7 @@ qt_add_library(heap_core STATIC
     src/AppControllerProfiles.cpp
     src/AppControllerSavedViews.cpp
     src/AppControllerSafety.cpp
+    src/AppControllerCoachMarks.cpp
     src/safety/SafetyText.cpp
     src/safety/ErrorSignature.cpp
     src/safety/Standup.cpp
@@ -501,6 +502,15 @@ qt_add_qml_module(heap_core
         qml/SettingsDangerRow.qml
         qml/CursorColorRow.qml
         qml/SeenBeforeHint.qml
+        qml/CoachMark.qml
+        qml/CoachMarkHost.qml
+        qml/TrackerMoveCoachmark.qml
+        qml/TrackerTextCoachmark.qml
+        qml/BranchLinkCoachmark.qml
+        qml/ConflictCoachmark.qml
+        qml/WeekKeysCoachmark.qml
+        qml/TimeMachineCoachmark.qml
+        qml/SprintCoachmark.qml
         qml/ReviewFoldCoachmark.qml
         qml/StandupDraftDialog.qml
         qml/HelpContent.qml
@@ -568,6 +578,7 @@ qt_add_qml_module(heap_core
         src/platform/AltGrGuard.h
         src/platform/Sound.h
         src/hints/ShortcutHints.h
+        src/hints/CoachMarks.h
         src/TypeAhead.h
         src/TextLeading.h
         src/keys/KeyRouter.h

@@ -822,14 +822,53 @@ Popup {
             repeat: false
             onTriggered: root._refreshPreview()
         }
+        // The first dates read out of the text (coach mark), once typing
+        // pauses: what the two chips mean and how to take one back. The card
+        // takes no keys; typing goes on in the field.
+        Timer {
+            id: datesHintTimer
+            interval: 1200
+            repeat: false
+            onTriggered: {
+                if (root.opened && root._preview && (root._preview.start || root._preview.due))
+                    AppController.offerCoachMark("captureDates", {});
+            }
+        }
+        Connections {
+            target: root
+            function on_PreviewChanged() {
+                if (root._preview && (root._preview.start || root._preview.due) && !AppController.coachMarkSeen("captureDates"))
+                    datesHintTimer.restart();
+            }
+        }
 
         // What was read, as chips (APP-266): when / due / estimate take
         // their words back with ×; priority and labels say what they set;
         // the column is picked here.
         Flow {
+            id: qcChips
             objectName: "qc-chips"
             Layout.leftMargin: Theme.inset; Layout.rightMargin: Theme.inset; Layout.fillWidth: true
             spacing: Theme.spSm
+            CoachMarkHost {
+                // Not a chip: the Flow lays out visible items only.
+                visible: false
+                markId: "captureDates"
+                overTyping: true
+                closesWithAnchor: true
+                when: root.opened && qcChips.visible
+                anchorItem: qcChips
+                sourceComponent: CoachMark {
+                    id: datesMark
+                    markId: "captureDates"
+                    side: "below"
+                    takesFocus: false
+                    closePolicy: Popup.CloseOnPressOutside
+                    title: I18n.t("coach.captureDates.title")
+                    body: I18n.t("coach.captureDates.body")
+                    onPrimaryClicked: datesMark.finish()
+                }
+            }
             PropertyChip {
                 outlined: true
                 objectName: "qc-when"

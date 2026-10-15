@@ -110,23 +110,31 @@ TestCase {
 
     // The coach mark (0.9.4): two steps, and every way out marks it read.
     function test_fold_coachmark_walks_two_steps() {
+        AppController.setCoachMarksEnabled(true);
+        AppController.forgetCoachMarks("");
+        verify(AppController.offerCoachMark("reviewFold", { taskId: "jira-HT-1" }));
         const anchor = createTemporaryQmlObject('import QtQuick; Rectangle { width: 260; height: 120 }', host);
         const cm = createTemporaryQmlObject('import TodoCpp; ReviewFoldCoachmark {}', anchor);
-        cm.hint = { taskId: "jira-HT-1", issueKey: "HT-1", provider: "gitlab", providerName: "GitLab", mr: "!17" };
+        cm.anchor = anchor;
+        cm.hint = { id: "reviewFold", taskId: "jira-HT-1", issueKey: "HT-1", provider: "gitlab", providerName: "GitLab", mr: "!17" };
         cm.open();
         tryVerify(function () { return cm.opened; }, 1000);
-        const body = find(cm.contentItem, "review-fold-body");
+        const body = find(cm.contentItem, "coachmark-body");
         verify(body.text.indexOf("!17") >= 0 && body.text.indexOf("HT-1") >= 0 && body.text.indexOf("GitLab") >= 0, body.text);
-        compare(find(cm.contentItem, "review-fold-title").text, I18n.t("foldhint.title"));
-        find(cm.contentItem, "review-fold-secondary").clicked();
+        compare(find(cm.contentItem, "coachmark-title").text, I18n.t("foldhint.title"));
+        compare(find(cm.contentItem, "coachmark-badge").text, I18n.t("coach.badge").arg(1).arg(2).toUpperCase());
+        find(cm.contentItem, "coachmark-secondary").clicked();
         compare(cm.step, 2);
-        compare(find(cm.contentItem, "review-fold-title").text, I18n.t("foldhint.title2"));
-        compare(find(cm.contentItem, "review-fold-primary").text, I18n.t("foldhint.openSettings"));
-        find(cm.contentItem, "review-fold-secondary").clicked();
+        compare(find(cm.contentItem, "coachmark-title").text, I18n.t("foldhint.title2"));
+        compare(find(cm.contentItem, "coachmark-primary").text, I18n.t("coach.openSettings"));
+        find(cm.contentItem, "coachmark-secondary").clicked();
         compare(cm.step, 1);
-        find(cm.contentItem, "review-fold-primary").clicked();
+        find(cm.contentItem, "coachmark-primary").clicked();
         tryVerify(function () { return !cm.visible; }, 1000);
-        compare(Object.keys(AppController.reviewFoldHint).length, 0);
+        compare(Object.keys(AppController.coachMark).length, 0);
+        verify(AppController.coachMarkSeen("reviewFold"));
+        AppController.forgetCoachMarks("");
+        AppController.setCoachMarksEnabled(false);
     }
 
     function test_a_tracker_without_requests_shows_none_of_it() {
@@ -142,8 +150,8 @@ TestCase {
                       "settings.int.review.movable.hint", "settings.int.review.role.author",
                       "settings.int.review.role.assignee", "settings.int.review.role.reviewer",
                       "settings.int.review.fold", "settings.int.review.fold.hint", "settings.int.review.fold.hintOff",
-                      "foldhint.badge", "foldhint.title", "foldhint.body", "foldhint.title2", "foldhint.body2",
-                      "foldhint.gotIt", "foldhint.how", "foldhint.openSettings", "foldhint.back", "foldhint.close", "foldhint.tip"];
+                      "foldhint.title", "foldhint.body", "foldhint.title2", "foldhint.body2",
+                      "foldhint.how", "foldhint.tip"];
         for (let i = 0; i < keys.length; ++i) {
             verify(I18n.dict.en[keys[i]] !== undefined, keys[i] + " missing in en");
             verify(I18n.dict.ru[keys[i]] !== undefined, keys[i] + " missing in ru");

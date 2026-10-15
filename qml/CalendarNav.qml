@@ -66,6 +66,25 @@ Row {
         AppController.selectedDate = new Date(d.getFullYear(), d.getMonth(), d.getDate() + by * dir);
     }
 
+    // A week paged with the arrows a third time this session: its keys, once
+    // (coach mark). Only at the week zoom, where the card's words fit.
+    function _arrowStep(dir) {
+        root.step(dir);
+        if (root.zoom === "week" && root.visible
+                && AppController.noteCoachMarkUse("weekKeys") >= root._clicksBeforeKeys)
+            AppController.offerCoachMark("weekKeys", {});
+    }
+    readonly property int _clicksBeforeKeys: 3
+
+    CoachMarkHost {
+        // Not a part of the row: a Row places visible items only.
+        visible: false
+        markId: "weekKeys"
+        when: root.visible && root.zoom === "week"
+        anchorItem: root
+        sourceComponent: WeekKeysCoachmark {}
+    }
+
     PillButton {
         objectName: "calendar-today"
         anchors.verticalCenter: parent.verticalCenter
@@ -107,7 +126,7 @@ Row {
         objectName: "calendar-prev"
         dir: -1
         zoom: root.zoom
-        onStepped: (dir) => root.step(dir)
+        onStepped: (dir) => root._arrowStep(dir)
     }
     Text {
         objectName: "calendar-range"
@@ -123,6 +142,6 @@ Row {
         objectName: "calendar-next"
         dir: 1
         zoom: root.zoom
-        onStepped: (dir) => root.step(dir)
+        onStepped: (dir) => root._arrowStep(dir)
     }
 }

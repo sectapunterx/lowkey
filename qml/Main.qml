@@ -789,6 +789,20 @@ ApplicationWindow {
         // The crash card waits for an answer over the whole window (A7-2).
         || splash.waiting
     readonly property bool _globalKeysOn: !hotkeys.isCapturing && !_modalOpen
+    // A coach mark (CoachMarkHost) opens only now: nobody typing, no focus
+    // mode, no modal or menu up. One already open stays. One about the view
+    // also waits while a side panel covers it; one in the panel does not.
+    readonly property bool coachMarksQuietInPanel: coachMarksAwake && !_typing && !AppController.immersion && !_modalOpen
+                                                   && !_overlayOpen && !hotkeys.isCapturing && !splash.waiting
+    // Never on startup: what the first pull or the start view brings waits
+    // until the app has been up a while.
+    property bool coachMarksAwake: false
+    Timer {
+        interval: 10000
+        running: !win.coachMarksAwake
+        onTriggered: win.coachMarksAwake = true
+    }
+    readonly property bool coachMarksQuiet: coachMarksQuietInPanel && !_panelOpen
 
     // Esc in the header search with nothing left to clear hands the keyboard
     // back to the view, so J/K and Return work again without the mouse.
@@ -3786,6 +3800,21 @@ ApplicationWindow {
         anchors.bottomMargin: 24 + win._selectionBarSpace + taskDoc.toastLift
                               + (keyPendingBar.visible ? keyPendingBar.height + Theme.spMd : 0)
         z: 100
+    }
+    // Five or more tasks deleted at once (coach mark), over the "Tasks
+    // deleted" toast: Undo now, the Time Machine later. It takes no keys, so
+    // the toast's Undo works by key and by click while it is up.
+    CoachMarkHost {
+        id: timeMachineMark
+        markId: "timeMachine"
+        when: toast.count > 0
+        anchorItem: toast.cardsItem
+        sourceComponent: TimeMachineCoachmark {}
+    }
+    Connections {
+        target: timeMachineMark._card
+        ignoreUnknownSignals: true
+        function onOpenTimeMachine() { timeMachine.showNow(); }
     }
 
     // Launch splash (R3-017, Review 2): leaves as soon as the window has

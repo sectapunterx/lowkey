@@ -396,6 +396,16 @@ Rectangle {
             border.color: Theme.accent
             border.width: 1
             implicitWidth: bannerRow.implicitWidth + 14
+            // The first branch switch that found its task (coach mark), under
+            // the line that shows it.
+            CoachMarkHost {
+                markId: "branchLink"
+                when: gitBanner.visible && String(AppController.coachMark.taskId || "") === AppController.focusedTaskId
+                sourceComponent: BranchLinkCoachmark {
+                    anchor: gitBanner
+                    hint: AppController.coachMark
+                }
+            }
             RowLayout {
                 id: bannerRow
                 anchors.fill: parent

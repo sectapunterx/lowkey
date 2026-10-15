@@ -25,6 +25,7 @@
 #include "git/BranchTaskMatcher.h"
 #include "git/BranchTaskResolve.h"
 #include "git/GitWatcher.h"
+#include "hints/CoachMarks.h"
 #include "hints/ShortcutHints.h"
 #include "history/TaskHistory.h"
 #include "integrations/AutoSync.h"
@@ -3322,7 +3323,19 @@ void AppController::pushStatusToTracker(const QString& taskId, const QString& st
   // A tracker heap cannot write to has nothing to send to, and one whose
   // switch is off is only ever read: the move stays a local one (APP-243).
   // The card's own "send" is the user asking for this one write.
-  if(!heap::integrations::writesStatus(t.externalProvider) || (mode == PushMode::Auto && !trackerWriteEnabled(t.externalProvider))) {
+  if(!heap::integrations::writesStatus(t.externalProvider)) {
+    return;
+  }
+  if(mode == PushMode::Auto && !trackerWriteEnabled(t.externalProvider)) {
+    // The first such move says so on its card, once: moved here only, and
+    // where writing is turned on (coach mark). Nothing is turned on.
+    if(!t.archived) {
+      offerCoachMark(QStringLiteral("trackerMove"),
+                     {{QStringLiteral("taskId"), taskId},
+                      {QStringLiteral("provider"), t.externalProvider},
+                      {QStringLiteral("tracker"), providerDisplayName(t.externalProvider)},
+                      {QStringLiteral("remoteStatus"), t.externalMeta.status}});
+    }
     return;
   }
   // Outside the filter or gone: read-only for the tracker (APP-204). Nothing
@@ -10613,7 +10626,7 @@ void AppController::setReviewFold(const QString& providerId, bool on) {
   }
   setIntegrationField(providerId, QStringLiteral("reviewFold"), on);
   // Seen from the settings it points to: the coach mark has done its job.
-  dismissReviewFoldHint();
+  dismissCoachMark(QStringLiteral("reviewFold"));
   if(on) {
     if(foldReviewCardsIntoIssues() > 0) {
       scheduleSave();
@@ -10658,41 +10671,17 @@ void AppController::setReviewFold(const QString& providerId, bool on) {
 }
 
 void AppController::offerReviewFoldHint(const QString& issueId, const Task& review) {
-  if(!m_reviewFoldHint.isEmpty() || m_settingsExtra.value(QStringLiteral("reviewFoldHintSeen")).toBool()) {
-    return;
-  }
   const int at = m_tasks.indexOfId(issueId);
   // An archived issue is on no board: the coach mark waits for a live one.
   if(at < 0 || m_tasks.items().at(at).archived) {
     return;
   }
-  m_reviewFoldHint = {{QStringLiteral("taskId"), issueId},
-                      {QStringLiteral("issueKey"), m_tasks.items().at(at).externalId},
-                      {QStringLiteral("provider"), review.externalProvider},
-                      {QStringLiteral("providerName"), providerDisplayName(review.externalProvider)},
-                      {QStringLiteral("mr"), review.externalId}};
-  emit reviewFoldHintChanged();
-}
-
-void AppController::forgetReviewFoldHint() {
-  m_settingsExtra.remove(QStringLiteral("reviewFoldHintSeen"));
-  if(!m_reviewFoldHint.isEmpty()) {
-    m_reviewFoldHint.clear();
-    emit reviewFoldHintChanged();
-  }
-}
-
-void AppController::dismissReviewFoldHint() {
-  const bool shown = !m_reviewFoldHint.isEmpty();
-  if(m_settingsExtra.value(QStringLiteral("reviewFoldHintSeen")).toBool() && !shown) {
-    return;
-  }
-  m_settingsExtra.insert(QStringLiteral("reviewFoldHintSeen"), true);
-  m_reviewFoldHint.clear();
-  scheduleSave();
-  if(shown) {
-    emit reviewFoldHintChanged();
-  }
+  offerCoachMark(QStringLiteral("reviewFold"),
+                 {{QStringLiteral("taskId"), issueId},
+                  {QStringLiteral("issueKey"), m_tasks.items().at(at).externalId},
+                  {QStringLiteral("provider"), review.externalProvider},
+                  {QStringLiteral("providerName"), providerDisplayName(review.externalProvider)},
+                  {QStringLiteral("mr"), review.externalId}});
 }
 
 AppController::MergeStats AppController::mergeExternalTasks(const QString& providerId,
@@ -10950,6 +10939,13 @@ AppController::MergeStats AppController::mergeExternalTasks(const QString& provi
     }
     if(conflicted) {
       ++stats.conflicts;
+      // The first one ever is explained on its card, once (coach mark).
+      if(!t.archived && !t.externalMeta.conflicts.isEmpty()) {
+        offerCoachMark(QStringLiteral("conflict"),
+                       {{QStringLiteral("taskId"), t.id},
+                        {QStringLiteral("field"), t.externalMeta.conflicts.first()},
+                        {QStringLiteral("tracker"), providerDisplayName(providerId)}});
+      }
     }
     t.externalMeta.column = mapped;
     t.externalMeta.status = ext.status;
@@ -13325,9 +13321,9 @@ void AppController::applyProfileToModels(const Profile& p) {
   m_tasks.reset(tasks);
   // The reset dropped every "PR #n" the issues showed, and a coach mark
   // pointing at the last profile's card.
-  if(!m_reviewFoldHint.isEmpty()) {
-    m_reviewFoldHint.clear();
-    emit reviewFoldHintChanged();
+  if(!m_coachMark.isEmpty()) {
+    m_coachMark.clear();
+    emit coachMarkChanged();
   }
   foldReviewCardsIntoIssues(/*archive=*/false);
   m_people.reset(p.people);
@@ -16805,6 +16801,11 @@ void AppController::deleteSelectedTasks() {
 
   const int n = snap.size();
   emit undoableToast(tr_("selection.toast.deleted").arg(n), 5);
+  // Five or more gone at once: the toast says, once, where they can come
+  // back from after it is gone (coach mark).
+  if(n >= heap::hints::kBulkDeleteHintAt) {
+    offerCoachMark(QStringLiteral("timeMachine"), {{QStringLiteral("count"), n}});
+  }
   clearSelection();
   scheduleSave();
 }
@@ -17580,6 +17581,10 @@ void AppController::onGitBranchChanged(const QString& repo, const QString& branc
   }
   m_dismissedBranches.remove(branch);  // re-arm banner on every branch change
   emit focusedGitChanged();
+  // The watcher reports each repo's branch once at launch: that is not a
+  // switch the user just made, and no coach mark comes on startup.
+  const bool launchReport = !m_gitReposReported.contains(repo);
+  m_gitReposReported.insert(repo);
 
   if(taskId.isEmpty() || branch == QStringLiteral("(detached HEAD)")) {
     return;
@@ -17605,7 +17610,18 @@ void AppController::onGitBranchChanged(const QString& repo, const QString& branc
   if(finished) {
     return;
   }
-  if(g.value("autoMoveToInProgress", true).toBool() && prog >= 0 && at >= 0 && at < prog) {
+  const bool move = g.value("autoMoveToInProgress", true).toBool() && prog >= 0 && at >= 0 && at < prog;
+  // A switch made while heap runs: the first one says, once, why the task
+  // was picked and where that is turned off (coach mark). Offered before the
+  // move, which may want a coach mark of its own (trackerMove).
+  if(!launchReport) {
+    offerCoachMark(QStringLiteral("branchLink"),
+                   {{QStringLiteral("taskId"), taskId},
+                    {QStringLiteral("key"), task.externalId.isEmpty() ? matchedId : task.externalId},
+                    {QStringLiteral("branch"), branch},
+                    {QStringLiteral("moved"), move}});
+  }
+  if(move) {
     moveTask(taskId, QStringLiteral("prog"));
   }
   if(g.value("autoCreateFocusBlock", false).toBool()) {
