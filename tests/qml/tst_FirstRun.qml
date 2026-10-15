@@ -72,6 +72,10 @@ TestCase {
             Style.apply("quiet");
             verify(hero.quiet);
             verify(!cards[0].visible, "quiet still shows the key cards");
+            // a-17 (Q-First): "? — все клавиши", the page key, not Ctrl /.
+            const qkeys = findChild(hero, "first-run-q-keys").text;
+            verify(qkeys.indexOf(">?</font>") >= 0, qkeys);
+            verify(qkeys.indexOf("Ctrl /") < 0, qkeys);
             verify(!findChild(hero, "first-run-connect").visible);
         } finally {
             AppController.appSettingsJson = saved;

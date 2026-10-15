@@ -195,12 +195,15 @@ Item {
             lineHeight: 1.5
             wrapMode: Text.WordWrap
         }
+        // "? — все клавиши" (a-17, Q-First, DG-110): the cheat sheet's page
+        // key, the one the bold cards name too, not Ctrl /.
         Text {
+            objectName: "first-run-q-keys"
             visible: root.quiet
             Layout.fillWidth: true
             text: I18n.t("first.q.hintKeys")
                   .arg("<font face=\"" + Theme.fontMono + "\" color=\"" + Theme.textMuted + "\">" + root._keys("palette.open", "Ctrl+K") + "</font>")
-                  .arg("<font face=\"" + Theme.fontMono + "\" color=\"" + Theme.textMuted + "\">" + root._keys("hotkeys.open", "Ctrl+/") + "</font>")
+                  .arg("<font face=\"" + Theme.fontMono + "\" color=\"" + Theme.textMuted + "\">" + root._keys("hotkeys.open.alt", "?") + "</font>")
             textFormat: Text.StyledText
             color: Theme.textDim
             font.family: Theme.fontUi

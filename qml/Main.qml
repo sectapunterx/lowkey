@@ -3791,6 +3791,8 @@ ApplicationWindow {
     Toast {
         id: toast
         objectName: "toast"
+        // "Журнал" on a burst of notices (a-27).
+        onLogRequested: eventLog.showNow()
         x: mainColumn.x
         width: mainColumn.width
         areaWidth: mainColumn.width

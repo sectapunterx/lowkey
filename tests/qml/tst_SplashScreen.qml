@@ -79,6 +79,11 @@ TestCase {
         const fact = findChild(s, "splash-crash-fact");
         verify(fact.visible);
         verify(fact.text.indexOf("15:58") >= 0, fact.text);
+        // a-34 (N/X-Ntf-Focus): "Данные целы — последнее сохранение 15:58.
+        // Отправить отчёт о сбое разработчику?"
+        compare(fact.text, I18n.t("crash.fact").arg(I18n.fmtTime(new Date(2026, 9, 9, 15, 58))) + " " + I18n.t("crash.ask"));
+        if (I18n.lang === "ru" && I18n.fmtTime(new Date(2026, 9, 9, 15, 58)) === "15:58")
+            compare(fact.text, "Данные целы — последнее сохранение 15:58. Отправить отчёт о сбое разработчику?");
         verify(!findChild(s, "splash-version").visible);
         mouseClick(findChild(s, "splash-crash-skip"));
         compare(fired, 1);

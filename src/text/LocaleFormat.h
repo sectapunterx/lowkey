@@ -3,6 +3,7 @@
 #include <QDate>
 #include <QDateTime>
 #include <QLocale>
+#include <QRegularExpression>
 #include <QString>
 #include <QTime>
 
@@ -87,6 +88,18 @@ inline QString formatDateTime(const QDateTime& dt, const QString& style, const Q
     return {};
   }
   return formatDate(dt.date(), style, lang) + QStringLiteral(", ") + formatTime(dt.time(), twelveHour);
+}
+
+// "15 окт 2026" as the sheets write it: no dot after a Russian short month,
+// which the locale adds (DG-031). I18n.fmtDate does the same in QML; the
+// C++ labels above keep the locale's form for the callers that want it.
+inline QString withoutMonthDot(const QString& s, const QString& lang) {
+  if(lang != QLatin1String("ru")) {
+    return s;
+  }
+  static const QRegularExpression dot(QStringLiteral("([а-яё]{3,4})\\.(?=$|[\\s,])"));
+  QString out = s;
+  return out.replace(dot, QStringLiteral("\\1"));
 }
 
 }  // namespace heap::text

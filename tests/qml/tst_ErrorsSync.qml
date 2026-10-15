@@ -179,6 +179,24 @@ TestCase {
         }
     }
 
+    // a-28 / a-29: the main button is filled in bold and outlined in quiet —
+    // "Понятно" (N-Ntf-OS), "Открыть issue" (N-Err-Storage), "Создать
+    // колонку «Готово»" (X-Err-Empty, which was filled in quiet too).
+    function test_main_buttons_are_filled_in_bold_only() {
+        const wn = createTemporaryQmlObject('import TodoCpp; WhatsNewDialog { }', host);
+        const ri = createTemporaryQmlObject('import TodoCpp; ReportIssueDialog { }', host);
+        const dc = createTemporaryQmlObject('import TodoCpp; DoneColumnDialog { }', host);
+        const buttons = [findChild(wn.contentItem, "whats-new-ok"),
+                         findChild(ri.contentItem, "report-issue-open"),
+                         dc.buttons[0]];
+        compare(dc.buttons[0].objectName, "done-column-create");
+        for (const b of buttons) verify(b !== null && b.primary);
+        Style.apply("bold");
+        for (const b of buttons) verify(b.solid, b.objectName + " is outlined in bold");
+        Style.apply("quiet");
+        for (const b of buttons) verify(!b.solid, b.objectName + " is filled in quiet");
+    }
+
     // ── R2-040: the report form shows what goes in ──
     function test_report_form_preview_follows_the_boxes() {
         const dlg = createTemporaryQmlObject('import TodoCpp; ReportIssueDialog { }', host);

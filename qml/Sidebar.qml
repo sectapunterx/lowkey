@@ -160,9 +160,11 @@ Rectangle {
         width: 1; color: Theme.border
     }
 
+    // H2-Today's sidebar (a-23): 16px over the wordmark, a 34px "New
+    // task…" field 14px over the rows, rows on a 32px pitch (30 + 2).
     ColumnLayout {
         anchors.fill: parent
-        anchors.topMargin: Theme.spLg + (Qt.platform.os === "osx" ? Theme.spXl : 0)
+        anchors.topMargin: Theme.sp2xl + (Qt.platform.os === "osx" ? Theme.spXl : 0)
         anchors.bottomMargin: Theme.spLg
         anchors.leftMargin: Theme.spLg
         anchors.rightMargin: Theme.spLg
@@ -242,8 +244,8 @@ Rectangle {
         Rectangle {
             id: newTask
             Layout.fillWidth: true
-            Layout.preferredHeight: Theme.chipH + Theme.spXs
-            Layout.bottomMargin: Theme.spLg
+            Layout.preferredHeight: Theme.chipH + Theme.spSm
+            Layout.bottomMargin: Theme.px(14)
             radius: Theme.radiusMd
             // Quiet: a hairline field on the sidebar, no fill (H2-Today-Calm,
             // X-Oth-Light, R4-013); bold keeps the panel fill.
@@ -453,7 +455,7 @@ Rectangle {
         Item {
             visible: root.expanded && (root._savedViews.length > 0 || (!Style.plainRows && AppController.welcomeSeen))
             Layout.fillWidth: true
-            Layout.topMargin: Theme.spLg
+            Layout.topMargin: Theme.sp2xl
             Layout.preferredHeight: viewsHead.implicitHeight + Theme.spXs
             Text {
                 id: viewsHead
@@ -685,7 +687,7 @@ Rectangle {
         readonly property string _keys: nav.shortcutId.length && AppController.shortcuts.length >= 0
             ? root.prettyKeys(AppController.shortcutFor(nav.shortcutId)) : ""
         Layout.fillWidth: true
-        Layout.preferredHeight: Theme.chipH + Theme.spXs
+        Layout.preferredHeight: Theme.chipH + Theme.sp2xs
         activeFocusOnTab: false
 
         Rectangle {
@@ -766,7 +768,7 @@ Rectangle {
         required property var modelData
         required property int index
         width: viewsList.width
-        height: Theme.chipH + Theme.spXs
+        height: Theme.chipH + Theme.sp2xs
         objectName: "sidebar-view-" + vr.index
         activeFocusOnTab: true
 

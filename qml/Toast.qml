@@ -11,6 +11,9 @@ import "ToastTiming.js" as Timing
 // counted as "+N" on the one on screen (and every notice is in the log). A
 // toast with an action (Undo, Retry) is never pushed off: a plain notice
 // gives way to a newcomer, an action toast makes the newcomer wait.
+// A burst (a-27, N/X-Ntf-Toasts) is one toast with a count: the newcomer
+// says how many it pushed off ("Готово: 3 задачи  +2 события") and, with no
+// action of its own, offers the log they are in ("Журнал  Ctrl Shift L").
 //
 // show(message, kind) / showWithAction(message, label, seconds, fn, kind) as
 // before; `kind` is "info" | "success" | "warning" | "error" and picks the
@@ -79,6 +82,8 @@ Item {
     readonly property int count: _items.length
     // The cards as drawn: what a coach mark about a toast stands beside.
     readonly property Item cardsItem: stack
+    // "Журнал" on a burst: Main opens the event log.
+    signal logRequested()
 
     implicitWidth: stack.width
     implicitHeight: stack.height
@@ -129,6 +134,9 @@ Item {
             for (let i = 0; i < _items.length; i++) if (!_items[i].actionLabel || _items[i].yields) { drop = i; break; }
             if (drop < 0) { _queue = _queue.concat([entry]); return; }
             const next = _items.slice();
+            // Pushed off unread: the newcomer counts it, and the ones it
+            // had pushed off (a-27).
+            entry.burst = (Number(next[drop].burst) || 0) + 1;
             next.splice(drop, 1);
             _items = next;
         }
@@ -441,6 +449,8 @@ Item {
                                         card.cap - card.leftPad - card.rightPad - Theme.px(12) - rowL.spacing
                                         - (moreT.visible ? moreT.implicitWidth + rowL.spacing : 0)
                                         - (keyT.visible ? keyT.implicitWidth + rowL.spacing : 0)
+                        - (logBox.visible ? logBox.implicitWidth + rowL.spacing : 0)
+                        - (logKeyT.visible ? logKeyT.implicitWidth + rowL.spacing : 0)
                                         - (actionBox.visible ? actionBox.implicitWidth + rowL.spacing : 0)
                                         - (action2Box.visible ? action2Box.implicitWidth + rowL.spacing : 0)
                                         - (action3Box.visible ? action3Box.implicitWidth + rowL.spacing : 0))
@@ -452,12 +462,15 @@ Item {
                         maximumLineCount: 3
                         elide: Text.ElideRight
                     }
+                    // "+2 события": the ones waiting and the ones this toast
+                    // pushed off (a-27).
                     Text {
                         id: moreT
                         objectName: "toast-more"
-                        visible: root.waiting > 0
+                        readonly property int n: root.waiting + (Number(card.modelData.burst) || 0)
+                        visible: n > 0
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "+" + root.waiting
+                        text: I18n.count(n, "toast.more")
                         color: Theme.textDim
                         font.pixelSize: Theme.fsMd
                     }
@@ -531,6 +544,40 @@ Item {
                             showTip: false
                             onActivated: card.runAction(card.modelData.action3Fn)
                         }
+                    }
+                    // A burst with no action of its own: the log the
+                    // pushed-off notices are in (a-27).
+                    Rectangle {
+                        id: logBox
+                        visible: (Number(card.modelData.burst) || 0) > 0 && !card.modelData.actionLabel
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: "transparent"
+                        implicitWidth: logT.implicitWidth
+                        implicitHeight: logT.implicitHeight + 2 * Theme.spXs
+                        Text {
+                            id: logT
+                            anchors.centerIn: parent
+                            text: I18n.t("eventLog.title")
+                            color: Theme.toastText
+                            font.pixelSize: Theme.fsMd
+                            font.underline: true
+                        }
+                        ClickArea {
+                            objectName: "toast-log"
+                            label: I18n.t("eventLog.title")
+                            showTip: false
+                            onActivated: card.runAction(function () { root.logRequested(); })
+                        }
+                    }
+                    Text {
+                        id: logKeyT
+                        objectName: "toast-log-key"
+                        visible: logBox.visible && text.length > 0
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: AppController.shortcuts.length >= 0 ? AppController.shortcutText("log.open") : ""
+                        color: Theme.textDim
+                        font.family: Theme.fontMono
+                        font.pixelSize: Theme.fsXs
                     }
                     Text {
                         id: keyT

@@ -96,6 +96,36 @@ TestCase {
         compare(t._queue.length, 2);
     }
 
+    // a-27 (N/X-Ntf-Toasts): a burst is one toast with a count and the log,
+    // "Готово: 3 задачи  +2 события  Журнал  Ctrl Shift L".
+    function test_a_burst_is_one_toast_with_a_count_and_the_log() {
+        const t = make();
+        let logs = 0;
+        t.logRequested.connect(function () { logs++; });
+        t.show("Saved", "success");
+        t.show("Synced", "info");
+        t.show("Done: 3 tasks", "success");
+        wait(0);
+        compare(t.count, 1);
+        compare(t.message, "Done: 3 tasks", "the newest is on screen");
+        const c = cards(t)[0];
+        const more = child(c, "toast-more");
+        verify(more.visible, "no count of the ones pushed off");
+        compare(more.text, I18n.count(2, "toast.more"));
+        const log = child(c, "toast-log");
+        verify(log.parent.visible, "no way to the log");
+        compare(child(c, "toast-log-key").text, AppController.shortcutText("log.open"));
+        mouseClick(log);
+        compare(logs, 1);
+        compare(t.count, 0, "the log link closes the toast");
+        // A single notice has neither.
+        t.show("Alone");
+        wait(0);
+        const c2 = cards(t)[0];
+        verify(!child(c2, "toast-more").visible);
+        verify(!child(c2, "toast-log").parent.visible);
+    }
+
     // A5-19 follow-up: "Updated: 0.8.2 → 0.8.9 · What's new" carries an
     // action, yet nothing is lost by missing it. An Undo raised during its ten
     // seconds is shown at once instead of waiting behind it as "+1".

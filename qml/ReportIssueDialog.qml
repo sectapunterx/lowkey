@@ -139,6 +139,8 @@ Popup {
                 objectName: "report-issue-open"
                 text: I18n.t("report.open")
                 primary: true
+                // Filled in bold, outlined in quiet (a-28, N-Err-Storage).
+                solid: Style.fills
                 onClicked: {
                     root.close();
                     AppController.openIssueReport(root.preview);

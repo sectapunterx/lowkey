@@ -738,7 +738,10 @@ Popup {
             // Another profile's tasks under a header that says so, not under
             // "Notes, docs, people" (A1-16).
             const elsewhere = other.filter(e => e.kind === "task");
-            const rest = other.filter(e => e.kind !== "task");
+            // Meetings under their own header, not "Notes, docs, people"
+            // (a-31).
+            const meetings = other.filter(e => e.kind === "event");
+            const rest = other.filter(e => e.kind !== "task" && e.kind !== "event");
             // Words met only inside notes: the full text is one Enter away in
             // the notes list (DG-081), not a junk task (A4-8). It sits in the
             // same group as a note found by name: one header, not two.
@@ -753,6 +756,8 @@ Popup {
                 rows.push({ kind: "action", action: "create", text: typed, keys: "", sub: "",
                             label: I18n.t("cmd.createRow").arg(typed) });
             }
+            if (meetings.length > 0) header(I18n.t("cmd.group.meetings"));
+            for (const e of meetings) rows.push(Object.assign({}, e, { keys: "" }));
             if (elsewhere.length > 0) header(I18n.t("cmd.group.otherProfiles"));
             for (const e of elsewhere) rows.push(Object.assign({}, e, { keys: "" }));
             // Nothing found: the same keys in the other keyboard layout
