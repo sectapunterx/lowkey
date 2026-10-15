@@ -138,17 +138,37 @@ TestCase {
         verify(board.moveStaysLocal(ticket, "prog"), "a move with writes off goes nowhere else");
         verify(!board.moveStaysLocal(ticket, "todo"), "its own column is no move");
         verify(!board.moveStaysLocal({ id: "gap-a30b", status: "todo" }, "prog"), "a task of our own");
+        // Every column open: an empty one folds by itself (APP-314).
+        const open = {};
+        for (const st of AppController.statuses) open[st.id] = true;
+        board.emptyOpen = open;
+        wait(50);
         const captions = all(board, "column-drop-local-only", []);
         verify(captions.length > 0);
-        const col = captions[0].parent;
-        verify(!captions[0].visible);
+        // The caption sits in the column's header row, after the count.
+        const colOf = (it) => { let c = it; while (c && c.dropLocalOnly === undefined) c = c.parent; return c; };
+        const at = captions.findIndex(c => colOf(c) && !colOf(c).folded);
+        verify(at >= 0, "no open column");
+        const caption = captions[at];
+        const col = colOf(caption);
+        captions[0] = caption;
+        verify(!caption.visible);
         col.dropLocalOnly = true;
         col.dragOver = true;
-        if (!col.folded) {
+        wait(50);
+        {
             verify(captions[0].visible, "no caption while the card is over the column");
-            compare(captions[0].children[0].text, I18n.t("kanban.drop.localOnly"));
+            compare(captions[0].text, I18n.t("kanban.drop.localOnly"));
+            verify(!captions[0].truncated, "the caption is cut");
+            verify(!all(col, "column-count", [])[0].visible, "the count keeps the caption's room");
+            const head = all(col, "column-name", [])[0];
+            verify(head !== undefined);
+            const yc = captions[0].mapToItem(col, 0, captions[0].height / 2).y;
+            const yh = head.mapToItem(col, 0, head.height / 2).y;
+            verify(Math.abs(yc - yh) <= 2, "not on the header line");
         }
         col.dragOver = false;
+        verify(all(col, "column-count", [])[0].visible, "the count did not come back");
         compare(I18n.dict.ru["kanban.drop.localOnly"], "только здесь");
     }
 

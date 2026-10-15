@@ -1034,29 +1034,6 @@ Item {
                         border.color: Style.urgency ? Theme.info : Theme.borderStrong
                         border.width: Style.urgency ? 1.5 : 1
                     }
-                    // The same outline, captioned "only here" when the move
-                    // will not reach the tracker (a-30, X-Oth-Select-Drag).
-                    Rectangle {
-                        objectName: "column-drop-local-only"
-                        visible: col.dragOver && col.dropLocalOnly && !col.folded
-                        z: 32
-                        anchors.horizontalCenter: dropFrame.horizontalCenter
-                        y: dropFrame.height - height - Theme.spXs
-                        width: localOnlyText.implicitWidth + 2 * Theme.spSm
-                        height: localOnlyText.implicitHeight + Theme.sp2xs * 2
-                        radius: Theme.radiusSm
-                        color: Theme.bg
-                        border.color: dropFrame.border.color
-                        border.width: 1
-                        Text {
-                            id: localOnlyText
-                            anchors.centerIn: parent
-                            text: I18n.t("kanban.drop.localOnly")
-                            color: Theme.textMuted
-                            font.family: Theme.fontUi
-                            font.pixelSize: Theme.fsXs
-                        }
-                    }
                     // Folded Done under the pointer: ring, name and
                     // "отпустите" in the middle of the strip (R3-053).
                     Column {
@@ -1383,6 +1360,10 @@ Item {
                                 Rectangle {
                                     id: cntPill
                                     objectName: "column-count"
+                                    // A narrow column has room for the name and
+                                    // one fact: while a card that stays here is
+                                    // over it, that fact is "только здесь" (a-30).
+                                    visible: !localOnlyText.visible
                                     radius: Theme.radiusPill
                                     color: "transparent"
                                     implicitWidth: cntT.implicitWidth
@@ -1432,7 +1413,10 @@ Item {
                                         ? "~" + I18n.fmtMinutes(Math.round(col.estimate.minutes / 60) * 60) : colEst.fullText
                                     readonly property real room: headRow.width - colorSwatch.width - nameBox.width
                                                                  - cntPill.implicitWidth - 4 * headRow.spacing
+                                    // Gives way to "· только здесь" while a
+                                    // card that stays here is over it (a-30).
                                     visible: col.estimate.minutes > 0 && (!Style.quiet || col.headerRevealed) && colEst.text.length > 0
+                                             && !localOnlyText.visible
                                     Layout.preferredWidth: Math.max(0, Math.min(colEst.implicitWidth, colEst.room))
                                     elide: Text.ElideRight
                                     text: colEst.room >= estFull.advanceWidth + 1 ? colEst.fullText
@@ -1449,7 +1433,29 @@ Item {
                                         + (col.estimate.without > 0 ? " · " + I18n.count(col.estimate.without, "estimate.without") : "")
                                     HoverHandler { id: estHover }
                                 }
-                                Item { Layout.fillWidth: true }
+                                // A tracker card with writes off over the
+                                // column: the move stays here, said in the
+                                // header beside the name, over no card (a-30,
+                                // X-Oth-Select-Drag). It takes the count's and
+                                // the estimate's place for the drag: a 163 px
+                                // column at 100 % has no room for all three.
+                                TextMetrics { id: localOnlyFm; font: localOnlyText.font; text: I18n.t("kanban.drop.localOnly") }
+                                Text {
+                                    id: localOnlyText
+                                    objectName: "column-drop-local-only"
+                                    visible: col.dragOver && col.dropLocalOnly && !col.folded
+                                    readonly property real room: headRow.width - colorSwatch.width - nameBox.width
+                                        - 2 * headRow.spacing
+                                    Layout.preferredWidth: Math.max(0, Math.min(Math.ceil(localOnlyFm.advanceWidth), room))
+                                    elide: Text.ElideRight
+                                    text: I18n.t("kanban.drop.localOnly")
+                                    color: Theme.textDim
+                                    font.family: Theme.fontUi
+                                    font.pixelSize: Theme.fsXs
+                                }
+                                // Off during the caption: its spacing is the
+                                // caption's last few pixels.
+                                Item { Layout.fillWidth: true; visible: !localOnlyText.visible }
                             }
                             // "+" at the header's end, laid over it like the
                             // other tools: shown on hover or the keyboard, and
