@@ -21,12 +21,21 @@ var notes = {
             { title: { en: "Today for every profile", ru: "Сегодня по всем профилям" },
               body: { en: "Settings → Calendar → “Today shows”: this profile or all of them",
                       ru: "Настройки → Календарь → «Сегодня» показывает: этот профиль или все" } },
+            { title: { en: "Hints that show once", ru: "Подсказки один раз" },
+              body: { en: "when Tabless does something on its own — folds a merge request into its Jira ticket, keeps a move local, reads dates from text — it says so once, beside the thing, with where to change it",
+                      ru: "когда Tabless делает что-то сам — склеивает MR с тикетом Jira, сдвигает карточку только у себя, понимает даты из текста, — он один раз говорит об этом рядом и подсказывает, где это изменить" } },
+            { title: { en: "Notes as on the page", ru: "Заметки как на листе" },
+              body: { en: "rich mode by default: airier lines, “/” on an empty line for blocks, task links as pills, inline code and pictures drawn in place",
+                      ru: "rich-режим по умолчанию: просторные строки, «/» на пустой строке — блоки, ссылки на задачи плашками, код и картинки рисуются на месте" } },
+            { title: { en: "Blue theme", ru: "Синяя тема" },
+              body: { en: "Settings → Appearance → Themes: “Tabless blue”, the blue-black palette of the first designs; grey stays the default",
+                      ru: "Настройки → Внешний вид → Темы: «Синяя», сине-чёрная палитра первых макетов; серая остаётся по умолчанию" } },
             { title: { en: "Fewer stumbles", ru: "Меньше заминок" },
               body: { en: "about two hundred fixes from a day-long test by twenty kinds of engineers: keys, dates in Russian, the week grid, end of day, undo",
                       ru: "около двухсот исправлений после теста «рабочий день» двадцати разных инженеров: клавиши, даты по-русски, сетка недели, конец дня, отмена" } }
         ],
-        moved: { en: "Deadline is now “Due” everywhere · Scale and Contrast → Settings → Appearance · Docs got a key: g d",
-                 ru: "«Дедлайн» теперь везде «Срок» · Масштаб и Контраст → Настройки → Внешний вид · у Доков своя клавиша: g d" }
+        moved: { en: "“When” and “Due” are now “Target start” and “Due date” · Scale and Contrast → Settings → Appearance, under More · Docs got a key: g d · n / p step the week",
+                 ru: "«Когда» и «Срок» теперь «Целевое начало» и «Срок исполнения» · Масштаб и Контраст → Настройки → Внешний вид, под «ещё» · у Доков своя клавиша: g d · n / p листают неделю" }
     },
     "0.8": {
         sections: [
