@@ -1176,7 +1176,15 @@ Item {
         color: linkMA.hovered ? Theme.text : Theme.textMuted
         Behavior on color { ColorAnimation { duration: Theme.durTap; easing.type: Theme.easeEnter } }
         font.pixelSize: Theme.fsSm
-        font.underline: true
+        // A dim rule a little under the baseline, not the text's own
+        // underline tight to the glyphs (b-25, H2-Board / Q-Settings).
+        Rectangle {
+            objectName: link.objectName.length > 0 ? link.objectName + "-underline" : ""
+            y: link.baselineOffset + Theme.px(3)
+            width: link.contentWidth
+            height: 1
+            color: Theme.borderStrong
+        }
         ClickArea {
             id: linkMA
             objectName: link.objectName.length > 0 ? link.objectName + "-click" : ""
@@ -1233,23 +1241,6 @@ Item {
                                ({ value: "spacious", label: I18n.t("common.density.spacious") }) ]
                     onSelected: (value) => AppController.density = value
                 }
-                // Scale and contrast are what a low-vision user looks for
-                // first: on the sheet, not under "more" (A6-16).
-                SegRow {
-                    objectName: "settings-ui-scale"
-                    label: I18n.t("settings.appearance.scale")
-                    // Unset, the scale is the system's text size (APP-183).
-                    hint: (Theme._appearance.uiScale === undefined && Theme.systemScale() > Theme.defaultScale
-                          ? I18n.t("settings.appearance.scale.system")
-                          : I18n.t("settings.appearance.scale.hint"))
-                          + " " + I18n.t("settings.appearance.scale.default").arg(Math.round(AppController.defaultUiScale(Theme.scaleSteps) * 100))
-                          + " " + I18n.t("settings.appearance.scale.keys")
-                              .arg(AppController.keyText(AppController.shortcutFor("zoom.in")))
-                              .arg(AppController.keyText(AppController.shortcutFor("zoom.out")))
-                    value: String(Math.round(Theme.scale * 100))
-                    options: Theme.scaleSteps.map((s) => ({ value: String(Math.round(s * 100)), label: Math.round(s * 100) + "%" }))
-                    onSelected: (value) => root.set("appearance", "uiScale", Number(value) / 100)
-                }
                 // The text's face (APP-314): three bundled, one x-height.
                 SegRow {
                     objectName: "settings-font-face"
@@ -1262,21 +1253,6 @@ Item {
                         { value: "onest", label: "Onest" }
                     ]
                     onSelected: (value) => root.set("appearance", "fontFace", value)
-                }
-                SegRow {
-                    objectName: "settings-contrast"
-                    label: I18n.t("settings.appearance.contrast")
-                    hint: I18n.t("settings.appearance.contrast.hint")
-                    value: Theme.contrast
-                    options: [
-                        ({ value: "soft",   label: I18n.t("settings.appearance.contrast.soft") }),
-                        ({ value: "normal", label: I18n.t("settings.appearance.contrast.normal") }),
-                        ({ value: "high",   label: I18n.t("settings.appearance.contrast.high") })
-                    ]
-                    onSelected: (value) => {
-                        root.set("appearance", "contrast", value);
-                        root.set("appearance", "highContrast", value === "high");
-                    }
                 }
                 SegRow {
                     objectName: "settings-motion"
@@ -1426,7 +1402,44 @@ Item {
                 }
             }
             MoreBlock {
-                // The finer knobs: a cursor colour of its own, the themes.
+                // The finer knobs: scale and contrast, a cursor colour of its
+                // own, the themes. Scale and contrast went under "more" with
+                // DG-090 — the sheet shows four rows at rest; the face stays
+                // there (APP-314). Ctrl +/- still scale from anywhere (b-11).
+                SettingsGroup {
+                    objectName: "settings-appearance-more"
+                    Layout.bottomMargin: Theme.spLg
+                    SegRow {
+                        objectName: "settings-ui-scale"
+                        label: I18n.t("settings.appearance.scale")
+                        // Unset, the scale is the system's text size (APP-183).
+                        hint: (Theme._appearance.uiScale === undefined && Theme.systemScale() > Theme.defaultScale
+                              ? I18n.t("settings.appearance.scale.system")
+                              : I18n.t("settings.appearance.scale.hint"))
+                              + " " + I18n.t("settings.appearance.scale.default").arg(Math.round(AppController.defaultUiScale(Theme.scaleSteps) * 100))
+                              + " " + I18n.t("settings.appearance.scale.keys")
+                                  .arg(AppController.keyText(AppController.shortcutFor("zoom.in")))
+                                  .arg(AppController.keyText(AppController.shortcutFor("zoom.out")))
+                        value: String(Math.round(Theme.scale * 100))
+                        options: Theme.scaleSteps.map((s) => ({ value: String(Math.round(s * 100)), label: Math.round(s * 100) + "%" }))
+                        onSelected: (value) => root.set("appearance", "uiScale", Number(value) / 100)
+                    }
+                    SegRow {
+                        objectName: "settings-contrast"
+                        label: I18n.t("settings.appearance.contrast")
+                        hint: I18n.t("settings.appearance.contrast.hint")
+                        value: Theme.contrast
+                        options: [
+                            ({ value: "soft",   label: I18n.t("settings.appearance.contrast.soft") }),
+                            ({ value: "normal", label: I18n.t("settings.appearance.contrast.normal") }),
+                            ({ value: "high",   label: I18n.t("settings.appearance.contrast.high") })
+                        ]
+                        onSelected: (value) => {
+                            root.set("appearance", "contrast", value);
+                            root.set("appearance", "highContrast", value === "high");
+                        }
+                    }
+                }
                 // "Your own" accent (APP-174): the cursor colour from the swatches.
                 CursorColorRow {
                     objectName: "settings-cursor-color"

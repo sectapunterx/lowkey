@@ -97,6 +97,8 @@ Popup {
                 objectName: "standup-draft-copy"
                 text: I18n.t("standup.copy")
                 primary: true
+                // Filled in bold, as the other dialogs' main button (b-08).
+                solid: Style.fills
                 onClicked: root.copy()
             }
             PillButton {

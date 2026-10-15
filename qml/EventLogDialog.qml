@@ -55,6 +55,22 @@ Popup {
         return Brand.name;
     }
 
+    // The source column is as wide as the widest of its five words in the
+    // current language, with room for the warning mark: "Напоминание" was
+    // cut to "Напомина…" in a fixed 80 px (b-21, owner's call).
+    FontMetrics {
+        id: srcFm
+        font.family: Theme.fontUi
+        font.pixelSize: Theme.fsSm
+    }
+    readonly property int sourceColumnWidth: {
+        const words = [I18n.t("eventLog.src.reminder"), I18n.t("eventLog.src.sync"), I18n.t("eventLog.src.tasks"),
+                       I18n.t("eventLog.src.data"), Brand.name];
+        let w = 0;
+        for (const word of words) w = Math.max(w, srcFm.advanceWidth(word));
+        return Math.ceil(w) + Theme.px(11) + Theme.spXs;
+    }
+
     // Whether an entry leads anywhere.
     function hasTarget(entry) {
         return !!entry && ((entry.taskIds || []).length > 0 || String(entry.route || "").length > 0);
@@ -203,17 +219,17 @@ Popup {
                     // The source; a failed line carries a warning mark
                     // after it (N-Dlg-Log-Import, R4-065).
                     RowLayout {
-                        Layout.preferredWidth: Theme.px(80)
-                        Layout.maximumWidth: Theme.px(80)
+                        Layout.preferredWidth: root.sourceColumnWidth
+                        Layout.minimumWidth: root.sourceColumnWidth
+                        Layout.maximumWidth: root.sourceColumnWidth
                         spacing: Theme.spXs
                         Text {
+                            objectName: "event-log-source"
                             Layout.fillWidth: !srcMark.visible
-                            Layout.maximumWidth: Theme.px(80) - (srcMark.visible ? srcMark.width + Theme.spXs : 0)
                             text: root.sourceOf(row.modelData)
                             color: Theme.textMuted
                             font.family: Theme.fontUi
                             font.pixelSize: Theme.fsSm
-                            elide: Text.ElideRight
                         }
                         Icon {
                             id: srcMark

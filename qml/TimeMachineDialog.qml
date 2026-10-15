@@ -512,6 +512,8 @@ Popup {
                     property bool armed: false
                     property real armedAt: 0
                     primary: true
+                    // Filled in bold, as the other dialogs' main button (b-08).
+                    solid: Style.fills
                     text: restoreAllBtn.armed ? I18n.t("tm.restoreAll.confirm") : I18n.t("tm.restoreAll")
                     onClicked: {
                         if (!root.current) return;

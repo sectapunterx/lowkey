@@ -691,9 +691,11 @@ TestCase {
         compare(I18n.dict.ru["settings.data.restoreDots"], "Машина времени…");
     }
 
-    // A6-16: scale and contrast stand on the sheet, not under "more";
-    // A7-11: the window and start-up rows have a group of their own.
-    function test_scale_and_contrast_are_not_folded() {
+    // b-11 (0.9.4, owner) over A6-16: scale and contrast go under "more" as
+    // DG-090 has it — the sheet shows four rows at rest; Ctrl +/- still
+    // scale from anywhere. A7-11: the window and start-up rows have a group
+    // of their own.
+    function test_scale_and_contrast_are_folded() {
         const sv = make();
         sv.activeSection = "appearance";
         tryVerify(function () { return findChild(sv, "settings-ui-scale") !== null; }, 2000);
@@ -701,8 +703,7 @@ TestCase {
         verify(!more.open, "the fold is open");
         for (const name of ["settings-ui-scale", "settings-contrast"]) {
             const row = findChild(sv, name);
-            verify(row.visible, name + " is folded away");
-            verify(!_inside(row, more), name + " is under more");
+            verify(_inside(row, more), name + " is not under more");
         }
         verify(findChild(sv, "settings-ui-scale").hint.indexOf(AppController.keyText(AppController.shortcutFor("zoom.in"))) >= 0,
                "the scale hint names the zoom key");

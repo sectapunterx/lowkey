@@ -547,7 +547,14 @@ Item {
                         Text {
                             objectName: "list-row-date"
                             visible: !root._archive
-                            Layout.minimumWidth: Theme.px(110)
+                            // A fixed column, as the sheet's 92 px: a long date
+                            // ("сегодня · 10:00 · срок 16 окт") widened its own
+                            // row and pushed the label and P out of line. It ends
+                            // with "…" instead (b-03).
+                            Layout.preferredWidth: Theme.px(120)
+                            Layout.minimumWidth: Theme.px(120)
+                            Layout.maximumWidth: Theme.px(120)
+                            elide: Text.ElideRight
                             horizontalAlignment: Text.AlignRight
                             readonly property var d: row.isGroup ? null : root.rowDate(row.modelData)
                             readonly property int days: d ? TaskDates.daysFrom(d.date, AppController.today) : NaN

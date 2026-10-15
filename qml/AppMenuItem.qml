@@ -61,7 +61,10 @@ MenuItem {
     // A third pick of the row with the mouse suggests its key once (APP-166).
     onTriggered: if (item.shortcutId.length > 0 && item.hint.length > 0 && item.hovered) AppController.noteMouseAction(item.shortcutId)
     readonly property bool _check: item.marked || (item.checkable && item.checked)
-    readonly property bool _arrow: item.subMenu !== null || item.opensList
+    // A row that opens its list and has a key shows the key alone, as the
+    // sheet's "Длительность…  Ctrl Shift J / K"; a real submenu keeps its
+    // arrow (b-17).
+    readonly property bool _arrow: item.subMenu !== null || (item.opensList && item.hint.length === 0)
     // The width the row wants for its whole label, hint and arrow. AppMenu
     // sizes itself from this; it does not depend on the row's own width, so
     // the menu and its rows do not chase each other (VISP-5).

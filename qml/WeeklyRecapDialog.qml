@@ -288,7 +288,9 @@ Popup {
                         implicitWidth: dayRow.modelData.n > 0 ? Theme.px(34) * Math.min(dayRow.modelData.n, 8) : 3
                         implicitHeight: Theme.spSm
                         radius: height / 2
-                        color: Theme.borderStrong
+                        // Blue in bold (the style's info colour), grey in
+                        // quiet, as N/X-Dlg-Recap draw them (b-09).
+                        color: Style.fills ? Theme.info : Theme.borderStrong
                     }
                     Text {
                         text: I18n.t("recap.dayClosed").arg(dayRow.modelData.n)

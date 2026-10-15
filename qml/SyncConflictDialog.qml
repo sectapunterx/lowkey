@@ -4,6 +4,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
 import TodoCpp
+import "PlainText.js" as MdPlain
 
 // A field changed both here and in the tracker since the last sync (APP-163),
 // drawn as X/N-Dlg-Conflict (R2-032): one table, a row per field, "Yours" and
@@ -103,8 +104,10 @@ Popup {
                 out.push({ field: f, label: I18n.t("ticket.conflict.title"),
                            mine: String(t.title || ""), theirs: String(k.remoteTitle || "") });
             else if (f === "body")
+                // A description is markdown: the cell reads it as prose,
+                // not "`SyncTest…` падает" with its backticks (b-22).
                 out.push({ field: f, label: I18n.t("ticket.conflict.body"),
-                           mine: String(t.desc || "") || "—", theirs: String(k.remoteBody || "") || "—" });
+                           mine: MdPlain.plain(t.desc, 160) || "—", theirs: MdPlain.plain(k.remoteBody, 160) || "—" });
             else if (f === "priority")
                 out.push({ field: f, label: I18n.t("ticket.conflict.priority"),
                            mine: String(t.priority || "") || "—", theirs: String(k.remotePriority || "") || "—" });

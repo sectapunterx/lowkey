@@ -35,7 +35,13 @@ Popup {
     property var parsed: root.read("")
     // The recognised words as offsets into the line, for the tint.
     property var marks: []
+    // The line the marks were read from. The tint's re-format fires
+    // textChanged again with the same text; reading it again handed the
+    // highlighter a new array while it was still taking the last one — a
+    // "Binding loop" on spans at every keystroke (b-23).
+    property string _readText: ""
     function _reparse() {
+        root._readText = input.text;
         root.parsed = root.read(input.text);
         root.marks = root.markWords(input.text, root.parsed.words);
     }
@@ -199,6 +205,7 @@ Popup {
             // A paste keeps to one line.
             onTextChanged: {
                 if (input.text.indexOf("\n") >= 0) { input.text = input.text.replace(/\n+/g, " "); return; }
+                if (input.text === root._readText) return;
                 root._reparse();
             }
             SpanHighlighter {

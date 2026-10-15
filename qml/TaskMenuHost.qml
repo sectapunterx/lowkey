@@ -53,6 +53,14 @@ Item {
     readonly property bool _writeOn: host._isTicket
         && AppController.trackerWriteProviders.indexOf(host._ticket.provider) >= 0
     readonly property bool _isDone: !!(host._t && AppController.statusCategory(host._t.status) === "done")
+    // The menu header's key: "APP-109" for a task of our own, "GitHub #482"
+    // for a tracker's — the tracker's name before its key (b-15).
+    function headerKey(): string {
+        if (!host._t) return "";
+        if (!host._isTicket || !host._ticket.key) return String(host._t.id);
+        const name = String(host._badge.name || "");
+        return (name.length > 0 ? name + " " : "") + String(host._ticket.key);
+    }
 
     readonly property bool menuOpen: !!(host.menu && host.menu.visible)
         || !!(host.statusList && host.statusList.visible)
@@ -163,9 +171,10 @@ Item {
         property bool canSendPush: false
         property bool canDropPush: false
         signal pushActionRequested(bool send)
-        // The context line (X-Menus-Task): the key and the title.
+        // The context line (X-Menus-Task): the key and the title; a
+        // tracker's task names its tracker too, "GitHub #482 · …" (b-15).
         AppMenuHeader {
-            text: host._t ? ((host._isTicket && host._ticket.key ? host._ticket.key : host._t.id) + " · " + host._t.title) : ""
+            text: host._t ? (host.headerKey() + " · " + host._t.title) : ""
         }
         AppMenuItem {
             objectName: "tc-menu-edit"

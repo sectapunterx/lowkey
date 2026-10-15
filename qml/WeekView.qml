@@ -244,6 +244,8 @@ Item {
             visible: root._menuSeries
             height: visible ? implicitHeight : 0
             text: I18n.t("calmenu.deleteSeries")
+            // Both delete rows are red, as the sheet has them (b-07).
+            danger: true
             enabled: !root._menuReadOnly
             onTriggered: Qt.callLater(() => root.deleteEventHere(true))
         }
@@ -1610,10 +1612,20 @@ Item {
                                                 font.family: Theme.fontUi
                                                 font.pixelSize: root.dayZoom ? Theme.fsSm : Theme.fsXs
                                             }
+                                            // The title's natural width, read off a metric and not
+                                            // the Text's own implicitWidth: an elided Text redoes
+                                            // its implicitWidth when its width changes, a binding
+                                            // loop on every day view (b-01).
+                                            TextMetrics {
+                                                id: dueTitleMetrics
+                                                font: dueTitle.font
+                                                text: dueTitle.text
+                                            }
                                             Text {
+                                                id: dueTitle
                                                 // A day's chips share the line and elide (A2-16): a
                                                 // long title ran past the edge cut mid-word.
-                                                width: root.dayZoom ? Math.min(implicitWidth, Math.max(Theme.px(60), dueFlow.width / Math.max(1, Math.min(3, headCol.modelData.tasks.length)) - Theme.px(10) - 3 * Theme.spXs - Theme.spMd))
+                                                width: root.dayZoom ? Math.min(Math.ceil(dueTitleMetrics.advanceWidth), Math.max(Theme.px(60), dueFlow.width / Math.max(1, Math.min(3, headCol.modelData.tasks.length)) - Theme.px(10) - 3 * Theme.spXs - Theme.spMd))
                                                                     : dueLine.width - Theme.px(10) - Theme.spXs
                                                 objectName: dueChip.ghost ? "week-ghost-title" : "week-due-title"
                                                 text: dueChip.ghost ? root.ghostTitle(dueChip.modelData) : dueChip.modelData.title
@@ -2250,9 +2262,14 @@ Item {
                                         font.pixelSize: Theme.fsXs
                                     }
                                 }
-                                // Quiet week: the range under the title.
+                                // Quiet week: the range under the title. A narrow
+                                // lane ends it with "…", not cut by the block's
+                                // edge mid-digit (b-18).
                                 Text {
+                                    objectName: "week-event-range-under"
                                     visible: !Style.fills && !root.dayZoom && !weEv.compact
+                                    width: parent.width
+                                    elide: Text.ElideRight
                                     text: weEv._range
                                     color: Theme.textDim
                                     font.family: Theme.fontUi
@@ -2579,8 +2596,12 @@ Item {
                                         font.pixelSize: Theme.fsXs
                                     }
                                 }
+                                // Elided in a narrow lane, as an event's (b-18).
                                 Text {
+                                    objectName: "week-taskblock-range-under"
                                     visible: !wkBlock.oneLine && !Style.fills && !root.dayZoom
+                                    width: parent.width
+                                    elide: Text.ElideRight
                                     text: wkBlock._range
                                     color: Theme.textDim
                                     font.family: Theme.fontUi

@@ -79,7 +79,7 @@ Rectangle {
     // When the work is planned, for a task that has a scheduledAt of its own
     // worth showing: no deadline, a different day, or a clock time. Before,
     // a task with only a schedule looked undated (TASKS-12).
-    function _schedLabel() {
+    function _schedLabel(noClock) {
         if (card.scheduled && card.scheduled.length > 0) return card.scheduled;
         const t = card.task;
         if (!t || !t.scheduledAt || !t.scheduledAt.getTime || isNaN(t.scheduledAt.getTime())) return "";
@@ -88,7 +88,7 @@ Rectangle {
         const sameDay = dl && dl.getTime && !isNaN(dl.getTime())
             && dl.getFullYear() === s.getFullYear() && dl.getMonth() === s.getMonth() && dl.getDate() === s.getDate();
         if (sameDay && !t.scheduledHasTime) return "";
-        return TaskDates.cardText(s, !!t.scheduledHasTime, AppController.today);
+        return TaskDates.cardText(s, !!t.scheduledHasTime && !noClock, AppController.today);
     }
 
     signal rangeSelectRequested(string anchorId)
@@ -560,8 +560,19 @@ Rectangle {
                     const clock = timed && card.task.dueAt && card.task.dueAt.getHours ? " " + I18n.fmtTime(card.task.dueAt) : "";
                     return I18n.t("task.due.overdueShort").arg(-days) + clock;
                 }
+                // Still too long, the clock goes before the date is cut:
+                // "сегодня 1…" said neither the day nor the time (b-20).
+                readonly property string bareText: {
+                    if (days === 99999) return "";
+                    if (overdue) return I18n.t("task.due.overdueShort").arg(-days);
+                    return TaskDates.cardText(card.task.deadline, false, AppController.today);
+                }
                 TextMetrics { id: dueFull; font: dueT.font; text: dueT.dlText }
-                text: dueBox.width >= dueFull.advanceWidth || !overdue ? dlText : shortText
+                TextMetrics { id: dueShort; font: dueT.font; text: dueT.shortText }
+                // Width 0 = not laid out yet: the whole text, not a guess.
+                text: dueBox.width <= 0 || dueBox.width >= dueFull.advanceWidth ? dlText
+                    : overdue && dueBox.width >= dueShort.advanceWidth ? shortText
+                    : bareText
                 Accessible.name: dlText
                 // Never under the card edge: the Russian overdue text ran past
                 // it with the number cut off (EYES-2).
@@ -579,12 +590,18 @@ Rectangle {
                 id: schedT
                 objectName: "tc-scheduled"
                 readonly property string label: (AppController.today, I18n.lang, card._schedLabel())
+                // Without the clock when the line is short of room (b-20).
+                readonly property string bare: (AppController.today, I18n.lang, card._schedLabel(true))
                 visible: label.length > 0 && !dueT.visible
-                text: label
+                TextMetrics { id: schedFull; font: schedT.font; text: schedT.label }
+                text: schedT.width <= 0 || schedT.width >= schedFull.advanceWidth ? label : bare
                 // Inside the card's padding, as the due line is: "tomorrow
                 // 15:00" ran to the card's edge (EYE-13).
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
+                // Its width from the full label, not from the text it picks
+                // by that width, so the two do not chase each other.
+                Layout.preferredWidth: schedFull.advanceWidth + 1
                 elide: Text.ElideRight
                 color: Theme.textDim
                 font.family: Theme.fontUi
