@@ -1168,6 +1168,9 @@ class AppController : public QObject {
   // `goneCandidates`, when given, collects the external ids that would be
   // marked gone instead of marking them: the provider can look them up first
   // (INT-6, audit 2026-09-30).
+  // A merge / pull request card whose Jira issue is here goes to the archive,
+  // its facts onto the issue's card (APP-293); the count of cards folded.
+  int foldReviewCardsIntoIssues();
   MergeStats mergeExternalTasks(const QString& providerId,
                                 const QString& idPrefix,
                                 const QVector<heap::integrations::ExternalTask>& issues,
@@ -2245,6 +2248,8 @@ class AppController : public QObject {
   // can want the same id (the same number from two repos), and upsert on a
   // colliding id replaces the other task rather than adding one.
   QString uniqueTaskId(const QString& base) const;
+  QHash<QString, QString> jiraIssuesByKey() const;
+  static QVariantMap reviewGitFacts(const QJsonObject& details, const QString& externalId, const QString& url);
 
   TaskModel m_tasks;
   EventModel m_events;

@@ -10496,6 +10496,86 @@ QString AppController::uniqueTaskId(const QString& base) const {
   return candidate;
 }
 
+// The Jira issues a review can fold into, by key ("PROJ-123"). An archived
+// one counts too: a merged MR names a ticket already done and archived here,
+// and kept a card of its own beside it. A live one wins over an archived one.
+QHash<QString, QString> AppController::jiraIssuesByKey() const {
+  QHash<QString, QString> byKey;
+  for(const Task& cur : m_tasks.items()) {
+    if(cur.externalProvider != QLatin1String("jira") || cur.externalId.isEmpty()) {
+      continue;
+    }
+    const QString key = cur.externalId.toUpper();
+    if(!cur.archived || !byKey.contains(key)) {
+      byKey.insert(key, cur.id);
+    }
+  }
+  return byKey;
+}
+
+// What the issue's card shows of a folded review: "PR #n state", CI.
+QVariantMap AppController::reviewGitFacts(const QJsonObject& details, const QString& externalId, const QString& url) {
+  const QString pipeline = details.value(QStringLiteral("pipeline")).toString();
+  QString checks;
+  if(pipeline == QLatin1String("success")) {
+    checks = QStringLiteral("passing");
+  } else if(pipeline == QLatin1String("failed")) {
+    checks = QStringLiteral("failing");
+  } else if(!pipeline.isEmpty() && pipeline != QLatin1String("canceled") && pipeline != QLatin1String("skipped")) {
+    checks = QStringLiteral("pending");
+  }
+  QVariantMap entry;
+  entry["prState"] = details.value(QStringLiteral("state")).toString();
+  entry["prNumber"] = QString(externalId).remove(QChar('!')).toInt();
+  entry["prUrl"] = url;
+  entry["prChecks"] = checks;
+  return entry;
+}
+
+// "Sync everything" pulls every tracker at once, and GitLab can answer
+// before Jira: a review pulled ahead of its issue got a card of its own
+// (APP-293 folds only into issues already here). Once the issues are in,
+// those cards fold the way a later pull would have folded them.
+int AppController::foldReviewCardsIntoIssues() {
+  const QHash<QString, QString> issueByKey = jiraIssuesByKey();
+  if(issueByKey.isEmpty()) {
+    return 0;
+  }
+  const QSet<QString> issueKeys(issueByKey.keyBegin(), issueByKey.keyEnd());
+  QStringList folded;
+  for(const Task& cur : m_tasks.items()) {
+    if(cur.archived || cur.externalProvider.isEmpty() || cur.externalProvider == QLatin1String("jira")) {
+      continue;
+    }
+    const QJsonObject& details = cur.externalMeta.details;
+    const QString kind = details.value(QStringLiteral("kind")).toString();
+    if(kind != QLatin1String("pr") && kind != QLatin1String("mr")) {
+      continue;
+    }
+    const QString key = heap::integrations::linkedIssueKey(details.value(QStringLiteral("sourceBranch")).toString(),
+                                                           cur.externalMeta.title.isEmpty() ? cur.title : cur.externalMeta.title,
+                                                           cur.externalMeta.body,
+                                                           issueKeys);
+    if(key.isEmpty()) {
+      continue;
+    }
+    const QString issueId = issueByKey.value(key);
+    // An open review wins over a merged or closed one already shown.
+    const QVariantMap shown = m_tasks.gitFactsFor(issueId);
+    const QString stage = details.value(QStringLiteral("state")).toString();
+    if(shown.value(QStringLiteral("prNumber")).toInt() == 0 ||
+       (shown.value(QStringLiteral("prState")).toString() != QLatin1String("open") && stage == QLatin1String("open"))) {
+      m_tasks.setGitInfoForId(issueId, reviewGitFacts(details, cur.externalId, cur.externalUrl));
+    }
+    folded.append(cur.id);
+  }
+  // Archived, not deleted: the card may hold notes.
+  for(const QString& id : folded) {
+    m_tasks.setArchived(id, true);
+  }
+  return static_cast<int>(folded.size());
+}
+
 AppController::MergeStats AppController::mergeExternalTasks(const QString& providerId,
                                                             const QString& idPrefix,
                                                             const QVector<heap::integrations::ExternalTask>& issues,
@@ -10561,14 +10641,7 @@ AppController::MergeStats AppController::mergeExternalTasks(const QString& provi
   // A merge / pull request about a Jira issue is that issue's work, not a
   // card of its own (APP-293): it shows on the issue's card as "PR #n state"
   // and its own card is not made. Keyed by the issue's key, "PROJ-123".
-  QHash<QString, QString> issueByKey;
-  if(providerId != QLatin1String("jira")) {
-    for(const Task& cur : m_tasks.items()) {
-      if(cur.externalProvider == QLatin1String("jira") && !cur.archived && !cur.externalId.isEmpty()) {
-        issueByKey.insert(cur.externalId.toUpper(), cur.id);
-      }
-    }
-  }
+  const QHash<QString, QString> issueByKey = providerId != QLatin1String("jira") ? jiraIssuesByKey() : QHash<QString, QString>{};
   const QSet<QString> issueKeys(issueByKey.keyBegin(), issueByKey.keyEnd());
   // The issue a review was folded into this pull: an open one wins over a
   // merged or closed one for the same issue.
@@ -10620,21 +10693,7 @@ AppController::MergeStats AppController::mergeExternalTasks(const QString& provi
           const QString prev = foldedState.value(issueId);
           if(prev.isEmpty() || (prev != QLatin1String("open") && stage == QLatin1String("open"))) {
             foldedState.insert(issueId, stage);
-            const QString pipeline = ext.details.value(QStringLiteral("pipeline")).toString();
-            QString checks;
-            if(pipeline == QLatin1String("success")) {
-              checks = QStringLiteral("passing");
-            } else if(pipeline == QLatin1String("failed")) {
-              checks = QStringLiteral("failing");
-            } else if(!pipeline.isEmpty() && pipeline != QLatin1String("canceled") && pipeline != QLatin1String("skipped")) {
-              checks = QStringLiteral("pending");
-            }
-            QVariantMap entry;
-            entry["prState"] = stage;
-            entry["prNumber"] = QString(ext.externalId).remove(QChar('!')).toInt();
-            entry["prUrl"] = ext.url;
-            entry["prChecks"] = checks;
-            m_tasks.setGitInfoForId(issueId, entry);
+            m_tasks.setGitInfoForId(issueId, reviewGitFacts(ext.details, ext.externalId, ext.url));
           }
           // A card this review got before it was folded goes to the archive
           // (not deleted: it may hold notes), and stays accounted for.
@@ -10876,6 +10935,11 @@ AppController::MergeStats AppController::mergeExternalTasks(const QString& provi
   // them. Written even when nothing else changed — a status appearing for the
   // first time is news whether or not the issue carrying it was new.
   const bool learned = rememberSeenStatuses(providerId, seenStatuses);
+  // The issues are in: a review another tracker brought before them folds
+  // now rather than on that tracker's next pull.
+  if(providerId == QLatin1String("jira")) {
+    stats.updated += foldReviewCardsIntoIssues();
+  }
   if(stats.added > 0 || stats.updated > 0 || stats.gone > 0 || stats.outOfScope > 0 || learned) {
     scheduleSave();
   }
@@ -15672,6 +15736,8 @@ void AppController::seedShortcutCatalog() {
   add("cal.today", "0");
   add("cal.prev", "[");
   add("cal.next", "]");
+  add("cal.prev.alt", "P");
+  add("cal.next.alt", "N");
   add("cal.goToDate", "");
   // Notes, live only in the Notes view. Ctrl+PgUp/PgDn is how every tabbed
   // editor steps between documents; F2 renames, as in a file manager.

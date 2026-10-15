@@ -1143,6 +1143,7 @@ FocusScope {
                     // (APP-314: the text scrolled in a box over empty space).
                     Layout.preferredHeight: Math.min(Math.max(Theme.px(320),
                         root.height * (body.text.trim().length > 0 ? 0.45 : 0.62)), trackerBody.contentHeight)
+                    Layout.minimumHeight: Math.min(Theme.px(120), trackerBody.contentHeight)
                     clip: true
                     text: root._spacedFences(root._trackerText)
                     readOnly: true
@@ -1211,6 +1212,10 @@ FocusScope {
                 objectName: "task-doc-body"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                // Under a long tracker text my notes kept no height at all,
+                // and Done sat right under their label (0.9.4): the tracker
+                // box gives way first.
+                Layout.minimumHeight: root._isTicket ? Theme.px(160) : 0
                 Layout.leftMargin: -Theme.px(24)
                 Layout.rightMargin: -Theme.px(24)
                 // The text ends above Done: it ran on beneath the button, with
@@ -1265,7 +1270,10 @@ FocusScope {
             objectName: "task-doc-side"
             Layout.fillHeight: true
             Layout.preferredWidth: root._sideW
-            visible: root.width >= 2 * root._padX + Theme.px(600) + root._sideW
+            // Folded away only where the text would get less than 440 px:
+            // at 600 the panel lost the column on most screens, and with it
+            // the code, the time and Done (0.9.4).
+            visible: root.width >= 2 * root._padX + Theme.px(440) + root._sideW
             color: Theme.bg
             Rectangle {
                 visible: !root._quiet

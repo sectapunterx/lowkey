@@ -41,7 +41,7 @@ Popup {
             { label: "keys.row.leftRight", ids: ["board.cursorLeft", "board.cursorRight"] },
             { label: "keys.row.firstLast", ids: ["cursor.first", "cursor.last"] },
             { label: "keys.row.halfPage", ids: ["cursor.pageDown", "cursor.pageUp"] },
-            { label: "keys.row.period", ids: ["cal.prev", "cal.next"] },
+            { label: "keys.row.period", ids: ["cal.prev", "cal.next", "cal.prev.alt", "cal.next.alt"] },
             { label: "keys.row.today", ids: ["cal.today"] },
             { label: "keys.row.jumps", ids: ["nav.back", "nav.forward"] },
             { label: "keys.row.regionNext", ids: ["region.next"] }

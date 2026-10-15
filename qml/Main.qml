@@ -1476,8 +1476,9 @@ ApplicationWindow {
                         anchors.right: parent.right
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
+                        // Never so narrow the meta column folds away (0.9.4).
                         width: taskDoc.full ? parent.width
-                             : Math.min(parent.width, Math.max(Theme.px(560), parent.width * 0.5))
+                             : Math.min(parent.width, Math.max(Theme.px(820), parent.width * 0.5))
                         z: 60
                         onClosed: Qt.callLater(win.focusActiveView)
                         onInternalLinkActivated: (kind, target) => win.followMdLink(kind, target)
@@ -2202,7 +2203,7 @@ ApplicationWindow {
         "profile.weeklyReport", "sync.all", "focus.immersion", "timeMachine.open", "standup.draft", "recap.open",
         "endOfDay.open", "welcome.replay", "example.open", "zoom.in", "zoom.out", "zoom.reset", "tweaks.open", "log.open",
         "hotkeys.open", "undo", "redo", "search.focus", "selection.selectAll", "selection.clearSel",
-        "selection.deleteSel", "cal.today", "cal.prevDay", "cal.nextDay", "cal.newEvent", "cal.prev", "cal.next",
+        "selection.deleteSel", "cal.today", "cal.prevDay", "cal.nextDay", "cal.newEvent", "cal.prev", "cal.next", "cal.prev.alt", "cal.next.alt",
         "cal.goToDate", "cal.taskEarlier", "cal.taskLater", "cal.taskEarlierWeek", "cal.taskLaterWeek",
         "cal.taskTimeEarlier", "cal.taskTimeLater", "board.cursorDown", "board.cursorUp", "board.cursorLeft",
         "board.cursorRight", "board.open", "board.toggleSelect", "board.moveDown", "board.moveUp",
@@ -3115,6 +3116,15 @@ ApplicationWindow {
     }
     CalKey {
         sequences: [_kbd("cal.next")]
+        onActivated: { const v = win.activeViewItem(); if (v && v.step) v.step(1); }
+    }
+    // n / p, the next and the previous period, beside ] and [ (0.9.4).
+    CalKey {
+        sequences: [_kbd("cal.prev.alt")]
+        onActivated: { const v = win.activeViewItem(); if (v && v.step) v.step(-1); }
+    }
+    CalKey {
+        sequences: [_kbd("cal.next.alt")]
         onActivated: { const v = win.activeViewItem(); if (v && v.step) v.step(1); }
     }
     // The calendar lens' own keys (keymap.md, APP-264): [ ] a period, 0

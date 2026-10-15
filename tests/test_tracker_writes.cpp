@@ -843,6 +843,56 @@ TEST_F(TrackerWrites, MergeRequest_Movable_MovesHereOnly_AndTheNextSyncKeepsTheC
   }
 }
 
+// ── APP-293: a review folds into its Jira issue ──
+
+namespace {
+
+ExternalTask jiraIssue(const QString& key) {
+  ExternalTask e;
+  e.providerId = QStringLiteral("jira");
+  e.externalId = key;
+  e.url = QStringLiteral("https://jira.example.com/browse/") + key;
+  e.title = QStringLiteral("refactor jobs");
+  e.status = QStringLiteral("In Progress");
+  e.project = QStringLiteral("HT");
+  return e;
+}
+
+ExternalTask reviewFor(const QString& key, const QString& state) {
+  ExternalTask e = mergeRequest(QStringLiteral("MR ") + state, state);
+  e.title = key + QStringLiteral(" [refactor] jobs");
+  e.body = QStringLiteral("Closes ") + key;
+  return e;
+}
+
+}  // namespace
+
+// Sync everything: GitLab answered before Jira. The review's card folds once
+// the issue arrives, without waiting for GitLab's next pull.
+TEST_F(TrackerWrites, Review_PulledBeforeItsIssue_FoldsWhenTheIssueArrives) {
+  app_->mergeExternalTasks(
+      QStringLiteral("gitlab"), QStringLiteral("gitlab-"), {reviewFor(QStringLiteral("HT-7"), QStringLiteral("opened"))}, false);
+  ASSERT_NE(task(QStringLiteral("gitlab-MR17")), nullptr);
+  EXPECT_FALSE(task(QStringLiteral("gitlab-MR17"))->archived);
+
+  app_->mergeExternalTasks(QStringLiteral("jira"), QStringLiteral("jira-"), {jiraIssue(QStringLiteral("HT-7"))}, false);
+  EXPECT_TRUE(task(QStringLiteral("gitlab-MR17"))->archived) << "the review is the issue's work, not a card of its own";
+  const QVariantMap facts = app_->tasks()->gitFactsFor(QStringLiteral("jira-HT-7"));
+  EXPECT_EQ(facts.value(QStringLiteral("prNumber")).toInt(), 17);
+  EXPECT_EQ(facts.value(QStringLiteral("prUrl")).toString(), QStringLiteral("https://gitlab.example.com/acme/app/-/merge_requests/17"));
+}
+
+// A merged MR names a ticket already done and archived here: it folds into
+// that one too, rather than standing alone on the board.
+TEST_F(TrackerWrites, Review_OfAnArchivedIssue_Folds) {
+  app_->mergeExternalTasks(QStringLiteral("jira"), QStringLiteral("jira-"), {jiraIssue(QStringLiteral("HT-8"))}, false);
+  app_->tasks()->setArchived(QStringLiteral("jira-HT-8"), true);
+  app_->mergeExternalTasks(
+      QStringLiteral("gitlab"), QStringLiteral("gitlab-"), {reviewFor(QStringLiteral("HT-8"), QStringLiteral("merged"))}, false);
+  EXPECT_EQ(task(QStringLiteral("gitlab-MR17")), nullptr) << "no card is made for it";
+  EXPECT_EQ(app_->tasks()->gitFactsFor(QStringLiteral("jira-HT-8")).value(QStringLiteral("prState")).toString(), QStringLiteral("merged"));
+}
+
 // ── APP-255: the Jira sprint, read-only ──
 
 TEST_F(TrackerWrites, Sprint_MarkersLabelAndSearch) {
