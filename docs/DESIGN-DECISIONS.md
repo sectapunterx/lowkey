@@ -565,3 +565,16 @@ progressive disclosure, content priority, state preservation). One entry each.
 
 - Lead (2026-10-10, r5 merge): two groups set the small-dialog fact leading (1.45 from R4-062, 1.5 from R4-105); the sheet draws every small-dialog fact (keychain, tracker push, no Done column, storage) at 1.5, so 1.5 stays. The ↵ glyph R4-080 needed is the R4-056 font fix.
 - Lead (2026-10-10, review 3): the R3-095 git "работаю над…" default was a lead decision, not an owner one (the header of `docs/DESIGN-GAPS-0.8.1-r4.md` lists it among owner decisions by mistake); Review 2's split — on for data from before 0.8.1, off for a new profile — stands.
+
+## 0.9.4 · owner decisions
+
+- **OS notifications are the system's own toasts (N/X-Ntf-OS, 2026-10-15).**
+  The sheet drew OS notifications as Tabless-styled cards. They are native:
+  Windows draws a ToastGeneric toast, macOS a UNUserNotificationCenter banner
+  (actions under «Параметры» on hover). Tabless sets only the icon, the name,
+  the title, the body and up to five button labels; background, font, button
+  shape and the time belong to the OS. Own Qt notification windows were
+  rejected: they would lose the Notification Center history, «Не беспокоить»
+  and the OS focus mode. The sheet (X- and N-Ntf-OS, regenerated with
+  bold2.py; old copies in `New heap design/_backup-2026-10-15`) now shows the
+  native look; the in-app Toast and the rest of the sheet are unchanged.
