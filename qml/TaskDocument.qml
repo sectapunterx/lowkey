@@ -123,6 +123,10 @@ FocusScope {
         root._profileId = AppController.activeProfileId;
         root.taskId = id;
         root._load();
+        // The tracker text from its top, measured afresh: it kept the place
+        // it was scrolled to, and the height it had shrunk to (0.9.4).
+        trackerBody.scrollToTop();
+        root._trackerFullH = trackerBody.contentHeight;
         if (intoTitle === true) root.focusTitle();
         else root.takeFocus();
         // The first tracker text opened says whose it is, once (coach mark).
@@ -632,6 +636,9 @@ FocusScope {
     // floors for the tracker text and my notes, so a long ticket still leaves
     // my notes, the comments and Done on the panel (0.9.4).
     readonly property bool _short: root.height < Theme.px(640)
+    // The tracker text's full height, as tall as it has measured (see the
+    // tracker box): reset when its text changes or the document opens.
+    property real _trackerFullH: 0
 
     RowLayout {
         anchors.fill: parent
@@ -1174,9 +1181,14 @@ FocusScope {
                     Layout.fillHeight: true
                     Layout.verticalStretchFactor: 3
                     Layout.maximumHeight: Math.min(Math.max(Theme.px(320),
-                        root.height * (body.text.trim().length > 0 ? 0.45 : 0.62)), trackerBody.contentHeight)
-                    Layout.preferredHeight: Math.min(root._short ? Theme.px(64) : Theme.px(96), trackerBody.contentHeight)
-                    Layout.minimumHeight: Math.min(root._short ? Theme.px(64) : Theme.px(96), trackerBody.contentHeight)
+                        root.height * (body.text.trim().length > 0 ? 0.45 : 0.62)), root._trackerFullH)
+                    Layout.preferredHeight: Math.min(root._short ? Theme.px(64) : Theme.px(96), root._trackerFullH)
+                    Layout.minimumHeight: Math.min(root._short ? Theme.px(64) : Theme.px(96), root._trackerFullH)
+                    // The list's content height is an estimate that shrinks
+                    // as a long text is scrolled: the box followed it down to
+                    // nothing (0.9.4). The tallest seen for this text holds.
+                    onContentHeightChanged: root._trackerFullH = Math.max(root._trackerFullH, trackerBody.contentHeight)
+                    onTextChanged: root._trackerFullH = trackerBody.contentHeight
                     clip: true
                     text: root._spacedFences(root._trackerText)
                     readOnly: true

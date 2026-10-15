@@ -41,6 +41,8 @@ Item {
     // a box (the tracker's).
     property bool tailRoom: true
     readonly property real contentHeight: view.contentHeight
+    // Back to the first line (a document reopened on the same text).
+    function scrollToTop() { view.positionViewAtBeginning(); }
     // The scroll bar shows at rest while the text runs past the box (a
     // short box of read-only text, where nothing else says there is more).
     property bool scrollCue: false
