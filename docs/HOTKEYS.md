@@ -160,7 +160,7 @@ own: the filter opens with it and the board narrows as you go.
 | Action | Default |
 |--------|---------|
 | Back to today | `0` |
-| Previous / next period (a day on Today, a week or month in the calendar) | `[` / `]` |
+| Previous / next period (a day on Today, a week or month in the calendar) | `[` / `]`, `P` / `N` |
 | Calendar: day / week / month | `Z, D` / `Z, W` / `Z, M` |
 | Day panel: previous / next day | `Alt+Left` / `Alt+Right` |
 | New event at the next free slot | `Ctrl+Alt+E` |

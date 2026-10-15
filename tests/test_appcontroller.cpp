@@ -1988,6 +1988,31 @@ TEST_F(AppControllerTest, AManualSyncRebindsTheProviderToTheOpenProfile) {
   app_->setIntegrationSecret(QStringLiteral("gitea"), QStringLiteral("token"), QString());
 }
 
+// "Sync everything" by hand binds every tracker here, as each card's own
+// Sync now does: a GitLab bound to another profile had its MRs dropped
+// unmerged, so they never folded into the Jira issues open here (0.9.4).
+// The auto-sync tick moves nothing.
+TEST_F(AppControllerTest, SyncEverythingRebindsEveryTracker_TheTimerDoesNot) {
+  writeIntegrationConfig(QStringLiteral("gitea"),
+                         QJsonObject{
+                             {QStringLiteral("connected"), true},
+                             {QStringLiteral("host"), QStringLiteral("http://127.0.0.1:1")},  // never contacted
+                             {QStringLiteral("repo"), QStringLiteral("acme/web")},
+                             {QStringLiteral("profileId"), QStringLiteral("some-other-profile")},
+                         });
+  app_->setIntegrationSecret(QStringLiteral("gitea"), QStringLiteral("token"), QStringLiteral("tok"));
+
+  app_->syncNow(/*here=*/false);
+  EXPECT_EQ(readIntegrationConfig(QStringLiteral("gitea")).value(QStringLiteral("profileId")).toString(),
+            QStringLiteral("some-other-profile"));
+
+  app_->syncNow();
+  EXPECT_EQ(readIntegrationConfig(QStringLiteral("gitea")).value(QStringLiteral("profileId")).toString(), app_->activeProfileId());
+
+  writeIntegrationConfig(QStringLiteral("gitea"), QJsonObject{});
+  app_->setIntegrationSecret(QStringLiteral("gitea"), QStringLiteral("token"), QString());
+}
+
 // ─── A branch finds its own ticket ───
 // A mirrored issue's heap id carries the provider ("jira-PROJ-123"), while the
 // branch anyone writes for it names the tracker key ("PROJ-123").

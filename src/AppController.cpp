@@ -10420,7 +10420,7 @@ void AppController::installUpdate() {
   });
 }
 
-void AppController::syncNow() {
+void AppController::syncNow(bool here) {
   QStringList directories;
   for(auto it = m_directoryClients.constBegin(); it != m_directoryClients.constEnd(); ++it) {
     directories.append(it.key());
@@ -10430,7 +10430,7 @@ void AppController::syncNow() {
     return;
   }
   for(const QString& id : directories) {
-    fetchDirectory(id);
+    fetchDirectory(id, /*rebindProfile=*/here);
   }
   if(m_syncProviders.empty()) {
     return;
@@ -10448,6 +10448,12 @@ void AppController::syncNow() {
     ids.append(provider->id());
   }
   for(const QString& id : ids) {
+    // A tracker bound to another profile had its pull dropped unmerged: Sync
+    // everything left a GitLab MR beside its Jira issue, where a card's own
+    // Sync now (which binds) folded it (0.9.4).
+    if(here && integrationConfig(id).value(QStringLiteral("profileId")).toString() != activeProfileId()) {
+      setIntegrationField(id, QStringLiteral("profileId"), activeProfileId());
+    }
     syncProviderNow(id);
   }
 }
@@ -10536,7 +10542,11 @@ QVariantMap AppController::reviewGitFacts(const QJsonObject& details, const QStr
 // before Jira: a review pulled ahead of its issue got a card of its own
 // (APP-293 folds only into issues already here). Once the issues are in,
 // those cards fold the way a later pull would have folded them.
-int AppController::foldReviewCardsIntoIssues() {
+// The "PR #n" an issue shows lives in memory only: a review folded before
+// (its card archived) gives it back too, so a restart does not leave the
+// issue without its MR until GitLab's next pull. `archive` false only does
+// that, for a profile being loaded.
+int AppController::foldReviewCardsIntoIssues(bool archive) {
   const QHash<QString, QString> issueByKey = jiraIssuesByKey();
   if(issueByKey.isEmpty()) {
     return 0;
@@ -10544,7 +10554,7 @@ int AppController::foldReviewCardsIntoIssues() {
   const QSet<QString> issueKeys(issueByKey.keyBegin(), issueByKey.keyEnd());
   QStringList folded;
   for(const Task& cur : m_tasks.items()) {
-    if(cur.archived || cur.externalProvider.isEmpty() || cur.externalProvider == QLatin1String("jira")) {
+    if(cur.externalProvider.isEmpty() || cur.externalProvider == QLatin1String("jira")) {
       continue;
     }
     const QJsonObject& details = cur.externalMeta.details;
@@ -10567,7 +10577,9 @@ int AppController::foldReviewCardsIntoIssues() {
        (shown.value(QStringLiteral("prState")).toString() != QLatin1String("open") && stage == QLatin1String("open"))) {
       m_tasks.setGitInfoForId(issueId, reviewGitFacts(details, cur.externalId, cur.externalUrl));
     }
-    folded.append(cur.id);
+    if(archive && !cur.archived) {
+      folded.append(cur.id);
+    }
   }
   // Archived, not deleted: the card may hold notes.
   for(const QString& id : folded) {
@@ -13197,6 +13209,8 @@ void AppController::applyProfileToModels(const Profile& p) {
     }
   }
   m_tasks.reset(tasks);
+  // The reset dropped every "PR #n" the issues showed.
+  foldReviewCardsIntoIssues(/*archive=*/false);
   m_people.reset(p.people);
   m_statuses = p.statuses;
   emit statusesChanged();
@@ -17285,7 +17299,7 @@ void AppController::autoSyncTickAt(const QDateTime& now) {
   if(m_syncProviders.empty() || !heap::integrations::autoSyncDue(m_lastTrackerSync, now, mins)) {
     return;
   }
-  syncNow();
+  syncNow(/*here=*/false);
   m_lastTrackerSync = now;  // the clock the check ran on, so a test's `now` holds
   saveLastTrackerSync();
 }

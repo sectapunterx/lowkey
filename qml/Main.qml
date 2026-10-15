@@ -3120,11 +3120,11 @@ ApplicationWindow {
     }
     // n / p, the next and the previous period, beside ] and [ (0.9.4).
     CalKey {
-        sequences: [_kbd("cal.prev.alt")]
+        sequences: [win._kbd("cal.prev.alt")]
         onActivated: { const v = win.activeViewItem(); if (v && v.step) v.step(-1); }
     }
     CalKey {
-        sequences: [_kbd("cal.next.alt")]
+        sequences: [win._kbd("cal.next.alt")]
         onActivated: { const v = win.activeViewItem(); if (v && v.step) v.step(1); }
     }
     // The calendar lens' own keys (keymap.md, APP-264): [ ] a period, 0

@@ -893,6 +893,24 @@ TEST_F(TrackerWrites, Review_OfAnArchivedIssue_Folds) {
   EXPECT_EQ(app_->tasks()->gitFactsFor(QStringLiteral("jira-HT-8")).value(QStringLiteral("prState")).toString(), QStringLiteral("merged"));
 }
 
+// The issue's "PR #n" is kept in memory only; a profile loaded again (a
+// restart, a switch away and back) gets it back from the folded card instead
+// of showing the issue without its MR until GitLab's next pull.
+TEST_F(TrackerWrites, Review_FoldedBefore_ComesBackWhenTheProfileLoads) {
+  app_->mergeExternalTasks(
+      QStringLiteral("gitlab"), QStringLiteral("gitlab-"), {reviewFor(QStringLiteral("HT-9"), QStringLiteral("opened"))}, false);
+  app_->mergeExternalTasks(QStringLiteral("jira"), QStringLiteral("jira-"), {jiraIssue(QStringLiteral("HT-9"))}, false);
+  ASSERT_TRUE(task(QStringLiteral("gitlab-MR17"))->archived);
+
+  const QString home = app_->activeProfileId();
+  const QString away = app_->createProfile(QStringLiteral("away"));
+  app_->setActiveProfileId(away);
+  app_->setActiveProfileId(home);
+  ASSERT_NE(task(QStringLiteral("jira-HT-9")), nullptr);
+  EXPECT_EQ(app_->tasks()->gitFactsFor(QStringLiteral("jira-HT-9")).value(QStringLiteral("prNumber")).toInt(), 17);
+  EXPECT_EQ(app_->tasks()->gitFactsFor(QStringLiteral("jira-HT-9")).value(QStringLiteral("prState")).toString(), QStringLiteral("opened"));
+}
+
 // ── APP-255: the Jira sprint, read-only ──
 
 TEST_F(TrackerWrites, Sprint_MarkersLabelAndSearch) {

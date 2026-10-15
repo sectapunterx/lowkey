@@ -1170,7 +1170,8 @@ class AppController : public QObject {
   // (INT-6, audit 2026-09-30).
   // A merge / pull request card whose Jira issue is here goes to the archive,
   // its facts onto the issue's card (APP-293); the count of cards folded.
-  int foldReviewCardsIntoIssues();
+  // With `archive` false only the facts are put back (a profile loading).
+  int foldReviewCardsIntoIssues(bool archive = true);
   MergeStats mergeExternalTasks(const QString& providerId,
                                 const QString& idPrefix,
                                 const QVector<heap::integrations::ExternalTask>& issues,
@@ -1245,7 +1246,10 @@ class AppController : public QObject {
 
   // Pull issues from every connected tracker and mirror them as tasks in the
   // active profile. No-op (with a toast) when no provider is configured.
-  Q_INVOKABLE void syncNow();
+  // By hand (`here`) it is "sync everything, here": each tracker is bound to
+  // the active profile first, as one card's "Sync now" binds its own; the
+  // auto-sync timer passes false and never moves a tracker.
+  Q_INVOKABLE void syncNow(bool here = true);
   // Pull from a single connected provider (the per-card "Sync now" button).
   Q_INVOKABLE void syncProvider(const QString& providerId);
   // Validate the current credentials for one provider and toast the result.
