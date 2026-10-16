@@ -193,7 +193,11 @@ TestCase {
 
     function test_week_shows_repeats_ahead_faint_and_read_only() {
         AppController.language = "en";
+        // A Monday, so the repeats every other day fall in the same week
+        // whatever day the suite runs on (on a Saturday the next one was
+        // the next week's Monday, and the week showed none).
         const day = probeDay(735);
+        day.setDate(day.getDate() - (day.getDay() + 6) % 7);
         const id = mkRepeating("week ghost probe", "every:2:day", day, 9);
         AppController.selectedDate = day;
         const rows = AppController.tasks.rowCount();
