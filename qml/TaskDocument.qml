@@ -1410,6 +1410,13 @@ FocusScope {
                         link: String(root.task.externalUrl || "")
                         arrow: !root._quiet
                     }
+                    // CI of the merge / pull request (APP-318): the failed
+                    // jobs and their logs, on demand.
+                    TaskCiPanel {
+                        Layout.fillWidth: true
+                        taskId: root.taskId
+                        rev: root._rev
+                    }
                 }
 
                 // Упоминается в: notes that name the task.

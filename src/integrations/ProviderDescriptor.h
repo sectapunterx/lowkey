@@ -308,6 +308,10 @@ struct ProviderDescriptor {
   // How far back a merged or closed one is still pulled, so its card follows
   // it to Done; older ones are left alone.
   int reviewRecentDays = 14;
+  // CI of the open ones (APP-318), read-only: "gitlab" (a merge request's
+  // head pipeline, its jobs and their logs) or "github" (the head commit's
+  // check runs and statuses, an Actions job's log). Empty = none.
+  QString ciStyle;
 };
 
 }  // namespace heap::integrations

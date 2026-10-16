@@ -1,3 +1,4 @@
+#include "integrations/CiStatus.h"
 #include "integrations/ReplyError.h"
 #include "integrations/RestIssueProvider.h"
 
@@ -541,6 +542,30 @@ void RestIssueProvider::finishAll() {
     have.insert(key);
     tasks.append(t);
   }
+  // The open ones' CI first (APP-318): a request each, one at a time, for at
+  // most a page of them; a closed or merged one keeps what it had.
+  if(!m_desc.ciStyle.isEmpty() && m_pull.ciQueue.isEmpty() && m_pull.ciTasks.isEmpty()) {
+    QVector<int> queue;
+    for(int i = 0; i < tasks.size() && queue.size() < 30; ++i) {
+      const QJsonObject d = tasks.at(i).details;
+      const QString kind = d.value(QStringLiteral("kind")).toString();
+      const QString state = d.value(QStringLiteral("state")).toString();
+      if((kind == QLatin1String("mr") || kind == QLatin1String("pr")) &&
+         (state == QLatin1String("open") || state == QLatin1String("opened"))) {
+        queue.append(i);
+      }
+    }
+    if(!queue.isEmpty()) {
+      m_pull.ciTasks = tasks;
+      m_pull.ciQueue = queue;
+      nextCi();
+      return;
+    }
+  }
+  emitAll(tasks);
+}
+
+void RestIssueProvider::emitAll(const QVector<ExternalTask>& tasks) {
   const QString truncated = m_pull.issuesTruncated;
   const QString reviewError = m_pull.reviewError;
   const int pages = m_pull.page;
@@ -552,6 +577,179 @@ void RestIssueProvider::finishAll() {
   } else if(!reviewError.isEmpty()) {
     emit pullFailed(0, QStringLiteral("%1: merge requests — %2").arg(m_desc.displayName, reviewError));
   }
+}
+
+void RestIssueProvider::storeCi(int index, const QString& state, const QString& url, const QString& ref, const QString& at) {
+  QJsonObject d = m_pull.ciTasks[index].details;
+  // "" is "no pipeline": the parser's own empty value is kept as it was.
+  d.insert(QStringLiteral("pipeline"), state);
+  if(!url.isEmpty()) {
+    d.insert(QStringLiteral("pipelineUrl"), url);
+  }
+  if(!ref.isEmpty()) {
+    d.insert(QStringLiteral("ciRef"), ref);
+  }
+  if(!at.isEmpty()) {
+    d.insert(QStringLiteral("pipelineAt"), at);
+  }
+  m_pull.ciTasks[index].details = d;
+}
+
+void RestIssueProvider::nextCi() {
+  if(!m_pull.active) {
+    return;
+  }
+  if(m_pull.ciQueue.isEmpty()) {
+    const QVector<ExternalTask> tasks = m_pull.ciTasks;
+    emitAll(tasks);
+    return;
+  }
+  const int i = m_pull.ciQueue.takeFirst();
+  const ExternalTask& t = m_pull.ciTasks.at(i);
+  const QString base = resolvedBaseUrl();
+  const QString project = QString::fromLatin1(QUrl::toPercentEncoding(t.project));
+  if(t.project.isEmpty()) {
+    nextCi();
+    return;
+  }
+  // Any error (no rights to pipelines, a 404, offline): no CI, said as
+  // nothing, and the pull goes on.
+  if(m_desc.ciStyle == QLatin1String("gitlab")) {
+    const QString iid = t.externalId.startsWith(QChar('!')) ? t.externalId.mid(1) : t.externalId;
+    QNetworkReply* reply = m_nam->get(buildRequest(base + QStringLiteral("/api/v4/projects/%1/merge_requests/%2").arg(project, iid)));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, i]() {
+      reply->deleteLater();
+      if(m_pull.active && reply->error() == QNetworkReply::NoError) {
+        const heap::ci::Pipeline p = heap::ci::gitlabPipeline(QJsonDocument::fromJson(reply->readAll()).object());
+        storeCi(i, p.state, p.url, p.id, p.at);
+      }
+      nextCi();
+    });
+    return;
+  }
+  // GitHub: the pull request's head commit, then its checks, then (for a CI
+  // that posts statuses) the combined status.
+  const QString repo = t.project;
+  QNetworkReply* reply = m_nam->get(buildRequest(base + QStringLiteral("/repos/%1/pulls/%2").arg(repo, t.externalId)));
+  connect(reply, &QNetworkReply::finished, this, [this, reply, i, base, repo]() {
+    reply->deleteLater();
+    if(!m_pull.active || reply->error() != QNetworkReply::NoError) {
+      nextCi();
+      return;
+    }
+    const QString sha =
+        QJsonDocument::fromJson(reply->readAll()).object().value(QStringLiteral("head")).toObject().value(QStringLiteral("sha")).toString();
+    if(sha.isEmpty()) {
+      nextCi();
+      return;
+    }
+    QNetworkReply* checks = m_nam->get(buildRequest(base + QStringLiteral("/repos/%1/commits/%2/check-runs?per_page=100").arg(repo, sha)));
+    connect(checks, &QNetworkReply::finished, this, [this, checks, i, base, repo, sha]() {
+      checks->deleteLater();
+      if(!m_pull.active) {
+        return;
+      }
+      const QJsonArray runs = checks->error() == QNetworkReply::NoError
+                                  ? QJsonDocument::fromJson(checks->readAll()).object().value(QStringLiteral("check_runs")).toArray()
+                                  : QJsonArray();
+      QNetworkReply* status = m_nam->get(buildRequest(base + QStringLiteral("/repos/%1/commits/%2/status").arg(repo, sha)));
+      connect(status, &QNetworkReply::finished, this, [this, status, i, runs, repo, sha]() {
+        status->deleteLater();
+        if(!m_pull.active) {
+          return;
+        }
+        QString combined;
+        if(status->error() == QNetworkReply::NoError) {
+          const QJsonObject o = QJsonDocument::fromJson(status->readAll()).object();
+          // An empty combined status says "pending" with no statuses at all.
+          if(!o.value(QStringLiteral("statuses")).toArray().isEmpty()) {
+            combined = o.value(QStringLiteral("state")).toString();
+          }
+        }
+        const QString state = heap::ci::githubState(runs, combined);
+        const QString url = m_pull.ciTasks.at(i).url.isEmpty() ? QString() : m_pull.ciTasks.at(i).url + QStringLiteral("/checks");
+        storeCi(i, state, url, sha, QString());
+        nextCi();
+      });
+    });
+  });
+}
+
+void RestIssueProvider::getFollowing(const QString& url, const std::function<void(QNetworkReply*)>& done) {
+  QNetworkRequest req = buildRequest(url);
+  req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
+  QNetworkReply* reply = m_nam->get(req);
+  connect(reply, &QNetworkReply::finished, this, [this, reply, done]() {
+    reply->deleteLater();
+    const QUrl to = reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
+    if(to.isEmpty()) {
+      done(reply);
+      return;
+    }
+    // A signed link of its own: no token goes with it.
+    QNetworkRequest plain{reply->url().resolved(to)};
+    plain.setRawHeader("User-Agent", "tabless-sync");
+    plain.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    QNetworkReply* next = m_nam->get(plain);
+    connect(next, &QNetworkReply::finished, this, [next, done]() {
+      next->deleteLater();
+      done(next);
+    });
+  });
+}
+
+void RestIssueProvider::fetchCiJobs(const QString& externalId, const QString& project, const QString& ref) {
+  if(m_desc.ciStyle.isEmpty()) {
+    emit ciJobsFetched(externalId, {}, QStringLiteral("unsupported"));
+    return;
+  }
+  if(!isConfigured() || project.isEmpty() || ref.isEmpty()) {
+    emit ciJobsFetched(externalId, {}, QStringLiteral("no pipeline"));
+    return;
+  }
+  const QString base = resolvedBaseUrl();
+  const bool gitlab = m_desc.ciStyle == QLatin1String("gitlab");
+  const QString url = gitlab ? base + QStringLiteral("/api/v4/projects/%1/pipelines/%2/jobs?scope[]=failed&per_page=100")
+                                          .arg(QString::fromLatin1(QUrl::toPercentEncoding(project)), ref)
+                             : base + QStringLiteral("/repos/%1/commits/%2/check-runs?per_page=100").arg(project, ref);
+  QNetworkReply* reply = m_nam->get(buildRequest(url));
+  connect(reply, &QNetworkReply::finished, this, [this, reply, externalId, gitlab]() {
+    reply->deleteLater();
+    if(reply->error() != QNetworkReply::NoError) {
+      emit ciJobsFetched(externalId, {}, describeReplyError(reply));
+      return;
+    }
+    const QByteArray raw = reply->readAll();
+    emit ciJobsFetched(externalId, gitlab ? heap::ci::gitlabFailedJobs(raw) : heap::ci::githubFailedChecks(raw), QString());
+  });
+}
+
+void RestIssueProvider::fetchCiLog(const QString& externalId, const QString& project, const QString& jobId) {
+  if(m_desc.ciStyle.isEmpty()) {
+    emit ciLogFetched(externalId, jobId, QString(), QStringLiteral("unsupported"));
+    return;
+  }
+  if(!isConfigured() || project.isEmpty() || jobId.isEmpty()) {
+    emit ciLogFetched(externalId, jobId, QString(), QStringLiteral("no job"));
+    return;
+  }
+  const QString base = resolvedBaseUrl();
+  const QString url =
+      m_desc.ciStyle == QLatin1String("gitlab")
+          ? base + QStringLiteral("/api/v4/projects/%1/jobs/%2/trace").arg(QString::fromLatin1(QUrl::toPercentEncoding(project)), jobId)
+          : base + QStringLiteral("/repos/%1/actions/jobs/%2/logs").arg(project, jobId);
+  getFollowing(url, [this, externalId, jobId](QNetworkReply* reply) {
+    if(reply->error() != QNetworkReply::NoError) {
+      emit ciLogFetched(externalId, jobId, QString(), describeReplyError(reply));
+      return;
+    }
+    // Its end is what matters: a huge log is read from the last few MB.
+    QByteArray raw = reply->readAll();
+    if(raw.size() > heap::ci::kLogMaxBytes) {
+      raw = raw.right(heap::ci::kLogMaxBytes);
+    }
+    emit ciLogFetched(externalId, jobId, heap::ci::logTail(raw), QString());
+  });
 }
 
 void RestIssueProvider::finishPull(const QString& truncatedReason) {

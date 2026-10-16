@@ -2089,6 +2089,16 @@ Item {
                     options: [ ({ value: "on", label: I18n.t("settings.on") }), ({ value: "off", label: I18n.t("settings.off") }) ]
                     onSelected: (value) => root.set("notifications", "taskBlockReminders", value === "on")
                 }
+                // My merge / pull request's CI went red (APP-318): on by
+                // default (owner, 2026-10-16).
+                SegRow {
+                    objectName: "settings-ci-failed"
+                    label: I18n.t("settings.notif.ciFailed")
+                    hint: I18n.t("settings.notif.ciFailed.hint")
+                    value: notifRoot.n.ciFailed === false ? "off" : "on"
+                    options: [ ({ value: "on", label: I18n.t("settings.on") }), ({ value: "off", label: I18n.t("settings.off") }) ]
+                    onSelected: (value) => root.set("notifications", "ciFailed", value === "on")
+                }
                 // The sound palette (APP-177): off by default.
                 SegRow {
                     objectName: "settings-sound-enabled"

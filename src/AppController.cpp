@@ -29,6 +29,7 @@
 #include "hints/ShortcutHints.h"
 #include "history/TaskHistory.h"
 #include "integrations/AutoSync.h"
+#include "integrations/CiStatus.h"
 #include "integrations/IntegrationI18n.h"
 #include "integrations/JiraProvider.h"
 #include "integrations/MattermostClient.h"
@@ -587,6 +588,8 @@ const QHash<QString, I18nEntry>& i18nTable() {
       {"move.profile.gone", {"Can't take the move back: a profile is gone", "Перенос не отменить: профиля больше нет"}},
       {"profile.exported", {"Profile exported: %1", "Профиль экспортирован: %1"}},
       {"task.keyCopied", {"Copied: %1", "Скопировано: %1"}},
+      {"ci.failedTitle", {"CI failed", "CI упал"}},
+      {"ci.failedTitleN", {"CI failed on %1", "CI упал: %1"}},
       {"profile.mdCopied", {"Profile Markdown copied to clipboard", "Markdown профиля скопирован в буфер"}},
       {"profile.weeklyCopied", {"Weekly report copied to clipboard", "Недельный отчёт скопирован в буфер"}},
       {"profile.imported", {"Profile imported: %1", "Импортирован профиль: %1"}},
@@ -10778,6 +10781,8 @@ AppController::MergeStats AppController::mergeExternalTasks(const QString& provi
   using heap::integrations::StatusMap;
   const heap::frame::Span span("mergeExternalTasks");
   MergeStats stats;
+  // Merge / pull requests whose CI went red in this pull (APP-318).
+  QStringList ciTurnedRed;
   // Whatever this pull changes on a card is the tracker's doing (APP-165).
   const QScopedValueRollback<bool> fromTracker(m_historySync, true);
 
@@ -11082,6 +11087,16 @@ AppController::MergeStats AppController::mergeExternalTasks(const QString& provi
     t.externalMeta.updatedAt = ext.updatedAt;
     t.externalMeta.dueAt = ext.dueAt;
     t.externalMeta.crossProject = ext.crossProject;
+    // My merge / pull request's CI went red since the last sync (APP-318): a
+    // notification, on by default (owner, 2026-10-16), off in Settings.
+    {
+      const QString wasCi = t.externalMeta.details.value(QStringLiteral("pipeline")).toString();
+      const QString nowCi = ext.details.value(QStringLiteral("pipeline")).toString();
+      if(row >= 0 && heap::ci::turnedRed(wasCi, nowCi) &&
+         settingsMap().value(QStringLiteral("notifications")).toMap().value(QStringLiteral("ciFailed"), true).toBool()) {
+        ciTurnedRed.append(QStringLiteral("%1 %2").arg(ext.externalId, ext.title));
+      }
+    }
     t.externalMeta.details = ext.details;
 
     // An unchanged issue must not mark the state dirty: auto-sync runs on a
@@ -11157,6 +11172,11 @@ AppController::MergeStats AppController::mergeExternalTasks(const QString& provi
   // The first pull of a tracker brings in everything it has: that is the
   // board being filled, not news, so its cards carry no dot.
   noteSyncAdded(stats.addedIds, /*markUnseen=*/hadCardsBefore);
+  if(!ciTurnedRed.isEmpty()) {
+    emit notification(ciTurnedRed.size() == 1 ? tr_("ci.failedTitle") : tr_("ci.failedTitleN").arg(ciTurnedRed.size()),
+                      ciTurnedRed.join(QStringLiteral(" · ")),
+                      QStringLiteral("ci"));
+  }
   return stats;
 }
 
@@ -12357,6 +12377,121 @@ void AppController::fetchTicketComments(const QString& taskId) {
       return;
     }
     emit ticketCommentsLoaded(taskId, {}, tr_("ticket.notConnected"));
+  });
+}
+
+namespace {
+
+// The card whose CI a task shows (APP-318): a merge / pull request itself, or
+// for a Jira card the open MR folded into it (else the last one).
+const Task* ciSource(const QVector<Task>& tasks, const Task& t) {
+  const auto kind = [](const Task& x) {
+    return x.externalMeta.details.value(QStringLiteral("kind")).toString();
+  };
+  if(kind(t) == QLatin1String("mr") || kind(t) == QLatin1String("pr")) {
+    return &t;
+  }
+  const Task* found = nullptr;
+  for(const Task& x : tasks) {
+    if(x.externalMeta.details.value(QStringLiteral("foldedInto")).toString() != t.id) {
+      continue;
+    }
+    const QString state = x.externalMeta.details.value(QStringLiteral("state")).toString();
+    if(state == QLatin1String("open") || state == QLatin1String("opened")) {
+      return &x;
+    }
+    found = &x;
+  }
+  return found;
+}
+
+}  // namespace
+
+QVariantMap AppController::ciOf(const QString& taskId) const {
+  const int row = m_tasks.indexOfId(taskId);
+  if(row < 0) {
+    return {};
+  }
+  const Task* src = ciSource(m_tasks.items(), m_tasks.items().at(row));
+  if(src == nullptr) {
+    return {};
+  }
+  const QJsonObject d = src->externalMeta.details;
+  return {{QStringLiteral("state"), d.value(QStringLiteral("pipeline")).toString()},
+          {QStringLiteral("url"), d.value(QStringLiteral("pipelineUrl")).toString()},
+          {QStringLiteral("at"), d.value(QStringLiteral("pipelineAt")).toString()},
+          {QStringLiteral("hasRef"), !d.value(QStringLiteral("ciRef")).toString().isEmpty()},
+          {QStringLiteral("source"), src->id}};
+}
+
+bool AppController::isCiErrorLine(const QString& line) const {
+  return heap::ci::isErrorLine(line);
+}
+
+void AppController::fetchCiJobs(const QString& taskId) {
+  const int row = m_tasks.indexOfId(taskId);
+  const Task* src = row >= 0 ? ciSource(m_tasks.items(), m_tasks.items().at(row)) : nullptr;
+  if(src == nullptr) {
+    emit ciJobsLoaded(taskId, {}, QStringLiteral("no pipeline"));
+    return;
+  }
+  const QString providerId = src->externalProvider;
+  const QString externalId = src->externalId;
+  const QString project = src->externalMeta.project;
+  const QString ref = src->externalMeta.details.value(QStringLiteral("ciRef")).toString();
+  ensureFreshToken(providerId, [this, taskId, providerId, externalId, project, ref]() {
+    for(const auto& provider : m_syncProviders) {
+      if(provider->id() != providerId) {
+        continue;
+      }
+      auto* guard = new QObject(this);
+      connect(provider.get(),
+              &heap::integrations::IntegrationProvider::ciJobsFetched,
+              guard,
+              [this, guard, taskId, externalId](const QString& id, const QVariantList& jobs, const QString& error) {
+                if(id != externalId) {
+                  return;
+                }
+                guard->deleteLater();
+                emit ciJobsLoaded(taskId, jobs, providerReason(error));
+              });
+      provider->fetchCiJobs(externalId, project, ref);
+      return;
+    }
+    emit ciJobsLoaded(taskId, {}, tr_("ticket.notConnected"));
+  });
+}
+
+void AppController::fetchCiLog(const QString& taskId, const QString& jobId) {
+  const int row = m_tasks.indexOfId(taskId);
+  const Task* src = row >= 0 ? ciSource(m_tasks.items(), m_tasks.items().at(row)) : nullptr;
+  if(src == nullptr) {
+    emit ciLogLoaded(taskId, jobId, QString(), QStringLiteral("no pipeline"));
+    return;
+  }
+  const QString providerId = src->externalProvider;
+  const QString externalId = src->externalId;
+  const QString project = src->externalMeta.project;
+  ensureFreshToken(providerId, [this, taskId, jobId, providerId, externalId, project]() {
+    for(const auto& provider : m_syncProviders) {
+      if(provider->id() != providerId) {
+        continue;
+      }
+      auto* guard = new QObject(this);
+      connect(provider.get(),
+              &heap::integrations::IntegrationProvider::ciLogFetched,
+              guard,
+              [this, guard, taskId, externalId, jobId](const QString& id, const QString& job, const QString& text, const QString& error) {
+                if(id != externalId || job != jobId) {
+                  return;
+                }
+                guard->deleteLater();
+                emit ciLogLoaded(taskId, jobId, text, providerReason(error));
+              });
+      provider->fetchCiLog(externalId, project, jobId);
+      return;
+    }
+    emit ciLogLoaded(taskId, jobId, QString(), tr_("ticket.notConnected"));
   });
 }
 

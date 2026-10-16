@@ -423,3 +423,38 @@ TEST_F(LocalFeatures, ABlockingLoopIsRefused) {
   EXPECT_EQ(toasts.count(), 1);
   EXPECT_TRUE(task("B-3")->links.isEmpty());
 }
+
+// ── APP-318: my merge request's CI went red ──
+
+TEST_F(LocalFeatures, CiTurningRedIsANotificationOnce) {
+  ExternalTask mr = issue("7");
+  mr.externalId = QStringLiteral("!7");
+  mr.title = QStringLiteral("cache the build");
+  mr.status = QStringLiteral("MR open");
+  QJsonObject d;
+  d.insert(QStringLiteral("kind"), QStringLiteral("mr"));
+  d.insert(QStringLiteral("state"), QStringLiteral("opened"));
+  d.insert(QStringLiteral("pipeline"), QStringLiteral("running"));
+  mr.details = d;
+  QStringList said;
+  QObject::connect(app_.get(),
+                   &AppController::notification,
+                   app_.get(),
+                   [&](const QString& title, const QString& body, const QString& kind, const QString&) {
+                     if(kind == QLatin1String("ci")) {
+                       said << title + QStringLiteral(" | ") + body;
+                     }
+                   });
+  merge({mr});
+  EXPECT_TRUE(said.isEmpty()) << "a first sync is not news";
+  d.insert(QStringLiteral("pipeline"), QStringLiteral("failed"));
+  mr.details = d;
+  merge({mr});
+  ASSERT_EQ(said.size(), 1);
+  EXPECT_TRUE(said.first().contains(QStringLiteral("cache the build")));
+  merge({mr});
+  EXPECT_EQ(said.size(), 1) << "failed again is not news";
+  // The card and the document read it.
+  const QString id = app_->tasks()->items().last().id;
+  EXPECT_EQ(app_->ciOf(id).value(QStringLiteral("state")).toString(), QStringLiteral("failed"));
+}

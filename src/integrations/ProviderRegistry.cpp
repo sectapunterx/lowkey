@@ -198,6 +198,7 @@ ProviderDescriptor github() {
   d.reviewParser = githubPullParse;
   d.reviewEnabledKey = QStringLiteral("pullRequests");
   d.reviewRolesKey = QStringLiteral("prRoles");
+  d.ciStyle = QStringLiteral("github");
   d.reviewRolesDefault = {QStringLiteral("assignee"), QStringLiteral("reviewer")};
   return d;
 }
@@ -259,6 +260,7 @@ ProviderDescriptor gitlab() {
   d.reviewLists = gitlabReviewLists();
   d.reviewParser = gitlabMergeRequestParse;
   d.reviewRolesKey = QStringLiteral("mrRoles");
+  d.ciStyle = QStringLiteral("gitlab");
   d.reviewRolesDefault = {QStringLiteral("assignee"), QStringLiteral("reviewer")};
   return d;
 }

@@ -5,6 +5,7 @@
 
 #include "FakeHttpServer.h"
 
+#include "integrations/CiStatus.h"
 #include "integrations/OAuthRefresh.h"
 #include "integrations/ProviderRegistry.h"
 #include "integrations/ReplyError.h"
@@ -1570,6 +1571,160 @@ TEST_F(PagingWalk, MergeRequestNotesComeFromTheMergeRequest) {
     return got >= 0;
   }));
   EXPECT_EQ(got, 1);
+}
+
+// ── CI of my merge / pull requests (APP-318) ──
+
+TEST(CiStatus, OneWordForAPipeline) {
+  EXPECT_EQ(heap::ci::gitlabState(QStringLiteral("success")), QStringLiteral("success"));
+  EXPECT_EQ(heap::ci::gitlabState(QStringLiteral("failed")), QStringLiteral("failed"));
+  EXPECT_EQ(heap::ci::gitlabState(QStringLiteral("pending")), QStringLiteral("running"));
+  EXPECT_EQ(heap::ci::gitlabState(QStringLiteral("manual")), QString());
+  const QJsonArray ok =
+      QJsonDocument::fromJson(R"([{"status":"completed","conclusion":"success"},{"status":"completed","conclusion":"skipped"}])").array();
+  const QJsonArray red = QJsonDocument::fromJson(R"([{"status":"in_progress"},{"status":"completed","conclusion":"failure"}])").array();
+  const QJsonArray going = QJsonDocument::fromJson(R"([{"status":"queued"},{"status":"completed","conclusion":"success"}])").array();
+  EXPECT_EQ(heap::ci::githubState(ok, QString()), QStringLiteral("success"));
+  EXPECT_EQ(heap::ci::githubState(red, QString()), QStringLiteral("failed")) << "a failure wins over one still going";
+  EXPECT_EQ(heap::ci::githubState(going, QString()), QStringLiteral("running"));
+  EXPECT_EQ(heap::ci::githubState({}, QStringLiteral("failure")), QStringLiteral("failed")) << "a CI that posts statuses";
+  EXPECT_EQ(heap::ci::githubState({}, QString()), QString());
+  EXPECT_TRUE(heap::ci::turnedRed(QStringLiteral("success"), QStringLiteral("failed")));
+  EXPECT_TRUE(heap::ci::turnedRed(QStringLiteral("running"), QStringLiteral("failed")));
+  EXPECT_FALSE(heap::ci::turnedRed(QString(), QStringLiteral("failed"))) << "a first sync is not news";
+  EXPECT_FALSE(heap::ci::turnedRed(QStringLiteral("failed"), QStringLiteral("failed")));
+}
+
+TEST(CiStatus, TheLogTailIsCleanText) {
+  QByteArray raw;
+  for(int i = 0; i < 500; ++i) {
+    raw += "line " + QByteArray::number(i) + "\n";
+  }
+  raw += "section_start:1700000000:build_script\r\x1b[0K\x1b[31;1mERROR: tests failed\x1b[0m\n";
+  raw += "progress 10%\rprogress 100%\n";
+  raw += "section_end:1700000001:build_script\r\x1b[0K\n\n\n";
+  const QString tail = heap::ci::logTail(raw);
+  const QStringList lines = tail.split(QLatin1Char('\n'));
+  EXPECT_EQ(lines.size(), heap::ci::kLogTailLines);
+  EXPECT_FALSE(tail.contains(QChar(0x1b))) << "colours out";
+  EXPECT_FALSE(tail.contains(QStringLiteral("section_start"))) << "GitLab's markers out";
+  EXPECT_TRUE(tail.contains(QStringLiteral("ERROR: tests failed")));
+  EXPECT_EQ(lines.last(), QStringLiteral("progress 100%")) << "a progress line at its last state, no trailing blanks";
+  EXPECT_TRUE(heap::ci::isErrorLine(QStringLiteral("ERROR: tests failed")));
+  EXPECT_FALSE(heap::ci::isErrorLine(QStringLiteral("line 3")));
+}
+
+TEST_F(PagingWalk, GitlabOpenMergeRequestsCarryTheirPipeline) {
+  heap::testing::FakeHttpServer srv;
+  srv.route("GET /api/v4/issues", {200, "[]", {}});
+  srv.route("GET /api/v4/user", {200, R"({"username":"me"})", {}});
+  srv.route(
+      "GET /api/v4/merge_requests",
+      {200,
+       R"([{"iid":17,"title":"mr","state":"opened","web_url":"https://g/acme/app/-/merge_requests/17","references":{"full":"acme/app!17"}},
+                 {"iid":18,"title":"old","state":"merged","web_url":"https://g/acme/app/-/merge_requests/18","references":{"full":"acme/app!18"}}])",
+       {}});
+  srv.route("GET /api/v4/projects/acme%2Fapp/merge_requests/17",
+            {200, R"({"iid":17,"head_pipeline":{"id":901,"status":"failed","web_url":"https://g/acme/app/-/pipelines/901"}})", {}});
+
+  RestIssueProvider p(forgeAt(QStringLiteral("gitlab")));
+  p.setConfig({{QStringLiteral("host"), srv.base()}, {QStringLiteral("token"), QStringLiteral("tok")}});
+  PullWatcher w(&p);
+  p.pullTasks();
+  ASSERT_TRUE(heap::testing::waitUntil([&] {
+    return w.fetched > 0;
+  }));
+  ASSERT_EQ(w.tasks.size(), 2);
+  const QJsonObject open = w.tasks.at(0).details;
+  EXPECT_EQ(open.value(QStringLiteral("pipeline")).toString(), QStringLiteral("failed"));
+  EXPECT_EQ(open.value(QStringLiteral("ciRef")).toString(), QStringLiteral("901"));
+  EXPECT_EQ(open.value(QStringLiteral("pipelineUrl")).toString(), QStringLiteral("https://g/acme/app/-/pipelines/901"));
+  EXPECT_FALSE(srv.seen().contains(QByteArray("GET /api/v4/projects/acme%2Fapp/merge_requests/18"))) << "a merged one is not asked";
+  EXPECT_EQ(writes(srv), 0) << "CI is read only";
+}
+
+TEST_F(PagingWalk, GitlabFailedJobsAndALogTail) {
+  heap::testing::FakeHttpServer srv;
+  srv.route("GET /api/v4/projects/acme%2Fapp/pipelines/901/jobs",
+            {200,
+             R"([{"id":55,"name":"test","stage":"test","status":"failed","duration":61.2,"web_url":"https://g/j/55"},
+                 {"id":56,"name":"lint","stage":"test","status":"success"}])",
+             {}});
+  srv.route("GET /api/v4/projects/acme%2Fapp/jobs/55/trace", {200, "ok\n\x1b[31mFAILED: 1 test\x1b[0m\n", {}});
+  srv.route("GET /api/v4/projects/acme%2Fapp/jobs/57/trace", {403, R"({"message":"403 Forbidden"})", {}});
+  RestIssueProvider p(forgeAt(QStringLiteral("gitlab")));
+  p.setConfig({{QStringLiteral("host"), srv.base()}, {QStringLiteral("token"), QStringLiteral("tok")}});
+  QVariantList jobs;
+  bool gotJobs = false;
+  QObject::connect(&p, &IntegrationProvider::ciJobsFetched, &p, [&](const QString&, const QVariantList& j, const QString&) {
+    jobs = j;
+    gotJobs = true;
+  });
+  p.fetchCiJobs(QStringLiteral("!17"), QStringLiteral("acme/app"), QStringLiteral("901"));
+  ASSERT_TRUE(heap::testing::waitUntil([&] {
+    return gotJobs;
+  }));
+  ASSERT_EQ(jobs.size(), 1);
+  EXPECT_EQ(jobs.first().toMap().value(QStringLiteral("name")).toString(), QStringLiteral("test"));
+  QString text;
+  QString error;
+  int logs = 0;
+  QObject::connect(&p, &IntegrationProvider::ciLogFetched, &p, [&](const QString&, const QString&, const QString& t, const QString& e) {
+    text = t;
+    error = e;
+    ++logs;
+  });
+  p.fetchCiLog(QStringLiteral("!17"), QStringLiteral("acme/app"), QStringLiteral("55"));
+  ASSERT_TRUE(heap::testing::waitUntil([&] {
+    return logs == 1;
+  }));
+  EXPECT_EQ(text, QStringLiteral("ok\nFAILED: 1 test"));
+  p.fetchCiLog(QStringLiteral("!17"), QStringLiteral("acme/app"), QStringLiteral("57"));
+  ASSERT_TRUE(heap::testing::waitUntil([&] {
+    return logs == 2;
+  }));
+  EXPECT_TRUE(text.isEmpty());
+  EXPECT_FALSE(error.isEmpty()) << "no rights to the log: an error, said quietly by the UI";
+}
+
+TEST_F(PagingWalk, GithubPullRequestChecksFromTheHeadCommit) {
+  heap::testing::FakeHttpServer srv;
+  srv.route("GET /repos/acme/app/pulls/5", {200, R"({"number":5,"head":{"sha":"abc123"}})", {}});
+  srv.route("GET /repos/acme/app/commits/abc123/check-runs",
+            {200,
+             R"({"check_runs":[{"id":77,"name":"build","status":"completed","conclusion":"failure","app":{"slug":"github-actions"},
+                 "html_url":"https://github.com/acme/app/runs/77","output":{"summary":"2 tests failed"}},
+                {"id":78,"name":"ci/jenkins","status":"completed","conclusion":"failure","app":{"slug":"jenkins"}}]})",
+             {}});
+  srv.route("GET /repos/acme/app/commits/abc123/status", {200, R"({"state":"pending","statuses":[]})", {}});
+  srv.route("GET /repos/acme/app/actions/jobs/77/logs", {200, "2026-10-16T10:00:00Z ##[error]Process completed with exit code 1.\n", {}});
+  RestIssueProvider p(forgeAt(QStringLiteral("github")));
+  p.setConfig({{QStringLiteral("host"), srv.base()}, {QStringLiteral("token"), QStringLiteral("tok")}});
+  QVariantList jobs;
+  bool gotJobs = false;
+  QObject::connect(&p, &IntegrationProvider::ciJobsFetched, &p, [&](const QString&, const QVariantList& j, const QString&) {
+    jobs = j;
+    gotJobs = true;
+  });
+  p.fetchCiJobs(QStringLiteral("5"), QStringLiteral("acme/app"), QStringLiteral("abc123"));
+  ASSERT_TRUE(heap::testing::waitUntil([&] {
+    return gotJobs;
+  }));
+  ASSERT_EQ(jobs.size(), 2);
+  EXPECT_TRUE(jobs.at(0).toMap().value(QStringLiteral("hasLog")).toBool());
+  EXPECT_EQ(jobs.at(0).toMap().value(QStringLiteral("summary")).toString(), QStringLiteral("2 tests failed"));
+  EXPECT_FALSE(jobs.at(1).toMap().value(QStringLiteral("hasLog")).toBool()) << "another CI's check has no log here";
+  QString text;
+  bool gotLog = false;
+  QObject::connect(&p, &IntegrationProvider::ciLogFetched, &p, [&](const QString&, const QString&, const QString& t, const QString&) {
+    text = t;
+    gotLog = true;
+  });
+  p.fetchCiLog(QStringLiteral("5"), QStringLiteral("acme/app"), QStringLiteral("77"));
+  ASSERT_TRUE(heap::testing::waitUntil([&] {
+    return gotLog;
+  }));
+  EXPECT_TRUE(text.contains(QStringLiteral("exit code 1")));
 }
 
 TEST(StatusMapReview, MergeAndPullRequestsHaveTheirOwnColumns) {

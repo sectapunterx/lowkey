@@ -80,6 +80,7 @@ var ITEMS = [
     ["notifications", "row", "settings.notif.meetings"],
     ["notifications", "row", "settings.notif.deadlines"],
     ["notifications", "row", "settings.notif.taskBlock"],
+    ["notifications", "row", "settings.notif.ciFailed"],
     ["notifications", "row", "settings.sound.enabled"],
     ["notifications", "row", "settings.notif.quietHours"],
     ["notifications", "row", "settings.notif.desktopNotif"],

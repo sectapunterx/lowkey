@@ -376,7 +376,15 @@ Rectangle {
     // From each fact's own condition, not from the children's `visible`:
     // that reads false while the row is hidden, so a card given its task
     // after creation never showed its facts.
-    readonly property bool _hasFacts: schedMore.label.length > 0 || prT.prState.length > 0
+    // CI of a merge / pull request (APP-318): its own pipeline, or for a
+    // Jira card the folded MR's checks. "" = none.
+    readonly property string _ci: {
+        const p = card._isTicket && card._ticket.details ? String(card._ticket.details.pipeline || "") : "";
+        if (p.length > 0) return p;
+        const c = card.task ? String(card.task.prChecks || "") : "";
+        return c === "passing" ? "success" : c === "failing" ? "failed" : c === "pending" ? "running" : "";
+    }
+    readonly property bool _hasFacts: schedMore.label.length > 0 || prT.prState.length > 0 || card._ci.length > 0
         || (!card._timing && card._tracked > 0)
         || !!(card.task && card.task.recurrence && String(card.task.recurrence).length > 0)
         || (card._isTicket && (card._ticket.commentCount || 0) > 0) || labelRep.count > 0
@@ -846,6 +854,32 @@ Rectangle {
                         ToolTip.visible: prT.folded && prHover.hovered
                         ToolTip.delay: 500
                         ToolTip.text: I18n.t("foldhint.tip").arg(String(card.task ? card.task.prUrl || "" : "").indexOf("github") >= 0 ? "GitHub" : "GitLab")
+                    }
+                    // "CI ✗" (APP-318): red is the one that matters, so it is
+                    // the loud one; a pass is quiet.
+                    Row {
+                        objectName: "tc-ci"
+                        visible: card._ci.length > 0
+                        spacing: Theme.sp2xs
+                        readonly property color ink: card._ci === "failed" ? Theme.danger
+                                                   : card._ci === "success" ? Theme.success : Theme.textDim
+                        Icon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            name: card._ci === "success" ? "check" : card._ci === "failed" ? "close" : "timer"
+                            size: Theme.fsXs
+                            color: parent.ink
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "CI"
+                            color: parent.ink
+                            font.family: Theme.fontUi
+                            font.pixelSize: Theme.fsXs
+                        }
+                        HoverHandler { id: ciHover }
+                        ToolTip.visible: ciHover.hovered
+                        ToolTip.delay: 500
+                        ToolTip.text: I18n.t("ci.state." + card._ci)
                     }
                     // Whose move it is on that PR (APP-156): read off the PR — a
                     // review asked of me, red CI, an approval — and only ever

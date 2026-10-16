@@ -1261,6 +1261,15 @@ class AppController : public QObject {
   // stored: the answer arrives on ticketCommentsLoaded and lives only as long
   // as whatever is showing it. A GET, so it cannot change the issue.
   Q_INVOKABLE void fetchTicketComments(const QString& taskId);
+  // CI of a merge / pull request (APP-318), read-only and on demand: the
+  // failed jobs (ciJobsLoaded) and the tail of one job's log (ciLogLoaded).
+  // A Jira card folded with its MR asks for that MR's. Nothing is stored.
+  Q_INVOKABLE void fetchCiJobs(const QString& taskId);
+  Q_INVOKABLE void fetchCiLog(const QString& taskId, const QString& jobId);
+  // The CI the card shows: {state, url, at, source} ("" state = none).
+  Q_INVOKABLE QVariantMap ciOf(const QString& taskId) const;
+  // A log line that says something failed (heap::ci::isErrorLine), for QML.
+  Q_INVOKABLE bool isCiErrorLine(const QString& line) const;
 
   // Pull issues from every connected tracker and mirror them as tasks in the
   // active profile. No-op (with a toast) when no provider is configured.
@@ -2225,6 +2234,8 @@ class AppController : public QObject {
   // reply for a ticket the user has since navigated away from can be dropped.
   // `error` is empty on success; an empty list with no error means no comments.
   void ticketCommentsLoaded(const QString& taskId, const QVariantList& comments, const QString& error);
+  void ciJobsLoaded(const QString& taskId, const QVariantList& jobs, const QString& error);
+  void ciLogLoaded(const QString& taskId, const QString& jobId, const QString& text, const QString& error);
   void updateStatusChanged();
   void integrationStatesChanged();
   void integrationHealthChanged();

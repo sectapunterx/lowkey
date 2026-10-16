@@ -54,6 +54,17 @@ class IntegrationProvider : public QObject {
     emit commentsFetched(externalId, {}, QStringLiteral("unsupported"));
   }
 
+  // CI of a merge / pull request (APP-318), on demand. `ref` is what the
+  // sync stored: the pipeline id (GitLab) or the head commit (GitHub).
+  // Always answer, with an error when they cannot: "unsupported" by default.
+  virtual void fetchCiJobs(const QString& externalId, const QString& /*project*/, const QString& /*ref*/) {
+    emit ciJobsFetched(externalId, {}, QStringLiteral("unsupported"));
+  }
+
+  virtual void fetchCiLog(const QString& externalId, const QString& /*project*/, const QString& jobId) {
+    emit ciLogFetched(externalId, jobId, QString(), QStringLiteral("unsupported"));
+  }
+
   // Every status the tracker's workflows can put an issue in, so the mapping
   // UI can offer them before an issue in that status has ever been pulled.
   // Answers statusesFetched; the default has nothing to say.
@@ -102,6 +113,11 @@ class IntegrationProvider : public QObject {
   // Newest first. An empty list with an empty error means the issue has none.
   void commentsFetched(const QString& externalId, const QVector<ExternalComment>& comments, const QString& error);
   void statusesFetched(const QStringList& statuses);
+  // The failed jobs of a pipeline: [{id, name, stage, seconds, url, summary,
+  // hasLog}] (heap::ci), or an error.
+  void ciJobsFetched(const QString& externalId, const QVariantList& jobs, const QString& error);
+  // The tail of one job's log, cleaned (heap::ci::logTail), or an error.
+  void ciLogFetched(const QString& externalId, const QString& jobId, const QString& text, const QString& error);
   void issuesLookedUp(const QVector<ExternalTask>& found, const QStringList& missing);
   // checkIssue's answer. `httpStatus` 0 with ok=false means the tracker was
   // never reached (offline). `remoteStatus` is as a pull would report it;

@@ -51,6 +51,8 @@ class RestIssueProvider : public IntegrationProvider {
   // it still lives there; under "assigned to me" when the signed-in user is
   // one of its assignees (selfUserPath, asked once per provider).
   void checkIssue(const QString& externalId, const QString& project) override;
+  void fetchCiJobs(const QString& externalId, const QString& project, const QString& ref) override;
+  void fetchCiLog(const QString& externalId, const QString& project, const QString& jobId) override;
 
  private:
   // The signed-in user's login, fetched once. `done(login, httpStatus, error)`.
@@ -89,6 +91,9 @@ class RestIssueProvider : public IntegrationProvider {
     QString issuesTruncated;  // why the issue walk stopped early, if it did
     QString reviewError;      // the first review list that failed
     QVector<ExternalTask> reviewTasks;
+    // After the lists (APP-318): the open ones' CI, one at a time.
+    QVector<ExternalTask> ciTasks;
+    QVector<int> ciQueue;
   };
 
   // The roles whose merge / pull requests this pull also brings (APP-242);
@@ -101,6 +106,13 @@ class RestIssueProvider : public IntegrationProvider {
   void nextReview();
   // Emit issues and review items together.
   void finishAll();
+  void emitAll(const QVector<ExternalTask>& tasks);
+  // The CI of the next queued open merge / pull request, then the rest.
+  void nextCi();
+  void storeCi(int index, const QString& state, const QString& url, const QString& ref, const QString& at);
+  // A GET whose answer may be a redirect to another host (a GitHub log is
+  // served from blob storage): followed once, without the credentials.
+  void getFollowing(const QString& url, const std::function<void(QNetworkReply*)>& done);
 
   // Fetch m_pull.url, retrying it on 429/5xx, and hand the body to onPage().
   void fetchPage();
