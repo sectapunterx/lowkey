@@ -493,6 +493,22 @@ Rectangle {
         function onDataChanged()  { root.scheduleRebuild() }
         function onModelReset()   { root.scheduleRebuild() }
     }
+    // The labels in notes (APP-320), as chips that filter by the tag: read
+    // a moment after the notes change, never from the row build.
+    property int _tagRev: 0
+    readonly property var tagChips: root._tagRev >= 0 && !root.docs ? AppController.noteTagCounts().slice(0, 12) : []
+    Timer { id: tagTimer; interval: 400; onTriggered: root._tagRev++ }
+    Connections {
+        target: AppController.notes
+        function onRowsInserted() { tagTimer.restart() }
+        function onRowsRemoved() { tagTimer.restart() }
+        function onDataChanged() { tagTimer.restart() }
+        function onModelReset() { tagTimer.restart() }
+    }
+    Connections {
+        target: AppController
+        function onNotesStateChanged() { tagTimer.restart() }
+    }
     Connections {
         target: AppController.notes
         function onRowsInserted() { root.scheduleRebuild() }
@@ -612,6 +628,46 @@ Rectangle {
             Keys.onReturnPressed: (event) => { root._openFirstHit(); event.accepted = true; }
             Keys.onEnterPressed: (event) => { root._openFirstHit(); event.accepted = true; }
             Keys.onDownPressed: (event) => { root.focusList(); event.accepted = true; }
+        }
+
+        // "#личное  #hr  #работа": a click shows the notes with that label,
+        // a second one shows all again (APP-320).
+        Flow {
+            objectName: "notes-tag-chips"
+            visible: root.tagChips.length > 0
+            Layout.fillWidth: true
+            spacing: Theme.spXs
+            Repeater {
+                model: root.tagChips
+                delegate: Rectangle {
+                    id: chip
+                    required property var modelData
+                    readonly property bool active: root.filter.trim().toLowerCase() === "#" + chip.modelData.id
+                    objectName: "notes-tag-" + chip.modelData.id
+                    implicitWidth: chipText.implicitWidth + 2 * Theme.spSm
+                    implicitHeight: Theme.px(22)
+                    radius: height / 2
+                    color: chip.active ? Theme.accentSoft : chipCA.hovered ? Theme.panel3 : "transparent"
+                    border.width: 1
+                    border.color: chip.active ? Theme.accent : Theme.border
+                    Text {
+                        id: chipText
+                        anchors.centerIn: parent
+                        text: "#" + chip.modelData.id
+                        color: chip.active ? Theme.accentStrong : Theme.textMuted
+                        font.family: Theme.fontUi
+                        font.pixelSize: Theme.fsXs
+                    }
+                    ClickArea {
+                        id: chipCA
+                        label: chipText.text
+                        tip: I18n.count(chip.modelData.count, "notes.tag.count")
+                        checkable: true
+                        checked: chip.active
+                        onActivated: root.setFilter(chip.active ? "" : "#" + chip.modelData.id)
+                    }
+                }
+            }
         }
 
         EmptyState {

@@ -10,6 +10,7 @@
 #include "AppController.h"
 #include "Models.h"
 
+#include "notes/NoteChain.h"
 #include "notes/NoteLinks.h"
 
 #include <QApplication>
@@ -347,26 +348,48 @@ TEST_F(NotesTest, AppendingAnEntryReachesTheActiveNote) {
   EXPECT_TRUE(app_->noteBody(id).contains(QStringLiteral("something captured")));
 }
 
-// R4-073 (sheet N/X-Oth-Capture: "быстрая заметка → «Входящие»"): a quick
-// note goes to the Inbox, not into whichever note happens to be open, and the
-// open note stays open.
-TEST_F(NotesTest, AQuickNoteGoesToTheInboxNotTheOpenNote) {
+// APP-320 (owner, 2026-10-16): a quick note goes on in the last note when that
+// one was made or written to less than an hour ago under the same label, and
+// starts a note of its own after a longer pause or under another label. The
+// open note stays open either way.
+TEST_F(NotesTest, AQuickNoteGoesOnInTheLastNoteWithinTheHour) {
+  const QDateTime t0(QDate(2026, 10, 16), QTime(10, 0));
+  const QString first = app_->appendNoteEntryAt(QStringLiteral("standup notes\nmore"), QString(), t0);
+  ASSERT_FALSE(first.isEmpty());
+  EXPECT_EQ(titleOf(first), QStringLiteral("standup notes")) << "named by its first words";
+  EXPECT_EQ(app_->quickNoteTargetAt(QString(), t0.addSecs(59 * 60)), titleOf(first));
+  EXPECT_EQ(app_->appendNoteEntryAt(QStringLiteral("second"), QString(), t0.addSecs(59 * 60)), first);
+  EXPECT_EQ(app_->noteBody(first).count(QStringLiteral("----")), 1);
+  // The hour counts from the last entry, not the first.
+  EXPECT_EQ(app_->appendNoteEntryAt(QStringLiteral("third"), QString(), t0.addSecs(110 * 60)), first);
+  // A pause of an hour or more: a new note.
+  EXPECT_TRUE(app_->quickNoteTargetAt(QString(), t0.addSecs(170 * 60)).isEmpty());
+  const QString later = app_->appendNoteEntryAt(QStringLiteral("after lunch"), QString(), t0.addSecs(170 * 60));
+  EXPECT_NE(later, first);
+  EXPECT_EQ(app_->notes()->rowCount(), 2);
+}
+
+TEST_F(NotesTest, AnotherLabelStartsANoteAndTheLabelIsATag) {
+  const QDateTime t0(QDate(2026, 10, 16), QTime(10, 0));
+  const QString work = app_->appendNoteEntryAt(QStringLiteral("deploy at 5"), QStringLiteral("работа"), t0);
+  const QString hr = app_->appendNoteEntryAt(QStringLiteral("vacation form"), QStringLiteral("#HR"), t0.addSecs(60));
+  EXPECT_NE(hr, work);
+  EXPECT_TRUE(app_->noteBody(hr).contains(QStringLiteral("#hr")));
+  EXPECT_EQ(app_->appendNoteEntryAt(QStringLiteral("and the certificate"), QStringLiteral("hr"), t0.addSecs(120)), hr);
+  // The label filter finds the tag exactly: "#hr", not "#hrm".
+  const QStringList found = app_->notesMatching(QStringLiteral("#hr"));
+  EXPECT_TRUE(found.contains(hr));
+  EXPECT_FALSE(found.contains(work));
+  EXPECT_TRUE(app_->noteLabels().contains(QStringLiteral("hr")));
+}
+
+// A note made by hand starts the hour too ("quick capture or not").
+TEST_F(NotesTest, ANoteMadeByHandTakesTheNextQuickNote) {
   const QString open = app_->newNote(QStringLiteral("Design"));
-  EXPECT_TRUE(app_->inboxNoteId().isEmpty());
-
-  app_->appendNoteEntry(QStringLiteral("captured elsewhere"));
-
-  const QString inbox = app_->inboxNoteId();
-  ASSERT_FALSE(inbox.isEmpty()) << "the Inbox is made on first use";
-  EXPECT_NE(inbox, open);
+  app_->appendNoteEntry(QStringLiteral("captured right after"));
+  EXPECT_TRUE(app_->noteBody(open).contains(QStringLiteral("captured right after")));
+  EXPECT_FALSE(app_->noteBody(open).contains(QStringLiteral("----"))) << "no rule under the note's own heading";
   EXPECT_EQ(app_->activeNoteId(), open);
-  EXPECT_FALSE(app_->noteBody(open).contains(QStringLiteral("captured elsewhere")));
-  EXPECT_TRUE(app_->noteBody(inbox).contains(QStringLiteral("captured elsewhere")));
-  EXPECT_EQ(app_->quickNoteTarget(), titleOf(inbox));
-
-  app_->appendNoteEntry(QStringLiteral("second"));
-  EXPECT_EQ(app_->inboxNoteId(), inbox) << "one Inbox, reused";
-  EXPECT_EQ(app_->noteBody(inbox).count(QStringLiteral("----")), 1);
 }
 
 // R2-069: the quick note's draft and its task are kept in settings until
@@ -900,37 +923,38 @@ TEST_F(OrphanNoteTest, AdoptedTextKeepsBeingWrittenToTheSameNote) {
   EXPECT_EQ(app_->noteBody(id), QStringLiteral("first draft, and more"));
 }
 
-TEST_F(OrphanNoteTest, QuickCaptureWithNoNoteOpenLandsInInbox) {
+TEST_F(OrphanNoteTest, QuickCaptureWithNoNoteOpenOpensItsNote) {
   app_->appendNoteEntry(QStringLiteral("captured from anywhere"));
 
   ASSERT_EQ(app_->notes()->rowCount(), 1);
   const QString id = app_->activeNoteId();
-  EXPECT_EQ(titleOf(id), QStringLiteral("Inbox"));
+  EXPECT_EQ(titleOf(id), QStringLiteral("captured from anywhere"));
   EXPECT_TRUE(app_->noteBody(id).contains(QStringLiteral("captured from anywhere")));
 }
 
-// A second capture goes to the same Inbox rather than starting another.
-TEST_F(OrphanNoteTest, QuickCaptureReusesInbox) {
+// A second capture in the same hour goes on in the same note.
+TEST_F(OrphanNoteTest, QuickCaptureReusesItsNoteWithinTheHour) {
   app_->appendNoteEntry(QStringLiteral("first capture"));
-  const QString inbox = app_->activeNoteId();
+  const QString note = app_->activeNoteId();
   app_->setActiveNoteId(QString());
 
   app_->appendNoteEntry(QStringLiteral("second capture"));
 
   EXPECT_EQ(app_->notes()->rowCount(), 1);
-  EXPECT_TRUE(app_->noteBody(inbox).contains(QStringLiteral("first capture")));
-  EXPECT_TRUE(app_->noteBody(inbox).contains(QStringLiteral("second capture")));
+  EXPECT_TRUE(app_->noteBody(note).contains(QStringLiteral("first capture")));
+  EXPECT_TRUE(app_->noteBody(note).contains(QStringLiteral("second capture")));
 }
 
-// With a note open, capture goes to the Inbox all the same (R4-073); the
-// open note keeps its text and stays open.
-TEST_F(OrphanNoteTest, QuickCaptureWithANoteOpenGoesToTheInbox) {
-  const QString open = app_->newNote(QStringLiteral("Standup"));
+// A note open and written in for over an hour: the capture starts its own
+// note; the open one keeps its text and stays open.
+TEST_F(OrphanNoteTest, QuickCaptureAfterTheHourLeavesTheOpenNote) {
+  const QDateTime t0(QDate(2026, 10, 16), QTime(9, 0));
+  const QString open = app_->appendNoteEntryAt(QStringLiteral("Standup"), QString(), t0);
+  app_->setActiveNoteId(open);
 
-  app_->appendNoteEntry(QStringLiteral("captured while Standup is open"));
+  app_->appendNoteEntryAt(QStringLiteral("captured while Standup is open"), QString(), t0.addSecs(2 * 3600));
 
   EXPECT_FALSE(app_->noteBody(open).contains(QStringLiteral("captured while Standup is open")));
-  EXPECT_TRUE(app_->noteBody(app_->inboxNoteId()).contains(QStringLiteral("captured while Standup is open")));
   EXPECT_EQ(app_->activeNoteId(), open);
   EXPECT_EQ(app_->notes()->rowCount(), 2);
 }
@@ -1070,4 +1094,25 @@ int main(int argc, char** argv) {
 
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
+}
+
+// The rule itself (APP-320), without a clock.
+TEST(NoteChain, AnHourUnderOneLabel) {
+  const QDateTime t0(QDate(2026, 10, 16), QTime(10, 0));
+  EXPECT_TRUE(heap::notes::chainAppends(t0, QString(), QString(), t0.addSecs(59 * 60)));
+  EXPECT_FALSE(heap::notes::chainAppends(t0, QString(), QString(), t0.addSecs(60 * 60)));
+  EXPECT_FALSE(heap::notes::chainAppends(t0, QStringLiteral("hr"), QString(), t0.addSecs(60)));
+  EXPECT_TRUE(heap::notes::chainAppends(t0, QStringLiteral("hr"), QStringLiteral("#HR"), t0.addSecs(60)));
+  EXPECT_FALSE(heap::notes::chainAppends(QDateTime(), QString(), QString(), t0));
+  EXPECT_FALSE(heap::notes::chainAppends(t0, QString(), QString(), t0.addSecs(-60))) << "a clock set back";
+}
+
+TEST(NoteChain, TagsAndTitles) {
+  EXPECT_EQ(heap::notes::noteTags(QStringLiteral("#HR form, #личное and #HEAP-12 #hr")),
+            (QStringList{QStringLiteral("hr"), QStringLiteral("личное")}));
+  EXPECT_EQ(heap::notes::titleFromEntry(QStringLiteral("\n- [ ] buy milk #личное\nmore")), QStringLiteral("buy milk"));
+  EXPECT_EQ(heap::notes::titleFromEntry(QStringLiteral("## Heading")), QStringLiteral("Heading"));
+  const QString longLine = QStringLiteral("word ").repeated(30);
+  EXPECT_LE(heap::notes::titleFromEntry(longLine).size(), 61);
+  EXPECT_TRUE(heap::notes::titleFromEntry(longLine).endsWith(QStringLiteral("…")));
 }

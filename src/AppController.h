@@ -577,10 +577,25 @@ class AppController : public QObject {
   // use) under a timestamped horizontal-rule header, whichever note is open
   // (sheet N/X-Oth-Capture: "быстрая заметка → «Входящие»", R4-073). First
   // entry gets the heading only (no leading HR — nothing to separate from).
-  Q_INVOKABLE void appendNoteEntry(const QString& text);
+  // A quick note (APP-320): goes on in the last note when that one was made
+  // or written to less than an hour ago under the same label, else starts a
+  // new note named by its first words. `label` ("hr", "#личное", "") is
+  // written as a #tag. Returns the note's id.
+  Q_INVOKABLE QString appendNoteEntry(const QString& text, const QString& label = QString());
+  QString appendNoteEntryAt(const QString& text, const QString& label, const QDateTime& now);
+  // The labels to offer for a quick note: the default three, the card labels
+  // and the #tags already in notes, each once, lower case.
+  Q_INVOKABLE QStringList noteLabels() const;
+  // The #tags used in notes with how many notes carry each: [{id, count}],
+  // most used first, for the notes list's filter chips.
+  Q_INVOKABLE QVariantList noteTagCounts() const;
   // The title of the note appendNoteEntry() writes into, so the quick-note
   // popup can say where the text will land before it does.
-  Q_INVOKABLE QString quickNoteTarget() const;
+  // "" when the next quick note under `label` starts a new note.
+  Q_INVOKABLE QString quickNoteTarget(const QString& label = QString()) const;
+  QString quickNoteTargetAt(const QString& label, const QDateTime& now) const;
+  // Where the next quick note goes on (settingsExtra.noteChain).
+  void noteChainTo(const QString& noteId, const QString& label, const QDateTime& at);
   // The Inbox note's id, "" until the first quick note made it.
   Q_INVOKABLE QString inboxNoteId() const;
   // The quick note's unsaved draft and the task it is attached to, kept in

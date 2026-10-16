@@ -392,11 +392,12 @@ TEST_F(KnowAuditTest, Know17_QuickCaptureFlushesTheEditorFirst) {
 
   app_->appendNoteEntry(QStringLiteral("from quick capture"));
 
-  // The typing stays in the open note; the entry goes to the Inbox (R4-073).
+  // The typing is kept, and the entry goes on after it: the note was made a
+  // moment ago, so the capture lands in it (APP-320).
   const QString body = app_->noteBody(id);
   EXPECT_TRUE(body.contains(QStringLiteral("typing"))) << body.toStdString();
-  const QString inbox = app_->noteBody(app_->inboxNoteId());
-  EXPECT_TRUE(inbox.contains(QStringLiteral("from quick capture"))) << inbox.toStdString();
+  EXPECT_TRUE(body.contains(QStringLiteral("from quick capture"))) << body.toStdString();
+  EXPECT_LT(body.indexOf(QStringLiteral("typing")), body.indexOf(QStringLiteral("from quick capture")));
 }
 
 TEST_F(KnowAuditTest, KnowC_TitleFollowsTheH1WhileTheyAgree) {

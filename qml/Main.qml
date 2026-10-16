@@ -2229,7 +2229,7 @@ ApplicationWindow {
         "board.cursorRight", "board.open", "board.toggleSelect", "board.moveDown", "board.moveUp",
         "board.moveLeft", "board.moveRight", "board.selectDown", "board.selectUp", "board.selectColumnLeft",
         "board.selectColumnRight", "board.cardMenu", "board.archive", "board.collapseColumn", "task.done",
-        "task.openExternal", "notes.new", "notes.next", "notes.prev", "notes.rename", "notes.toggleList",
+        "task.openExternal", "notes.next", "notes.prev", "notes.rename", "notes.toggleList",
         "savedView.1", "savedView.2", "savedView.3", "savedView.4", "savedView.5", "savedView.6",
         "savedView.7", "savedView.8", "savedView.9", "region.next", "region.prev"
     ]
@@ -2306,6 +2306,9 @@ ApplicationWindow {
         // s on an empty day of the calendar: go to a date (keymap.md).
         if (base === "task.schedule" && win._keyTaskIds().length === 0)
             return ["day", "week", "month"].indexOf(v) >= 0 && !!b && b.cursorVisible === true;
+        // A new note from any screen (it goes to Notes first); the rest of
+        // notes.* only where the notes are.
+        if (base === "notes.new") return !win._panelOpen && !win._overlayOpen && !win._modalOpen;
         if (base.indexOf("notes.") === 0) return (v === "notes" || v === "docs") && !win._panelOpen;
         // "/" on Today: the header search does not filter the day, so the
         // key does nothing rather than look like it does (IDIOT-KNOW-15).

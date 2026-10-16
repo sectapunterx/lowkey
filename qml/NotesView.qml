@@ -1685,14 +1685,9 @@ Item {
     // renamed a note nobody could see (IDIOT-KNOW-4). Main sets keysLive.
     property bool keysLive: true
     readonly property bool _keysOn: root.visible && root.keysLive
-    Shortcut {
-        sequence: root._kbd("notes.new")
-        context: Qt.WindowShortcut
-        enabled: root._keysOn && sequence.length > 0
-        // Held down, it made a note per repeat (IDIOT-KNOW-14).
-        autoRepeat: false
-        onActivated: root.newNoteAndEdit()
-    }
+    // "notes.new" (Ctrl+Alt+N) is KeyRouter's, from any screen: it goes to
+    // Notes and starts one there (runCommand). As a Shortcut here it only
+    // worked once Notes was already open (dogfood 2026-10-16).
     Shortcut {
         sequence: root._kbd("notes.next")
         context: Qt.WindowShortcut

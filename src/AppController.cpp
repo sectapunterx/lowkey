@@ -51,6 +51,7 @@
 #include "markdown/MdOutline.h"
 #include "notes/ChecklistItems.h"
 #include "notes/MdVault.h"
+#include "notes/NoteChain.h"
 #include "notes/NoteGraph.h"
 #include "notes/NoteLinks.h"
 #include "notify/NotificationCenter.h"
@@ -2050,6 +2051,10 @@ QString AppController::newNote(const QString& title, const QString& folder) {
   n.body = QStringLiteral("# %1\n\n").arg(n.title);
   m_notes.upsert(n);
   setActiveNoteId(n.id);
+  // A quick note in the next hour goes on in this one (APP-320).
+  if(folder.isEmpty()) {
+    noteChainTo(n.id, QString(), n.created);
+  }
   if(title.trimmed().isEmpty() && folder.isEmpty()) {
     m_freshNoteId = n.id;
   }
@@ -2374,10 +2379,70 @@ QString AppController::inboxNoteId() const {
   return {};
 }
 
-QString AppController::quickNoteTarget() const {
-  // Where appendNoteEntry() will write: always the Inbox.
-  const int row = m_notes.indexOfId(inboxNoteId());
-  return row >= 0 ? m_notes.items().at(row).title : tr_("notes.inbox");
+QString AppController::quickNoteTarget(const QString& label) const {
+  return quickNoteTargetAt(label, QDateTime::currentDateTime());
+}
+
+QString AppController::quickNoteTargetAt(const QString& label, const QDateTime& now) const {
+  // The note the chain is on (APP-320), while it still takes this note.
+  const QJsonObject chain = m_settingsExtra.value(QStringLiteral("noteChain")).toObject();
+  const int row = m_notes.indexOfId(chain.value(QStringLiteral("id")).toString());
+  if(row < 0 || !heap::notes::chainAppends(QDateTime::fromString(chain.value(QStringLiteral("at")).toString(), Qt::ISODate),
+                                           chain.value(QStringLiteral("label")).toString(),
+                                           label,
+                                           now)) {
+    return {};
+  }
+  return m_notes.items().at(row).title;
+}
+
+void AppController::noteChainTo(const QString& noteId, const QString& label, const QDateTime& at) {
+  m_settingsExtra.insert(QStringLiteral("noteChain"),
+                         QJsonObject{{QStringLiteral("id"), noteId},
+                                     {QStringLiteral("at"), at.toString(Qt::ISODate)},
+                                     {QStringLiteral("label"), heap::notes::normLabel(label)}});
+}
+
+QStringList AppController::noteLabels() const {
+  QStringList out{QStringLiteral("личное"), QStringLiteral("hr"), QStringLiteral("работа")};
+  if(m_language != QLatin1String("ru")) {
+    out = {QStringLiteral("personal"), QStringLiteral("hr"), QStringLiteral("work")};
+  }
+  const auto add = [&](const QString& t) {
+    const QString l = heap::notes::normLabel(t);
+    if(!l.isEmpty() && !out.contains(l)) {
+      out << l;
+    }
+  };
+  for(const QVariant& v : localTagCatalog()) {
+    add(v.toMap().value(QStringLiteral("id")).toString());
+  }
+  for(const QVariant& v : noteTagCounts()) {
+    add(v.toMap().value(QStringLiteral("id")).toString());
+  }
+  return out;
+}
+
+QVariantList AppController::noteTagCounts() const {
+  QHash<QString, int> count;
+  QStringList order;
+  for(const Note& n : m_notes.items()) {
+    const bool open = n.id == m_activeNoteId;
+    for(const QString& t : heap::notes::noteTags(open ? m_notesState : n.body)) {
+      if(!count.contains(t)) {
+        order << t;
+      }
+      ++count[t];
+    }
+  }
+  std::stable_sort(order.begin(), order.end(), [&](const QString& a, const QString& b) {
+    return count.value(a) > count.value(b);
+  });
+  QVariantList out;
+  for(const QString& t : order) {
+    out.append(QVariantMap{{QStringLiteral("id"), t}, {QStringLiteral("count"), count.value(t)}});
+  }
+  return out;
 }
 
 QVariantMap AppController::quickNoteDraft() const {
@@ -2406,58 +2471,83 @@ void AppController::setQuickNoteDraft(const QString& text, const QString& attach
   scheduleSave();
 }
 
-void AppController::appendNoteEntry(const QString& text) {
+QString AppController::appendNoteEntry(const QString& text, const QString& label) {
+  return appendNoteEntryAt(text, label, QDateTime::currentDateTime());
+}
+
+QString AppController::appendNoteEntryAt(const QString& text, const QString& label, const QDateTime& now) {
   const QString body = text.trimmed();
   if(body.isEmpty()) {
-    return;
+    return {};
   }
   // The editor's debounced keystrokes go into notesState first: the entry is
   // appended to notesState, and the view diffs the editor against it, so text
   // typed in the last 250 ms was erased (KNOW-17, audit 2026-09-30).
   emit aboutToChangeActiveNote();
   // Text in the editor with no note behind it becomes a note before the
-  // Inbox is looked at, so it is neither lost nor taken for the Inbox.
+  // chain is looked at, so it is neither lost nor written over.
   adoptOrphanNotesState();
   syncActiveNoteBody();
-  QString inboxId = inboxNoteId();
-  if(inboxId.isEmpty()) {
-    // Made on first use, beside the open note — the open note stays open.
+  const QString tag = heap::notes::normLabel(label);
+  const QString stamp = now.toString("yyyy-MM-dd HH:mm");
+  // Within an hour of the last note and under the same label: on in that
+  // note; else a note of its own, named by its first words (APP-320, the
+  // owner's rule: one note per sitting, not one Inbox for ever).
+  const QJsonObject chain = m_settingsExtra.value(QStringLiteral("noteChain")).toObject();
+  QString targetId = quickNoteTargetAt(tag, now).isEmpty() ? QString() : chain.value(QStringLiteral("id")).toString();
+  if(targetId.isEmpty()) {
     Note n;
     n.id = QStringLiteral("note-") + QUuid::createUuid().toString(QUuid::WithoutBraces).left(8);
-    n.title = tr_("notes.inbox");
-    n.created = QDateTime::currentDateTime();
-    n.updated = n.created;
-    m_notes.upsert(n);
-    inboxId = n.id;
-  }
-  // With no note open the Inbox opens, so the editor shows where it went.
-  if(m_notes.indexOfId(m_activeNoteId) < 0) {
-    m_activeNoteId = inboxId;
-    m_notesState = noteBody(inboxId);
-    emit activeNoteChanged();
-  }
-  const bool open = inboxId == m_activeNoteId;
-  const QString was = open ? m_notesState : noteBody(inboxId);
-  const QString stamp = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm");
-  QString next;
-  if(was.trimmed().isEmpty()) {
-    next = QStringLiteral("### %1\n\n%2").arg(stamp, body);
-  } else {
-    next = was;
-    while(next.endsWith(QLatin1Char('\n'))) {
-      next.chop(1);
+    QString title = heap::notes::titleFromEntry(body);
+    if(title.isEmpty()) {
+      title = tr_("notes.untitled");
     }
+    if(noteTitleTaken(title, QString(), QString())) {
+      title += QStringLiteral(" · ") + heap::text::formatTime(now.time(), twelveHourClock());
+    }
+    n.title = title;
+    n.created = now;
+    n.updated = now;
+    n.body =
+        QStringLiteral("# %1\n\n%2### %3\n\n%4").arg(title, tag.isEmpty() ? QString() : QStringLiteral("#%1\n\n").arg(tag), stamp, body);
+    m_notes.upsert(n);
+    targetId = n.id;
+    // With no note open the new one opens, so the editor shows where it went.
+    if(m_notes.indexOfId(m_activeNoteId) < 0) {
+      m_activeNoteId = targetId;
+      m_notesState = n.body;
+      emit activeNoteChanged();
+    }
+    noteChainTo(targetId, tag, now);
+    scheduleSave();
+    return targetId;
+  }
+  const bool open = targetId == m_activeNoteId;
+  QString next = open ? m_notesState : noteBody(targetId);
+  while(next.endsWith(QLatin1Char('\n')) || next.endsWith(QLatin1Char(' ')) || next.endsWith(QLatin1Char('\t'))) {
+    next.chop(1);
+  }
+  // A rule between entries, not under the note's own heading: a note made by
+  // hand a minute ago holds only "# Title".
+  const QString heading = QStringLiteral("# ") + m_notes.items().at(m_notes.indexOfId(targetId)).title;
+  if(next.trimmed().isEmpty()) {
+    next = QStringLiteral("### %1\n\n%2").arg(stamp, body);
+  } else if(next.trimmed() == heading) {
+    next = QStringLiteral("%1\n\n### %2\n\n%3").arg(heading, stamp, body);
+  } else {
     next += QStringLiteral("\n\n----\n### %1\n\n%2").arg(stamp, body);
   }
+  noteChainTo(targetId, tag, now);
   if(open) {
     setNotesState(next);
-    return;
+    return targetId;
   }
-  Note n = m_notes.items().at(m_notes.indexOfId(inboxId));
+  Note n = m_notes.items().at(m_notes.indexOfId(targetId));
   n.body = next;
-  n.updated = QDateTime::currentDateTime();
+  n.updated = now;
   m_notes.upsert(n);
   scheduleSave();
+  return targetId;
 }
 
 QStringList AppController::noteHeadings(const QString& markdown) const {
@@ -15181,7 +15271,21 @@ QStringList AppController::notesMatchingExactly_(const QString& query) const {
   QStringList out;
   for(const Note& n : m_notes.items()) {
     bool all = true;
+    QStringList tags;
+    bool tagsRead = false;
     for(const QString& t : terms) {
+      // "#hr" (a label chip, a tag clicked in a note): that tag exactly.
+      if(t.size() > 1 && t.startsWith(QLatin1Char('#'))) {
+        if(!tagsRead) {
+          tags = heap::notes::noteTags(n.id == m_activeNoteId ? m_notesState : n.body);
+          tagsRead = true;
+        }
+        if(!tags.contains(t.mid(1))) {
+          all = false;
+          break;
+        }
+        continue;
+      }
       if(!n.title.contains(t, Qt::CaseInsensitive) && !n.folder.contains(t, Qt::CaseInsensitive) &&
          !n.body.contains(t, Qt::CaseInsensitive)) {
         all = false;
