@@ -106,6 +106,26 @@ FocusScope {
     readonly property var types: ["none", "standup", "oneone", "sync", "focus"]
     readonly property var repeatKinds: ["never", "daily", "weekdays", "weekly", "biweekly", "monthly", "yearly", "custom"]
     readonly property var reminderChoices: [-1, -2, 0, 5, 10, 15, 30, 60]
+    // "At a time…" (APP-319): kept as minutes before the start, so a series
+    // reminds at the same time on each day and a moved event keeps the lead.
+    property bool _remindAtEditing: false
+    property bool _remindAtBad: false
+    function remindLeadFor(text) {
+        const m = /^\s*(\d{1,2})[:.](\d{2})\s*$/.exec(String(text || ""));
+        if (!m) return -1;
+        const h = parseInt(m[1]), mm = parseInt(m[2]);
+        if (h > 23 || mm > 59) return -1;
+        const lead = Math.round(root.startHour * 60 - (h * 60 + mm));
+        return lead >= 0 ? lead : -1;
+    }
+    function applyRemindAt(text) {
+        const lead = root.remindLeadFor(text);
+        if (lead < 0) { root._remindAtBad = true; return; }
+        root._remindAtEditing = false;
+        root._remindAtBad = false;
+        root.reminderMinutes = lead;
+        root._save("text");
+    }
     readonly property int defaultLead: {
         try {
             const s = JSON.parse(AppController.appSettingsJson || "{}");
@@ -373,6 +393,8 @@ FocusScope {
         if (v === -1) return I18n.t("event.reminder.default").arg(root.defaultLead);
         if (v === -2) return I18n.t("event.reminder.none");
         if (v === 0) return I18n.t("event.reminder.atStart");
+        // A lead set as a moment (APP-319): said as that moment.
+        if (root.reminderChoices.indexOf(v) < 0 && !root.allDay) return I18n.t("event.reminder.at").arg(Theme.fmtHour(root.startHour - v / 60));
         return I18n.t("event.reminder.before").arg(v);
     }
     function typeLabel(t) {
@@ -894,7 +916,30 @@ FocusScope {
                                 onTriggered: { root.reminderMinutes = modelData; root._save("text"); }
                             }
                         }
+                        AppMenuItem {
+                            objectName: "event-reminder-at"
+                            visible: !root.allDay
+                            height: visible ? implicitHeight : 0
+                            text: I18n.t("event.reminder.atCustom")
+                            onTriggered: { root._remindAtEditing = true; Qt.callLater(remindAtField.forceActiveFocus); }
+                        }
                     }
+                }
+                ValueField {
+                    id: remindAtField
+                    objectName: "event-reminder-at-field"
+                    visible: root._remindAtEditing
+                    Layout.fillWidth: false
+                    Layout.preferredWidth: Theme.px(80)
+                    font.family: Theme.fontMono
+                    placeholderText: I18n.t("event.reminder.atPh")
+                    color: root._remindAtBad ? Theme.danger : Theme.text
+                    onTextChanged: root._remindAtBad = false
+                    onAccepted: root.applyRemindAt(remindAtField.text)
+                    onActiveFocusChanged: if (!activeFocus) { root._remindAtEditing = false; root._remindAtBad = false; }
+                    Keys.onEscapePressed: (e) => { root._remindAtEditing = false; reminderLink.forceActiveFocus(); e.accepted = true; }
+                    ToolTip.visible: remindAtField.visible && root._remindAtBad
+                    ToolTip.text: I18n.t("event.reminder.atBad")
                 }
             }
             FieldRow {

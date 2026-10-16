@@ -426,6 +426,42 @@ TEST(TaskBlockWindow, AMovedTaskGetsANewKey) {
             heap::cal::taskBlockReminder(QStringLiteral("T-1"), at.addSecs(3600), at.addSecs(3600), 0).key);
 }
 
+// ── "Remind me" on a task (APP-319) ──
+
+TEST(TaskRemind, AMomentWinsOverALeadAndALeadNeedsATime) {
+  const QDateTime plan(kDay, QTime(15, 0));
+  const QDateTime at(kDay, QTime(9, 30));
+  EXPECT_EQ(heap::cal::taskReminderFireAt(at, 10, plan, true, {}, false), at);
+  EXPECT_EQ(heap::cal::taskReminderFireAt({}, 10, plan, true, {}, false), plan.addSecs(-600));
+  EXPECT_FALSE(heap::cal::taskReminderFireAt({}, 10, plan, false, {}, false).isValid()) << "a day with no time";
+  const QDateTime due(kDay, QTime(18, 0));
+  EXPECT_EQ(heap::cal::taskReminderFireAt({}, 0, {}, false, due, true), due) << "the deadline, when there is no plan";
+  EXPECT_FALSE(heap::cal::taskReminderFireAt({}, -1, plan, true, {}, false).isValid());
+}
+
+TEST(TaskRemind, DueFromItsMinuteForHalfADayAndLateAfterTheGrace) {
+  const QDateTime at(kDay, QTime(9, 30));
+  EXPECT_FALSE(heap::cal::taskReminder(QStringLiteral("T-1"), at, at.addSecs(-60)).due);
+  const auto now = heap::cal::taskReminder(QStringLiteral("T-1"), at, at);
+  EXPECT_TRUE(now.due);
+  EXPECT_FALSE(now.late);
+  const auto late = heap::cal::taskReminder(QStringLiteral("T-1"), at, at.addSecs(3 * 3600));
+  EXPECT_TRUE(late.due);
+  EXPECT_TRUE(late.late);
+  EXPECT_FALSE(heap::cal::taskReminder(QStringLiteral("T-1"), at, at.addSecs(13 * 3600)).due);
+  EXPECT_NE(now.key, heap::cal::taskReminder(QStringLiteral("T-1"), at.addSecs(60), at.addSecs(60)).key) << "a new time is a new reminder";
+}
+
+TEST(TaskRemind, LeadsAreReadInBothLanguages) {
+  EXPECT_EQ(heap::cal::reminderLeadMinutes(QStringLiteral("за 15 мин")), 15);
+  EXPECT_EQ(heap::cal::reminderLeadMinutes(QStringLiteral("15m")), 15);
+  EXPECT_EQ(heap::cal::reminderLeadMinutes(QStringLiteral("1 ч")), 60);
+  EXPECT_EQ(heap::cal::reminderLeadMinutes(QStringLiteral("10 min before")), 10);
+  EXPECT_EQ(heap::cal::reminderLeadMinutes(QStringLiteral("0")), 0);
+  EXPECT_EQ(heap::cal::reminderLeadMinutes(QStringLiteral("9")), -1) << "a bare number is the hour";
+  EXPECT_EQ(heap::cal::reminderLeadMinutes(QStringLiteral("15:00")), -1);
+}
+
 namespace {
 
 QString blockSettings(bool enabled) {
@@ -490,6 +526,67 @@ TEST(TaskBlockReminder, SaidOnceWithItsButtonsAndNoTimer) {
   const Task t = app.tasks()->items().first();
   EXPECT_FALSE(t.timerStartedAt.isValid()) << "a reminder starts no timer";
   EXPECT_EQ(t.status, QStringLiteral("todo")) << "and moves nothing";
+}
+
+namespace {
+
+Task remindAt(const QString& id, const QDateTime& at) {
+  Task t;
+  t.id = id;
+  t.title = QStringLiteral("Call the bank");
+  t.status = QStringLiteral("todo");
+  t.local.remindAt = at;
+  return t;
+}
+
+QDateTime freshMinute() {
+  // The sent keys outlive the process (reminders.json): a minute of its own
+  // each run, so a rerun is not "already said".
+  return QDateTime(QDate(2032, 1, 6), QTime(0, 0)).addSecs(60LL * QRandomGenerator::global()->bounded(10 * 365 * 24 * 60));
+}
+
+}  // namespace
+
+// Set on a task, said once at its minute, with Open and Snooze; nothing for a
+// done task. No setting to switch on: setting the reminder is the opt-in.
+TEST(TaskRemindReminder, SaidOnceAtItsMinute) {
+  AppController app;
+  app.events()->reset({});
+  app.setAppSettingsJson(blockSettings(false));
+  const QDateTime at = freshMinute();
+  Task done = remindAt(QStringLiteral("REM-DONE"), at);
+  done.status = QStringLiteral("done");
+  app.tasks()->reset({remindAt(QStringLiteral("REM-ON"), at), done});
+  QSignalSpy toasts(&app, &AppController::reminderToast);
+  app.runAutomationAt(at.addSecs(-60));
+  EXPECT_EQ(toasts.count(), 0) << "not before its minute";
+  app.runAutomationAt(at);
+  app.runAutomationAt(at.addSecs(60));
+  ASSERT_EQ(toasts.count(), 1) << "once, and not for the done task";
+  EXPECT_TRUE(toasts.at(0).at(0).toString().contains(QStringLiteral("REM-ON")));
+  EXPECT_TRUE(toasts.at(0).at(1).toString().contains(QStringLiteral("Call the bank")));
+  EXPECT_EQ(toasts.at(0).at(2).toString(), QStringLiteral("remind"));
+}
+
+// Typed into the document's chip: a moment, a lead, or nothing to take it off.
+TEST(TaskRemindReminder, SetFromTextIsOneUndoStep) {
+  AppController app;
+  const QDateTime now(QDate(2026, 5, 20), QTime(10, 0));
+  Task t;
+  t.id = QStringLiteral("REM-SET");
+  t.title = QStringLiteral("Deploy");
+  t.status = QStringLiteral("todo");
+  app.tasks()->reset({t});
+  EXPECT_FALSE(app.setTaskReminderAt(t.id, QStringLiteral("за 15 мин"), now)) << "a lead with no time to count from";
+  ASSERT_TRUE(app.setTaskReminderAt(t.id, QStringLiteral("15:00"), now));
+  EXPECT_EQ(app.tasks()->items().first().local.remindAt, QDateTime(now.date(), QTime(15, 0)));
+  app.undo();
+  EXPECT_FALSE(app.tasks()->items().first().local.remindAt.isValid());
+  EXPECT_FALSE(app.setTaskReminderAt(t.id, QStringLiteral("когда-нибудь"), now));
+  ASSERT_TRUE(app.setTaskReminderAt(t.id, QStringLiteral("15:00"), now));
+  ASSERT_TRUE(app.setTaskReminderAt(t.id, QString(), now));
+  EXPECT_FALSE(app.tasks()->items().first().local.remindAt.isValid());
+  EXPECT_EQ(app.tasks()->items().first().local.remindLead, -1);
 }
 
 int main(int argc, char** argv) {

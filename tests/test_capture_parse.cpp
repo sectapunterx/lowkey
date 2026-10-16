@@ -685,3 +685,28 @@ TEST(CaptureAcceptance, NextWeekOnADayAndTheComingFriday) {
   EXPECT_EQ(r.title, QStringLiteral("созвон"));
   EXPECT_EQ(r.when.date(), QDate(2026, 10, 16));
 }
+
+// "напомни [мне] в 15:00" (APP-319): a reminder, not the plan; it leaves the
+// title, and the plan said in the same line stays the plan.
+TEST_F(Capture, ARemindWordMakesTheTimeAReminder) {
+  const Parsed r = p(QStringLiteral("позвонить в банк напомни в 15:00"));
+  EXPECT_EQ(r.title, QStringLiteral("позвонить в банк"));
+  EXPECT_EQ(r.remind, QDateTime(kNow.date(), QTime(15, 0)));
+  EXPECT_FALSE(r.when.isValid());
+  const Parsed both = p(QStringLiteral("релиз завтра в 12:00 напомни мне в 11:30"));
+  EXPECT_EQ(both.when, QDateTime(kNow.date().addDays(1), QTime(12, 0)));
+  EXPECT_EQ(both.remind.time(), QTime(11, 30));
+}
+
+TEST_F(Capture, ARemindWordWithNoTimeIsJustAWord) {
+  const Parsed r = p(QStringLiteral("напомни Ане про отчёт завтра"));
+  EXPECT_FALSE(r.remind.isValid()) << "a reminder needs a clock time";
+  EXPECT_EQ(r.when.date(), kNow.date().addDays(1));
+}
+
+TEST(CaptureEn, RemindMeAtThreeIsAReminder) {
+  const heap::chrono::ChronoParser chrono{QLocale(QLocale::English, QLocale::UnitedStates)};
+  const Parsed r = parse(QStringLiteral("call the bank remind me at 3pm"), chrono, kNow, {});
+  EXPECT_EQ(r.remind, QDateTime(kNow.date(), QTime(15, 0)));
+  EXPECT_EQ(r.title, QStringLiteral("call the bank"));
+}

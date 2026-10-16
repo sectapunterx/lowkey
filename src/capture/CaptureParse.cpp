@@ -15,6 +15,15 @@ const QStringList& deadlineWords() {
   return kWords;
 }
 
+const QStringList& remindWords() {
+  static const QStringList kWords = {QStringLiteral("напомни"),
+                                     QStringLiteral("напомнить"),
+                                     QStringLiteral("напомните"),
+                                     QStringLiteral("remind"),
+                                     QStringLiteral("reminder")};
+  return kWords;
+}
+
 int estimateMinutes(QStringView token) {
   static const QRegularExpression kRe(
       QStringLiteral(
@@ -196,6 +205,32 @@ int deadlineWordBefore(const QString& text, int at) {
   return deadlineWords().contains(word) ? start : -1;
 }
 
+// The reminder word before `at` ("напомни [мне] в 15:00"), if one is there:
+// its start offset, or -1.
+int remindWordBefore(const QString& text, int at) {
+  const auto wordBefore = [&](int pos, int* start) {
+    int end = pos;
+    while(end > 0 && text.at(end - 1).isSpace()) {
+      --end;
+    }
+    int s = end;
+    while(s > 0 && text.at(s - 1).isLetter()) {
+      --s;
+    }
+    *start = s;
+    return text.mid(s, end - s).toLower();
+  };
+  int start = -1;
+  QString word = wordBefore(at, &start);
+  if(word == QStringLiteral("мне") || word == QLatin1String("me")) {
+    word = wordBefore(start, &start);
+  }
+  if(word.isEmpty() || (start > 0 && !text.at(start - 1).isSpace() && !text.at(start - 1).isPunct())) {
+    return -1;
+  }
+  return remindWords().contains(word) ? start : -1;
+}
+
 }  // namespace
 
 Parsed parse(const QString& text, const heap::chrono::ChronoParser& chrono, const QDateTime& now, const QStringList& rejected) {
@@ -248,10 +283,21 @@ Parsed parse(const QString& text, const heap::chrono::ChronoParser& chrono, cons
         }
       }
     }
-    const bool isDue = marker >= 0;
-    const int from = isDue ? marker : r.startOffset;
+    // A reminder takes a moment: a date with a clock time.
+    const int remindMarker = marker < 0 && r.hasTime ? remindWordBefore(scan, r.startOffset) : -1;
+    const bool isRemind = remindMarker >= 0 && !out.remind.isValid();
+    const bool isDue = !isRemind && marker >= 0;
+    const int from = isRemind ? remindMarker : isDue ? marker : r.startOffset;
     const QString words = text.mid(from, r.endOffset - from);
     if(rejected.contains(words)) {
+      continue;
+    }
+    if(isRemind) {
+      out.remind = weekdayNotToday(r, now);
+      if(out.remind == r.start) {
+        out.remind = nearerBareHour(r, now);
+      }
+      out.spans.append(Span{from, r.endOffset, QStringLiteral("remind"), words});
       continue;
     }
     if(isDue) {

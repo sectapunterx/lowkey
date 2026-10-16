@@ -656,6 +656,24 @@ TestCase {
 
     // A7-3: the options say who checks, and the hint follows the choice:
     // "only by hand" does not promise a check on launch.
+    // APP-319: lunch is off by default; switched on, the calendar has it, and
+    // its times show to be changed.
+    function test_lunch_switch() {
+        if (!settingsSaved) { savedSettings = AppController.appSettingsJson; settingsSaved = true; }
+        const sv = make();
+        sv.activeSection = "calendar";
+        tryVerify(function () { return findChild(sv, "settings-lunch") !== null; }, 2000);
+        sv.set("calendar", "lunchOn", false);
+        compare(AppController.lunch.start, undefined, "off: no lunch");
+        verify(!findChild(sv, "settings-lunch-start").visible);
+        sv.set("calendar", "lunchOn", true);
+        compare(AppController.lunch.start, 13);
+        compare(AppController.lunch.end, 14);
+        tryVerify(function () { return findChild(sv, "settings-lunch-start").visible; });
+        sv.set("calendar", "lunchEnd", "12:00");
+        compare(AppController.lunch.start, undefined, "an end before the start is no lunch");
+    }
+
     function test_update_hint_follows_the_choice() {
         if (!settingsSaved) { savedSettings = AppController.appSettingsJson; settingsSaved = true; }
         const sv = make();

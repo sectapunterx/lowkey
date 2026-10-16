@@ -1937,6 +1937,29 @@ Item {
                                 }
                             }
 
+                            // Lunch (APP-319), on a working day: not free
+                            // time, so it reads like the hours outside work,
+                            // with its name.
+                            Rectangle {
+                                objectName: "week-lunch-band"
+                                readonly property var span: AppController.lunch
+                                readonly property var load: root.loadOf(dayCol.modelData.date)
+                                readonly property bool shown: span.start !== undefined && !!load && !!load.workday
+                                visible: shown
+                                y: shown ? (Number(span.start) - root.hoursStart) * root.hourH : 0
+                                width: dayCol.width
+                                height: shown ? (Number(span.end) - Number(span.start)) * root.hourH : 0
+                                color: Theme.withAlpha(Theme.bg2, 0.55)
+                                Text {
+                                    visible: parent.height >= font.pixelSize + 2 * Theme.spXs
+                                    anchors.left: parent.left; anchors.top: parent.top
+                                    anchors.leftMargin: Theme.spSm; anchors.topMargin: Theme.spXs
+                                    text: I18n.t("cal.lunch")
+                                    color: Theme.textDim
+                                    font.pixelSize: Theme.fsXs
+                                }
+                            }
+
                             // Hour separators
                             Repeater {
                                 model: root.hoursEnd - root.hoursStart

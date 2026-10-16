@@ -84,6 +84,11 @@ struct TaskLocal {
   // What the timer recorded, session by session (APP-251). The task's
   // trackedSeconds is their sum, kept in step by every write.
   QVector<TimerSession> sessions;
+  // "Remind me" (APP-319), mine on any card: at a moment, or `remindLead`
+  // minutes before the task's own time (its plan, else its deadline), which
+  // follows the task when it moves. Invalid / -1 = none.
+  QDateTime remindAt;
+  int remindLead = -1;
   // Keys of `local` this build does not read, carried through a save.
   QJsonObject extra;
 

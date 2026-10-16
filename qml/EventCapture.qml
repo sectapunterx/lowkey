@@ -109,6 +109,16 @@ Popup {
         // not on the slot's day, which is no Wednesday (EYE-24).
         if (!out.fromLine && out.rule) out.date = EventRule.firstOn(out.rule, out.date);
         if (x.minutes > 0) out.end = out.start + x.minutes / 60;
+        // "напомни в 14:30" (APP-319): the event keeps it as minutes before
+        // its start, as the editor's "At a time…" does; after the start it is
+        // left out.
+        out.remindLead = -1;
+        if (root._valid(p.remind)) {
+            const st = new Date(out.date.getFullYear(), out.date.getMonth(), out.date.getDate(),
+                                Math.floor(out.start), Math.round((out.start % 1) * 60));
+            const lead = Math.round((st.getTime() - p.remind.getTime()) / 60000);
+            if (lead >= 0) out.remindLead = lead;
+        }
         // Past midnight the meeting ends on the next day, as the editor stores
         // it, instead of being cut at 24:00 (IDIOT-CAL-11).
         if (out.end > 24) {
@@ -165,6 +175,7 @@ Popup {
         d.endDate = r.endDate || r.date;
         d.rrule = r.rule;
         d.tz = r.tz || "";
+        if (r.remindLead >= 0) d.reminderMinutes = r.remindLead;
         AppController.saveEvent(d);
         root.close();
         root.created(d.id);

@@ -5,6 +5,7 @@
 
 #include "board/ColumnCategory.h"
 #include "cal/Occurrences.h"
+#include "cal/Reminders.h"
 #include "local/Effective.h"
 #include "plan/DayPlan.h"
 #include "query/TaskQuery.h"
@@ -54,16 +55,40 @@ QVariantList AppController::dayLoads(const QDate& from, int days) const {
   for(int i = 0; i < days; ++i) {
     const QDate d = from.addDays(i);
     const bool work = isWorkDay(d);
-    const heap::plan::Day day = heap::plan::buildDay(d, now, events, timed, m_workdayStart, m_workdayEnd, work);
+    const heap::plan::Day day = heap::plan::buildDay(d, now, events, timed, m_workdayStart, m_workdayEnd, work, lunchSpan());
+    const double lunchHours = day.lunchEnd > day.lunchStart ? day.lunchEnd - day.lunchStart : 0;
     out.append(QVariantMap{{QStringLiteral("date"), d},
                            {QStringLiteral("workday"), work},
                            {QStringLiteral("meetings"), day.load.meetings},
                            {QStringLiteral("tasks"), day.load.tasks},
                            {QStringLiteral("free"), day.load.free},
                            {QStringLiteral("overWork"), day.load.overWork},
-                           {QStringLiteral("work"), work ? static_cast<int>((m_workdayEnd - m_workdayStart) * 60) : 0}});
+                           {QStringLiteral("work"), work ? static_cast<int>((m_workdayEnd - m_workdayStart - lunchHours) * 60) : 0}});
   }
   return out;
+}
+
+std::pair<double, double> AppController::lunchSpan() const {
+  // settings.calendar.lunch* (APP-319), off unless switched on. Times that do
+  // not read, or that end before they start, are no lunch at all.
+  const QVariantMap cal = settingsMap().value(QStringLiteral("calendar")).toMap();
+  if(!cal.value(QStringLiteral("lunchOn"), false).toBool()) {
+    return {-1, -1};
+  }
+  const QTime from = heap::cal::clockTime(cal.value(QStringLiteral("lunchStart"), QStringLiteral("13:00")).toString());
+  const QTime to = heap::cal::clockTime(cal.value(QStringLiteral("lunchEnd"), QStringLiteral("14:00")).toString());
+  if(!from.isValid() || !to.isValid() || to <= from) {
+    return {-1, -1};
+  }
+  return {from.hour() + (from.minute() / 60.0), to.hour() + (to.minute() / 60.0)};
+}
+
+QVariantMap AppController::lunch() const {
+  const auto [start, end] = lunchSpan();
+  if(end <= start) {
+    return {};
+  }
+  return {{QStringLiteral("start"), start}, {QStringLiteral("end"), end}};
 }
 
 QVariantList AppController::undatedTasks(const QString& search) const {

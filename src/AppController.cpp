@@ -990,6 +990,17 @@ const QHash<QString, I18nEntry>& i18nTable() {
       {"notify.blockNow", {"Time for “%1”", "Время для «%1»"}},
       {"notify.blockSoon", {"“%1” in %2 min", "«%1» через %2 мин"}},
       {"notify.blockBody", {"planned for %1–%2", "запланировано на %1–%2"}},
+      {"notify.remindTitle", {"Reminder: %1", "Напоминание: %1"}},
+      {"notify.remindBody", {"at %1", "на %1"}},
+      {"notify.remindLate", {"at %1, while Tabless was closed", "на %1, пока Tabless был закрыт"}},
+      {"notify.action.snooze", {"Snooze", "Отложить"}},
+      {"remind.set", {"Reminder at %1", "Напомню в %1"}},
+      {"remind.setLead", {"Reminder %1 min before", "Напомню за %1 мин"}},
+      {"remind.cleared", {"Reminder removed", "Напоминание снято"}},
+      {"remind.noTime",
+       {"“%1” has no time yet: give it one, or say when to remind", "У «%1» нет времени: задайте его или скажите, когда напомнить"}},
+      {"remind.unknown", {"Can’t read “%1” as a time", "Не понял «%1» как время"}},
+      {"undo.remind", {"Reminder for %1", "Напоминание для %1"}},
       {"notify.action.snooze15", {"In 15 min", "Через 15 мин"}},
       {"notify.action.window", {"Next free window", "В ближайшее окно"}},
       {"notify.overdueTitle", {"Overdue %1", "Просрочено %1"}},
@@ -3939,6 +3950,7 @@ QVariantMap AppController::captureParse(const QString& raw, const QDateTime& ref
   out["due"] = p.due;
   out["dueHasTime"] = p.dueHasTime;
   out["duePast"] = p.duePast;
+  out["remind"] = p.remind;
   out["priority"] = meta.priority;
   out["labels"] = meta.labels;
   out["ticketKey"] = meta.ticketKey;
@@ -4027,6 +4039,9 @@ QVariantMap AppController::quickTaskDraft(const QString& raw, const QDateTime& r
   if(parsed.due.isValid()) {
     draft["dueAt"] = parsed.due;
     draft["dueHasTime"] = parsed.dueHasTime;
+  }
+  if(parsed.remind.isValid()) {
+    draft["remindAt"] = parsed.remind;
   }
   if(parsed.estimateMinutes > 0) {
     draft["estimateMinutes"] = parsed.estimateMinutes;
@@ -4330,6 +4345,12 @@ bool AppController::saveTask(const QVariantMap& draft) {
     // sort lists it last, a task created in Done never auto-archives and one
     // created in Blocked never reads as stuck.
     t.statusChangedAt = QDateTime::currentDateTime();
+  }
+
+  // A reminder said in the input ("напомни в 15:00 …", APP-319).
+  if(draft.contains("remindAt")) {
+    t.local.remindAt = draft.value("remindAt").toDateTime();
+    t.local.remindLead = -1;
   }
 
   // ── Rename path ──
@@ -5067,11 +5088,13 @@ QVariantMap AppController::todayData(const QDate& date, bool allProfiles) const 
     timed.append(in);
   }
 
-  const heap::plan::Day day = heap::plan::buildDay(date, now, events, timed, m_workdayStart, m_workdayEnd, isWorkDay(date));
+  const heap::plan::Day day = heap::plan::buildDay(date, now, events, timed, m_workdayStart, m_workdayEnd, isWorkDay(date), lunchSpan());
   out["date"] = day.date;
   out["workday"] = day.workday;
   out["workStart"] = day.workStart;
   out["workEnd"] = day.workEnd;
+  out["lunchStart"] = day.lunchStart;
+  out["lunchEnd"] = day.lunchEnd;
   out["fromHour"] = day.fromHour;
   out["toHour"] = day.toHour;
   QVariantList allDay;
@@ -7358,6 +7381,7 @@ QVariantMap AppController::freeWindowAt(const QString& taskId, const QDate& date
   ask.hours = taskBlockMinutes(taskId) / 60.0;
   ask.workStart = m_workdayStart;
   ask.workEnd = m_workdayEnd;
+  ask.lunch = lunchSpan();
   ask.step = snapStepHours();
   const heap::plan::Window w = heap::plan::findWindow(
       ask,
@@ -7447,6 +7471,7 @@ int AppController::carryTasksAt(const QStringList& ids, const QString& mode, con
       ask.hours = taskBlockMinutes(id) / 60.0;
       ask.workStart = m_workdayStart;
       ask.workEnd = m_workdayEnd;
+      ask.lunch = lunchSpan();
       ask.step = snapStepHours();
       // The tasks carried before this one are in the model already, so they
       // count as busy and the selection lines up instead of stacking.
@@ -7678,6 +7703,7 @@ double AppController::nextFreeSlot(const QDate& date, double durationHours) cons
   ask.hours = dur;
   ask.workStart = m_workdayStart;
   ask.workEnd = m_workdayEnd;
+  ask.lunch = lunchSpan();
   ask.step = step;
   ask.maxDays = 0;
   const heap::plan::Window w = heap::plan::findWindow(
@@ -8620,6 +8646,15 @@ QVariantMap AppController::taskById(const QString& id) const {
     tags.append(QVariantMap{{"id", tag.id}, {"color", tag.color}});
   }
   m["localTags"] = tags;
+  // "Remind me" (APP-319): as set, and the moment it comes to.
+  m["remindAt"] = t.local.remindAt;
+  m["remindLead"] = t.local.remindLead;
+  m["remindFireAt"] = heap::cal::taskReminderFireAt(t.local.remindAt,
+                                                    t.local.remindLead,
+                                                    t.scheduledAt,
+                                                    t.scheduledHasTime,
+                                                    heap::local::effectiveDueAt(t),
+                                                    heap::local::effectiveDueHasTime(t));
   // The document's meta column (DG-061): history and the PR, if one is known.
   m["statusChangedAt"] = t.statusChangedAt;
   m.insert(m_tasks.gitFactsFor(t.id));
@@ -17072,6 +17107,7 @@ void AppController::scheduleFocusBlockFor(const QString& taskId) {
   ask.hours = dur;
   ask.workStart = m_workdayStart;
   ask.workEnd = m_workdayEnd;
+  ask.lunch = lunchSpan();
   ask.step = snapStepHours();
   ask.maxDays = 6;
   const auto [day, start] = heap::plan::nextWindow(
@@ -17377,6 +17413,48 @@ void AppController::runAutomationAt(const QDateTime& now) {
       if(p.id != m_activeProfileId) {
         for(const Task& t : p.tasks) {
           consider(p.id, t, false);
+        }
+      }
+    }
+  }
+
+  // 3c. "Remind me" on a task (APP-319): only where one was set. Held by
+  // quiet hours like the rest; one whose minute passed while the app was
+  // closed still comes, once, and says so.
+  if(!quiet) {
+    const auto remind = [&](const QString& profileId, const Task& t, bool own) {
+      if(t.archived || (!t.local.remindAt.isValid() && t.local.remindLead < 0)) {
+        return;
+      }
+      const QString cat = own ? statusCategory(t.status) : heap::board::defaultCategoryFor(t.status);
+      if(cat == QLatin1String("done")) {
+        return;
+      }
+      const QDateTime fireAt = heap::cal::taskReminderFireAt(t.local.remindAt,
+                                                             t.local.remindLead,
+                                                             t.scheduledAt,
+                                                             t.scheduledHasTime,
+                                                             heap::local::effectiveDueAt(t),
+                                                             heap::local::effectiveDueHasTime(t));
+      const heap::cal::TaskRemindCall call = heap::cal::taskReminder(t.id, fireAt, now);
+      if(!call.due || reminderSent(call.key)) {
+        return;
+      }
+      markReminderSent(call.key, now);
+      const QString at = heap::text::formatTime(fireAt.time(), twelveHourClock());
+      notifyTaskAt(heap::notify::taskRef(profileId, t.id),
+                   tr_("notify.remindTitle").arg(t.title),
+                   call.late ? tr_("notify.remindLate").arg(at) : tr_("notify.remindBody").arg(at),
+                   QStringLiteral("remind"),
+                   now);
+    };
+    for(const Task& t : m_tasks.items()) {
+      remind(m_activeProfileId, t, true);
+    }
+    for(const Profile& p : m_profiles) {
+      if(p.id != m_activeProfileId) {
+        for(const Task& t : p.tasks) {
+          remind(p.id, t, false);
         }
       }
     }
@@ -17890,13 +17968,13 @@ void AppController::notifyTaskAt(
   // The start of a task block (APP-256) carries its buttons in the window too:
   // open, in 15 minutes, the next free window.
   const auto inAppToast = [&]() {
-    if(kind == QLatin1String("taskBlock")) {
+    if(kind == QLatin1String("taskBlock") || kind == QLatin1String("remind")) {
       const QString id = heap::notify::routingId(kind, taskId);
       ShownReminder& shown = m_shownReminders[id];
       shown.title = title;
       shown.body = body;
       shown.kind = kind;
-      emit reminderToast(id, inApp);
+      emit reminderToast(id, inApp, kind);
     } else {
       emit toast(inApp);
     }

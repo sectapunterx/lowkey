@@ -316,6 +316,12 @@ FocusScope {
         return I18n.fmtDate(d, "dayMonth");
     }
     // "сегодня 17:00–18:30" (the estimate gives the end), "завтра".
+    // "Remind me" (APP-319): "за 15 мин", or the moment, as the chips say it.
+    function _remindLabel() {
+        const t = root.task;
+        if (t.remindLead !== undefined && t.remindLead >= 0) return I18n.t("taskdoc.remind.lead").arg(t.remindLead);
+        return root._when(t.remindAt, true, 0);
+    }
     function _when(d, hasTime, minutes) {
         if (!root._valid(d)) return "";
         if (!hasTime) return root._relDay(d);
@@ -336,6 +342,7 @@ FocusScope {
         case "recurrence": return String(t.recurrence || "").length > 0;
         case "estimate": return t.estimateMinutes > 0;
         case "tags": return root._localTags.length > 0;
+        case "remind": return root._valid(t.remindAt) || (t.remindLead !== undefined && t.remindLead >= 0);
         }
         return true;
     }
@@ -984,6 +991,18 @@ FocusScope {
                                 : AppController.captureParse("x ~" + t.replace(/^~/, "")).estimateMinutes;
                         root._setField("estimateMinutes", m);
                     }
+                }
+                TextChip {
+                    id: remindChip
+                    objectName: "task-doc-remind"
+                    visible: root._visible("remind")
+                    key: root._key(I18n.t("taskdoc.prop.remind"))
+                    value: root._remindLabel()
+                    QQC.ToolTip.visible: remindChip._editing
+                    QQC.ToolTip.text: I18n.t("taskdoc.remind.ph")
+                    // Left as it was shown: nothing to read again (a shown
+                    // "15:00" read again after 15:00 would be tomorrow's).
+                    onCommitted: (text) => { if (String(text) !== remindChip.value) AppController.setTaskReminder(root.taskId, text); }
                 }
                 PropertyChip {
                     id: addChip
@@ -1645,7 +1664,7 @@ FocusScope {
         id: addMenu
         objectName: "task-doc-add-menu"
         Instantiator {
-            model: ["scheduled", "due", "labels", "tags", "recurrence", "estimate", "plan", "link"]
+            model: ["scheduled", "due", "labels", "tags", "recurrence", "estimate", "remind", "plan", "link"]
             delegate: AppMenuItem {
                 required property string modelData
                 visible: modelData === "plan" ? !(root._plan && root._plan.visible)
@@ -1657,6 +1676,7 @@ FocusScope {
                     if (modelData === "link") { root.startLink("related"); return; }
                     root._shown = root._shown.concat([modelData]);
                     if (modelData === "tags") { root._tagsEditing = true; Qt.callLater(tagsEditor.open); }
+                    if (modelData === "remind") Qt.callLater(remindChip.clicked);
                 }
             }
             onObjectAdded: (i, o) => addMenu.insertItem(i, o)

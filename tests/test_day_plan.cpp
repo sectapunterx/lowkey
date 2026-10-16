@@ -147,3 +147,30 @@ TEST(DayPlan, ADayGoneByIsAllPastAndOneToComeIsNot) {
   const Day after = buildDay(kDay, kNoon.addDays(-2), {meeting("m", 10, 11)}, {}, 9, 19, true);
   EXPECT_FALSE(after.blocks[0].past);
 }
+
+// Lunch (APP-319) on a working day: no free window across it, and the
+// working day is shorter by it.
+TEST(DayPlan, LunchIsNotFreeTime) {
+  const Day d = buildDay(kDay, kNoon, {}, {}, 9, 19, true, {13, 14});
+  EXPECT_DOUBLE_EQ(d.lunchStart, 13);
+  EXPECT_DOUBLE_EQ(d.lunchEnd, 14);
+  ASSERT_EQ(d.free.size(), 2);
+  EXPECT_DOUBLE_EQ(d.free[0].end, 13);
+  EXPECT_DOUBLE_EQ(d.free[1].start, 14);
+  EXPECT_EQ(d.load.free, 600 - 60);
+}
+
+TEST(DayPlan, LunchIsClippedToTheWorkingDayAndAbsentOnADayOff) {
+  const Day clipped = buildDay(kDay, kNoon, {}, {}, 9, 13.5, true, {13, 14});
+  EXPECT_DOUBLE_EQ(clipped.lunchEnd, 13.5);
+  EXPECT_EQ(clipped.load.free, 270 - 30);
+  const Day off = buildDay(kDay, kNoon, {}, {}, 9, 19, false, {13, 14});
+  EXPECT_LT(off.lunchStart, 0);
+}
+
+// A task planned over lunch is over the working day by what it takes from it.
+TEST(DayPlan, WorkOverLunchCountsAsOverWork) {
+  const Day d = buildDay(kDay, kNoon, {}, {task("T-1", 9, 600)}, 9, 19, true, {13, 14});
+  EXPECT_EQ(d.load.free, 0);
+  EXPECT_EQ(d.load.overWork, 60);
+}

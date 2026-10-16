@@ -4,6 +4,7 @@
 #include "Models.h"
 
 #include <QDateTime>
+#include <QRegularExpression>
 #include <QSet>
 #include <QTime>
 #include <QVector>
@@ -121,6 +122,78 @@ inline BlockCall taskBlockReminder(const QString& taskId, const QDateTime& start
   out.minutesLeft = secs <= 0 ? 0 : static_cast<int>((secs + 59) / 60);
   out.key = taskBlockReminderKey(taskId, startsAt);
   return out;
+}
+
+// "Remind me" on a task (APP-319), opt-in per task. The moment it fires:
+// `remindAt` when set, else `lead` minutes before the task's own time — the
+// planned time, else the deadline, either only with a clock time. Invalid when
+// there is none.
+inline QDateTime taskReminderFireAt(
+    const QDateTime& remindAt, int lead, const QDateTime& scheduledAt, bool scheduledHasTime, const QDateTime& dueAt, bool dueHasTime) {
+  if(remindAt.isValid()) {
+    return remindAt;
+  }
+  if(lead < 0) {
+    return {};
+  }
+  if(scheduledAt.isValid() && scheduledHasTime) {
+    return scheduledAt.addSecs(-60LL * lead);
+  }
+  if(dueAt.isValid() && dueHasTime) {
+    return dueAt.addSecs(-60LL * lead);
+  }
+  return {};
+}
+
+// How late a task reminder may still arrive: one whose minute fell while the
+// app was closed or asleep comes when it is back, the same day, once.
+inline constexpr int kTaskReminderLateHours = 12;
+
+inline QString taskReminderKey(const QString& taskId, const QDateTime& fireAt) {
+  return QStringLiteral("rem:%1@%2").arg(taskId, fireAt.toString(Qt::ISODate));
+}
+
+struct TaskRemindCall {
+  bool due = false;
+  bool late = false;  // its minute has passed by more than the usual grace
+  QString key;
+};
+
+// Due from `fireAt` until kTaskReminderLateHours after it. The key carries the
+// moment, so a new time re-arms it, and the sent keys (on disk) keep a
+// restart from saying it twice.
+inline TaskRemindCall taskReminder(const QString& taskId, const QDateTime& fireAt, const QDateTime& now) {
+  TaskRemindCall out;
+  if(!fireAt.isValid() || !now.isValid() || now < fireAt || fireAt.secsTo(now) > 3600LL * kTaskReminderLateHours) {
+    return out;
+  }
+  out.due = true;
+  out.late = fireAt.secsTo(now) > 60LL * kReminderGraceMinutes;
+  out.key = taskReminderKey(taskId, fireAt);
+  return out;
+}
+
+// A lead typed into the reminder field: "за 15 мин", "15m", "1 ч", "10 min
+// before", "0". Minutes, or -1 when the text is not one (then it is read as a
+// moment: "15:00", "завтра 9:00", "через 20 мин").
+inline int reminderLeadMinutes(const QString& text) {
+  static const QRegularExpression kRe(
+      QStringLiteral(R"(^\s*(за\s+)?(\d{1,4})\s*(m|м|мин|минут|минуты|минуту|min|mins|minutes?|h|ч|час|часа|часов|hours?)?)"
+                     R"((?:\s+(?:до|before))?\s*$)"),
+      QRegularExpression::CaseInsensitiveOption | QRegularExpression::UseUnicodePropertiesOption);
+  const auto m = kRe.match(text);
+  if(!m.hasMatch()) {
+    return -1;
+  }
+  const int n = m.captured(2).toInt();
+  const QString unit = m.captured(3).toLower();
+  // A bare number is a lead only when said as one ("0", "за 15"): "9" alone
+  // is more likely the hour.
+  if(unit.isEmpty() && !m.hasCaptured(1) && n != 0) {
+    return -1;
+  }
+  const bool hours = unit.startsWith(QLatin1Char('h')) || unit.startsWith(QStringLiteral("ч"));
+  return hours ? n * 60 : n;
 }
 
 // A deadline reminder: whether it is due, and what to say.

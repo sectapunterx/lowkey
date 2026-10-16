@@ -1087,7 +1087,15 @@ ApplicationWindow {
             else toast.show(msg, "info");
         }
         // The start of a planned task block (APP-256, opt-in): its buttons.
-        function onReminderToast(notificationId, msg) {
+        // A task's own "remind me" (APP-319): open it or put it off.
+        function onReminderToast(notificationId, msg, kind) {
+            if (kind === "remind") {
+                toast.showWithActions(msg, [
+                    { label: I18n.t("reminder.open"), fn: function () { AppController.reminderAction(notificationId, "open") } },
+                    { label: I18n.t("reminder.snooze"), fn: function () { AppController.reminderAction(notificationId, "snoozeShort") } }
+                ], 15);
+                return;
+            }
             toast.showWithActions(msg, [
                 { label: I18n.t("reminder.open"), fn: function () { AppController.reminderAction(notificationId, "open") } },
                 { label: I18n.t("reminder.snooze15"), fn: function () { AppController.reminderAction(notificationId, "snooze15") } },

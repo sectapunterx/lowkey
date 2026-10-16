@@ -114,6 +114,16 @@ TestCase {
         }
     }
 
+    // APP-319: "напомни в 15:00" shows its own chip before Enter.
+    function test_a_reminder_has_its_chip() {
+        const qc = open();
+        type(qc, "call the bank remind me at 3pm");
+        const chip = findChild(qc, "qc-remind");
+        verify(chip !== null);
+        tryVerify(() => chip.visible, 1000, "no remind chip");
+        qc.close();
+    }
+
     function test_ctrl_m_then_enter_books_the_meeting() {
         const qc = open();
         const spy = createTemporaryQmlObject('import QtTest; SignalSpy { signalName: "captured" }', host);

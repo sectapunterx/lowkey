@@ -1376,6 +1376,12 @@ class AppController : public QObject {
   void snoozeReminderAt(const QString& notificationId, int minutes, const QDateTime& now);
   // A button of an in-app reminder toast: the same as the OS one (APP-256).
   Q_INVOKABLE void reminderAction(const QString& notificationId, const QString& actionId);
+  // "Remind me" on a task (APP-319): a moment ("15:00", "завтра 9:00",
+  // "через 20 мин"), a lead before the task's own time ("за 15 мин", "15m"),
+  // or "" to take it off. One undo step; false (and a toast saying why) when
+  // the text is not a time or a lead has no time to count from.
+  Q_INVOKABLE bool setTaskReminder(const QString& taskId, const QString& text);
+  bool setTaskReminderAt(const QString& taskId, const QString& text, const QDateTime& now);
 
   // Snoozed reminders waiting (tests).
   QVector<heap::notify::SnoozedReminder> pendingSnoozes() const {
@@ -2239,7 +2245,8 @@ class AppController : public QObject {
   void undoableToast(const QString& message, int seconds);
   // A reminder with buttons shown in the window (the start of a task block,
   // APP-256); the buttons call reminderAction(notificationId, …).
-  void reminderToast(const QString& notificationId, const QString& message);
+  // `kind` is "taskBlock" or "remind" (APP-319): which buttons it has.
+  void reminderToast(const QString& notificationId, const QString& message, const QString& kind);
   // "Next free window" found no room on `date` (APP-253): the toast says so
   // and offers the next working day's window and, when one is left, a time
   // this evening. Nothing is planned until the person picks.
@@ -2650,6 +2657,8 @@ class AppController : public QObject {
   // active profile, each as hours on the day; `exceptTaskId`'s own block and
   // its focus blocks left out, so moving a task does not collide with itself.
   QVector<QPair<double, double>> busySpans(const QDate& date, const QString& exceptTaskId, const QDateTime& now) const;
+  // The lunch break in hours (APP-319), {-1, -1} while it is off.
+  std::pair<double, double> lunchSpan() const;
   void scheduleFocusBlockFor(const QString& taskId);
   void focusBlockOnStatusChange(const QString& taskId, const QString& from, const QString& to);
   // The local layer's own bookkeeping (AppControllerLocal.cpp).
@@ -3163,6 +3172,10 @@ class AppController : public QObject {
 
   // settings.safety, for QML: which heads-ups are on.
   Q_PROPERTY(QVariantMap safety READ safetySettings NOTIFY appSettingsJsonChanged)
+  // The lunch break (APP-319) for the calendar's band: {start, end} in hours,
+  // empty while it is off. Set under settings.calendar.lunchOn/Start/End.
+  Q_PROPERTY(QVariantMap lunch READ lunch NOTIFY appSettingsJsonChanged)
+  QVariantMap lunch() const;
   // Writes settings.safety.<key>; Settings → Safety net's rows use it.
   Q_INVOKABLE void setSafetySetting(const QString& key, const QVariant& value);
   // Waiting on a reply (APP-158), active profile: task id →

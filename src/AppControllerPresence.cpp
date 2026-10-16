@@ -5,6 +5,8 @@
 #include "board/ColumnCategory.h"
 #include "cal/EventClamp.h"
 #include "cal/Occurrences.h"
+#include "cal/Reminders.h"
+#include "local/Effective.h"
 #include "notify/NotificationCenter.h"
 #include "platform/Autostart.h"
 #include "platform/Paths.h"
@@ -212,6 +214,12 @@ QVector<heap::notify::NotificationAction> AppController::reminderActions(const Q
   if(kind == QStringLiteral("deadline")) {
     return {{QString::fromLatin1(hn::kOpen), tr_(QStringLiteral("notify.action.open"))}};
   }
+  // "Remind me" (APP-319): open the task or put it off. Not Done: being
+  // reminded is not having finished.
+  if(kind == QStringLiteral("remind")) {
+    return {{QString::fromLatin1(hn::kOpen), tr_(QStringLiteral("notify.action.open"))},
+            {snoozeShort, hn::snoozeLabel(hn::snoozeMinutesFor(snoozeShort, shortMin, longMin), ru)}};
+  }
   QVector<hn::NotificationAction> out{{snoozeShort, hn::snoozeLabel(hn::snoozeMinutesFor(snoozeShort, shortMin, longMin), ru)},
                                       {snoozeLong, hn::snoozeLabel(hn::snoozeMinutesFor(snoozeLong, shortMin, longMin), ru)},
                                       {QString::fromLatin1(hn::kOpen), tr_(QStringLiteral("notify.action.open"))}};
@@ -401,4 +409,59 @@ void AppController::saveSnoozes() const {
     f.write(QJsonDocument(arr).toJson(QJsonDocument::Compact));
     f.commit();
   }
+}
+
+bool AppController::setTaskReminder(const QString& taskId, const QString& text) {
+  return setTaskReminderAt(taskId, text, QDateTime::currentDateTime());
+}
+
+bool AppController::setTaskReminderAt(const QString& taskId, const QString& text, const QDateTime& now) {
+  const int row = m_tasks.indexOfId(taskId);
+  if(row < 0) {
+    return false;
+  }
+  Task t = m_tasks.items().at(row);
+  const QString said = text.trimmed();
+  QDateTime at;
+  int lead = -1;
+  if(!said.isEmpty()) {
+    lead = heap::cal::reminderLeadMinutes(said);
+    if(lead >= 0) {
+      // A lead counts from the task's own time; without one it means nothing.
+      if(!heap::cal::taskReminderFireAt(
+              {}, lead, t.scheduledAt, t.scheduledHasTime, heap::local::effectiveDueAt(t), heap::local::effectiveDueHasTime(t))
+              .isValid()) {
+        emit toast(tr_(QStringLiteral("remind.noTime")).arg(t.title), QStringLiteral("warning"));
+        return false;
+      }
+    } else {
+      const QVariantMap r = parseDateTime(said, now);
+      if(!r.value(QStringLiteral("ok")).toBool() || !r.value(QStringLiteral("hasTime")).toBool()) {
+        emit toast(tr_(QStringLiteral("remind.unknown")).arg(said), QStringLiteral("warning"));
+        return false;
+      }
+      at = r.value(QStringLiteral("start")).toDateTime();
+    }
+  }
+  if(t.local.remindAt == at && t.local.remindLead == lead) {
+    return true;
+  }
+  {
+    const UndoScope scope(this, tr_(QStringLiteral("undo.remind")).arg(taskId));
+    t.local.remindAt = at;
+    t.local.remindLead = lead;
+    m_tasks.upsert(t);
+  }
+  scheduleSave();
+  if(at.isValid()) {
+    const QString when = at.date() == now.date()
+                             ? heap::text::formatTime(at.time(), twelveHourClock())
+                             : heap::text::formatDateTime(at, QStringLiteral("dayMonth"), m_language, twelveHourClock());
+    emit toast(tr_(QStringLiteral("remind.set")).arg(when));
+  } else if(lead >= 0) {
+    emit toast(tr_(QStringLiteral("remind.setLead")).arg(lead));
+  } else {
+    emit toast(tr_(QStringLiteral("remind.cleared")));
+  }
+  return true;
 }
