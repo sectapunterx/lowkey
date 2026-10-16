@@ -8,7 +8,8 @@ import "PopupStack.js" as PopupStack
 
 // Quick-capture popup for Notes — triggered by Ctrl+Shift+N.
 //
-//  • Ctrl+Enter      → submit (append to the Inbox note, R4-073)
+//  • Ctrl+Enter      → submit: on in the last note within the hour, under
+//                      the same label, else a note of its own (APP-320)
 //  • Enter, Shift+Enter → newline in the editor (APP-209: the same keys
 //                      as the task capture)
 //  • @<token>        → people autocomplete via MentionAutocomplete
@@ -47,6 +48,11 @@ Popup {
     // The task the entry is attached to ("" = none): the one the git branch
     // names by default, or one picked from the list.
     property string attachId: ""
+    // The label the note goes under (APP-320), written as its #tag.
+    property string label: ""
+    onLabelChanged: root._target = AppController.quickNoteTarget(root.label)
+    readonly property string _targetText: root._target.length > 0 ? I18n.t("quickNote.titleInto").arg(root._target)
+                                                                  : I18n.t("quickNote.titleNew")
     readonly property var attachTask: root.attachId.length ? AppController.taskById(root.attachId) : ({})
     function _taskLabel(t) {
         return t ? (t.externalKey || t.title || "") : "";
@@ -58,10 +64,10 @@ Popup {
             root.close();
             return;
         }
-        // Named before the append: it lands in the Inbox, and the
-        // confirmation should say so, not "Note saved" somewhere unseen.
-        const into = AppController.quickNoteTarget();
-        AppController.appendNoteEntry(root.attachId.length ? body.replace(/\s+$/, "") + " [[" + root.attachId + "]]" : body);
+        // Named after the append: on in a note or a new one, the
+        // confirmation says which, not "Note saved" somewhere unseen.
+        AppController.appendNoteEntry(root.attachId.length ? body.replace(/\s+$/, "") + " [[" + root.attachId + "]]" : body, root.label);
+        const into = AppController.quickNoteTarget(root.label);
         editor.text = "";
         draftTimer.stop();
         AppController.setQuickNoteDraft("", "");
@@ -96,7 +102,7 @@ Popup {
     // first frame that shows the popup. Logs only; a no-op otherwise.
     onAboutToShow: AppController.perfMarkShown("capture-notes", contentItem)
     onOpened: {
-        root._target = AppController.quickNoteTarget();
+        root._target = AppController.quickNoteTarget(root.label);
         // The stored draft is the one truth (the main window and the
         // capture window each have a popup): from an earlier open, this run
         // or one before a quit, with the task it was attached to.
@@ -135,11 +141,53 @@ Popup {
                 objectName: "quick-note-target"
                 Layout.fillWidth: true
                 // Where it goes, before it goes there.
-                text: I18n.t("quickNote.titleInto").arg(root._target)
+                text: root._targetText
                 elide: Text.ElideRight
                 color: Theme.textMuted
                 font.family: Theme.fontUi
                 font.pixelSize: Theme.fsXs
+            }
+            // "метка: hr ▾": the label the note goes under (APP-320).
+            Text {
+                objectName: "quick-note-label"
+                text: (root.label.length ? I18n.t("quickNote.labelIs").arg(root.label) : I18n.t("quickNote.label")) + " ▾"
+                color: labelCA.hovered ? Theme.text : Theme.textMuted
+                Behavior on color { ColorAnimation { duration: Theme.durTap; easing.type: Theme.easeEnter } }
+                font.family: Theme.fontUi
+                font.pixelSize: Theme.fsXs
+                ClickArea {
+                    id: labelCA
+                    label: I18n.t("quickNote.label")
+                    onActivated: labelMenu.openList()
+                }
+                AppMenu {
+                    id: labelMenu
+                    objectName: "quick-note-label-menu"
+                    property var labels: []
+                    function openList() {
+                        labelMenu.labels = AppController.noteLabels().slice(0, 10);
+                        labelMenu.popup();
+                    }
+                    Instantiator {
+                        model: labelMenu.labels
+                        delegate: AppMenuItem {
+                            id: labelRow
+                            required property string modelData
+                            text: "#" + labelRow.modelData
+                            marked: labelRow.modelData === root.label
+                            onTriggered: { root.label = labelRow.modelData; editor.forceActiveFocus(); }
+                        }
+                        onObjectAdded: (index, object) => labelMenu.insertItem(index, object)
+                        onObjectRemoved: (index, object) => labelMenu.removeItem(object)
+                    }
+                    AppMenuSeparator {}
+                    AppMenuItem {
+                        objectName: "quick-note-label-none"
+                        text: I18n.t("quickNote.labelNone")
+                        marked: root.label.length === 0
+                        onTriggered: { root.label = ""; editor.forceActiveFocus(); }
+                    }
+                }
             }
             Text {
                 objectName: "quick-note-attach"

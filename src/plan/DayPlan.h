@@ -6,6 +6,8 @@
 #include <QStringList>
 #include <QVector>
 
+#include <utility>
+
 // One day as the Today screen and the calendars draw it (APP-260/247): the
 // meetings and the task blocks by the hour, the free windows between them as
 // a fact, and how much of the working day is taken. A pure function of what
@@ -92,6 +94,10 @@ struct Day {
   bool workday = true;
   double workStart = 9;
   double workEnd = 19;
+  // Lunch (APP-319) on a working day, inside the working hours; -1 when there
+  // is none. Not free time: the load and the free windows leave it out.
+  double lunchStart = -1;
+  double lunchEnd = -1;
   // The hours the list spans: the working day, widened for anything outside.
   double fromHour = 9;
   double toHour = 19;
@@ -108,6 +114,7 @@ Day buildDay(const QDate& date,
              double workStart,
              double workEnd,
              bool workday,
+             std::pair<double, double> lunch = {-1, -1},
              int minGap = 30);
 
 }  // namespace heap::plan

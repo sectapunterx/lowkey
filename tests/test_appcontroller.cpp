@@ -3518,6 +3518,31 @@ TEST_F(PeoplePickerTest, WroteIsUndoable) {
   EXPECT_EQ(toasts.size(), 1);
 }
 
+// The open asks for Today and the sidebar (APP-321): only "todo", and a way
+// back to it from "Люди" says so with an Undo.
+TEST_F(PeoplePickerTest, OpenPingsAreTheTodoOnesAndComeBack) {
+  Person a;
+  a.id = QStringLiteral("ada");
+  a.name = QStringLiteral("Ada");
+  a.state = QStringLiteral("todo");
+  Person b = a;
+  b.id = QStringLiteral("bob");
+  b.name = QStringLiteral("Bob");
+  b.state = QStringLiteral("pinged");
+  app_->people()->reset({a, b});
+  QVariantList open = app_->openPings();
+  ASSERT_EQ(open.size(), 1);
+  EXPECT_EQ(open.first().toMap().value(QStringLiteral("id")).toString(), QStringLiteral("ada"));
+  QStringList toasts;
+  QObject::connect(app_.get(), &AppController::undoableToast, app_.get(), [&](const QString& msg, int) {
+    toasts << msg;
+  });
+  app_->setPersonState(QStringLiteral("bob"), QStringLiteral("todo"));
+  EXPECT_EQ(app_->openPings().size(), 2);
+  ASSERT_EQ(toasts.size(), 1);
+  EXPECT_TRUE(toasts.first().contains(QStringLiteral("Bob")));
+}
+
 // A click on a task's key copies it and says so.
 TEST_F(AppControllerTest, CopyTaskKeyToasts) {
   QStringList toasts;

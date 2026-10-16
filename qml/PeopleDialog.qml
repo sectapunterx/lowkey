@@ -332,6 +332,14 @@ Dialog {
                         text: I18n.t("people.state.replied.tag")
                         onClicked: AppController.setPersonState(root.currentId, "replied")
                     }
+                    // Back on "Кому написать" (APP-321): "Написал" was a way
+                    // out with no way back but Undo.
+                    PillButton {
+                        objectName: "people-dialog-todo"
+                        visible: root.current.state !== "todo"
+                        text: I18n.t("people.dialog.again")
+                        onClicked: AppController.setPersonState(root.currentId, "todo")
+                    }
                 }
                 RowLayout {
                     Layout.topMargin: Theme.spSm

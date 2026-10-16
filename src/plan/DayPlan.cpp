@@ -61,6 +61,7 @@ Day buildDay(const QDate& date,
              double workStart,
              double workEnd,
              bool workday,
+             std::pair<double, double> lunch,
              int minGap) {
   Day d;
   d.date = date;
@@ -181,9 +182,18 @@ Day buildDay(const QDate& date,
   d.load.meetings = minutes(length(meetingsU));
   d.load.tasks = minutes(length(busyU) - length(meetingsU));
   if(workday) {
-    const QVector<Span> inWork = clipped(busyU, workStart, workEnd);
+    // Lunch is neither work nor free: the working day is shorter by it.
+    const QVector<Span> lunchIn = clipped({lunch}, workStart, workEnd);
+    if(!lunchIn.isEmpty()) {
+      d.lunchStart = lunchIn.first().first;
+      d.lunchEnd = lunchIn.first().second;
+    }
+    const double workLength = (workEnd - workStart) - length(lunchIn);
+    QVector<Span> taken = busyU;
+    taken += lunchIn;
+    const QVector<Span> inWork = clipped(merged(taken), workStart, workEnd);
     d.load.free = std::max(0, minutes((workEnd - workStart) - length(inWork)));
-    d.load.overWork = std::max(0, minutes(length(busyU) - (workEnd - workStart)));
+    d.load.overWork = std::max(0, minutes(length(busyU) - workLength));
     // The free windows, as facts.
     double at = workStart;
     for(const Span& s : inWork) {

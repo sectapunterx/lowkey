@@ -134,6 +134,7 @@ Popup {
             start: when, hasTime: when !== null && p.whenHasTime,
             end: p.whenEnd,
             due: due, dueHasTime: due !== null && p.dueHasTime,
+            remind: p.remind && p.remind.getTime && !isNaN(p.remind.getTime()) ? p.remind : null,
             whenPast: !!p.whenPast, duePast: !!p.duePast,
             estimate: p.estimateMinutes
         };
@@ -911,6 +912,18 @@ Popup {
                                  + (root._preview.duePast ? " · " + I18n.t("capture.past") : "") : ""
                 valueColor: visible && root._preview.duePast ? Theme.textDim : Theme.text
                 onRemoved: root.rejectSpan("due")
+            }
+            // "напомни в 15:00" (APP-319): when the reminder comes.
+            PropertyChip {
+                outlined: true
+                objectName: "qc-remind"
+                removeOnHover: true
+                visible: !!(root._preview && root._preview.remind)
+                small: false
+                removable: true
+                key: I18n.t("capture.remind")
+                value: visible ? root._chipWhen(root._preview.remind, true) : ""
+                onRemoved: root.rejectSpan("remind")
             }
             // A repeat said in the line, before Enter (A2-21): "каждый
             // понедельник" read the same as a one-off "в понедельник".

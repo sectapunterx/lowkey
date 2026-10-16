@@ -20,7 +20,7 @@ namespace heap::capture {
 struct Span {
   int start = -1;
   int end = -1;  // one past the last character
-  QString kind;  // "when", "due", "estimate"
+  QString kind;  // "when", "due", "remind", "estimate"
   QString text;  // the words, as typed (the deadline word included)
 
   bool operator==(const Span& o) const = default;
@@ -45,6 +45,9 @@ struct Parsed {
   QDateTime due;
   bool dueHasTime = false;
   bool duePast = false;
+  // A date after a reminder word ("напомни в 15:00", "remind me at 3pm",
+  // APP-319): when to be reminded. Always with a clock time.
+  QDateTime remind;
   // "~30m", "~1.5h", "~2ч"; 0 when none.
   int estimateMinutes = 0;
   QString recurrence;
@@ -53,6 +56,10 @@ struct Parsed {
 
 // The words that turn the date right after them into a deadline.
 const QStringList& deadlineWords();
+
+// The words that turn the date right after them into a reminder ("напомни",
+// "remind me"); "мне"/"me" may come between.
+const QStringList& remindWords();
 
 // Minutes in an estimate token ("~30m", "~1,5h", "~2ч", "~90мин", "~1h30m");
 // 0 when `token` is not one.

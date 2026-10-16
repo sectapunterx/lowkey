@@ -62,6 +62,19 @@ TEST(FreeWindow, ATaskBlockTakesItsTime) {
   EXPECT_DOUBLE_EQ(w.start, 10.5);
 }
 
+// Lunch (APP-319) is busy on a working day: a window does not run across it.
+TEST(FreeWindow, LunchIsBusyOnAWorkingDay) {
+  Calendar c;
+  c.busy[kThu] = {{9, 12.5}};
+  WindowAsk a = ask(QDateTime(kThu, QTime(8, 0)), 1);
+  a.lunch = {13, 14};
+  const auto w = findWindow(a, c.busyOn(), weekday);
+  ASSERT_TRUE(w.found);
+  EXPECT_DOUBLE_EQ(w.start, 14) << "12:30-13:00 is too short and 13-14 is lunch";
+  a.lunch = {-1, -1};
+  EXPECT_DOUBLE_EQ(findWindow(a, c.busyOn(), weekday).start, 12.5) << "no lunch, no gap";
+}
+
 TEST(FreeWindow, StartsFromNowOnToday) {
   Calendar c;
   const auto w = findWindow(ask(QDateTime(kThu, QTime(13, 5))), c.busyOn(), weekday);

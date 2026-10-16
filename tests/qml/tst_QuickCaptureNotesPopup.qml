@@ -132,4 +132,17 @@ b");
         tryVerify(function () { return !again.opened; });
         verify(!AppController.quickNoteDraft().text, "a saved note leaves no draft");
     }
+
+    // APP-320: the header says where the note goes: on in the last one, or
+    // a new one under another label.
+    function test_the_label_picks_where_it_goes() {
+        const qc = make('import TodoCpp; QuickCaptureNotesPopup { }');
+        const id = AppController.appendNoteEntry("popup target probe", "popprobe");
+        qc.label = "popprobe";
+        compare(qc._targetText, I18n.t("quickNote.titleInto").arg("popup target probe"));
+        qc.label = "otherprobe";
+        compare(qc._targetText, I18n.t("quickNote.titleNew"));
+        AppController.deleteNote(id);
+        AppController.clearPendingUndo();
+    }
 }

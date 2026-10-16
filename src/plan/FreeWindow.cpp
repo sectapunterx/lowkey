@@ -36,6 +36,13 @@ double firstFit(QVector<Span> busy, double from, double until, double hours, dou
   return cursor + hours <= until + kEps ? cursor : -1;
 }
 
+QVector<Span> withLunch(QVector<Span> busy, const Span& lunch) {
+  if(lunch.second > lunch.first && lunch.first >= 0) {
+    busy.append(lunch);
+  }
+  return busy;
+}
+
 double searchFrom(const QDate& date, const QDateTime& now, double workStart, double step) {
   if(!now.isValid() || date < now.date()) {
     return -1;
@@ -51,8 +58,9 @@ Window findWindow(const WindowAsk& ask, const BusyOn& busyOn, const IsWorkDay& i
   Window w;
   const double from = searchFrom(ask.date, ask.now, ask.workStart, ask.step);
   if(from >= 0) {
-    const QVector<Span> busy = busyOn(ask.date);
-    if(isWorkDay(ask.date)) {
+    const bool work = isWorkDay(ask.date);
+    const QVector<Span> busy = work ? withLunch(busyOn(ask.date), ask.lunch) : busyOn(ask.date);
+    if(work) {
       const double s = firstFit(busy, from, ask.workEnd, ask.hours, ask.step);
       if(s >= 0) {
         w.found = true;
@@ -73,7 +81,7 @@ Window findWindow(const WindowAsk& ask, const BusyOn& busyOn, const IsWorkDay& i
     if(dayFrom < 0) {
       continue;
     }
-    const double s = firstFit(busyOn(d), dayFrom, ask.workEnd, ask.hours, ask.step);
+    const double s = firstFit(withLunch(busyOn(d), ask.lunch), dayFrom, ask.workEnd, ask.hours, ask.step);
     if(s >= 0) {
       w.nextDate = d;
       w.nextStart = s;
@@ -93,7 +101,7 @@ std::pair<QDate, double> nextWindow(const WindowAsk& ask, const BusyOn& busyOn, 
     if(from < 0) {
       continue;
     }
-    const double s = firstFit(busyOn(d), from, ask.workEnd, ask.hours, ask.step);
+    const double s = firstFit(withLunch(busyOn(d), ask.lunch), from, ask.workEnd, ask.hours, ask.step);
     if(s >= 0) {
       return {d, s};
     }

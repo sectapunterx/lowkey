@@ -52,6 +52,7 @@
 #include "markdown/MdOutline.h"
 #include "notes/ChecklistItems.h"
 #include "notes/MdVault.h"
+#include "notes/NoteChain.h"
 #include "notes/NoteGraph.h"
 #include "notes/NoteLinks.h"
 #include "notify/NotificationCenter.h"
@@ -562,6 +563,7 @@ const QHash<QString, I18nEntry>& i18nTable() {
       {"person.pinged", {"Wrote to %1", "Написал: %1"}},
       {"person.replied", {"%1 replied", "Ответил: %1"}},
       {"person.stateUndone", {"Back on the list: %1", "Снова в списке: %1"}},
+      {"person.backToTodo", {"Message again: %1", "Снова написать: %1"}},
       {"person.restored", {"Restored: %1", "Восстановлён: %1"}},
       {"person.idTaken", {"%1 is already taken by %2 — pick another id", "%1 уже занят: %2 — выберите другой id"}},
       {"person.createUndone", {"Creation undone: %1", "Создание отменено: %1"}},
@@ -993,6 +995,17 @@ const QHash<QString, I18nEntry>& i18nTable() {
       {"notify.blockNow", {"Time for “%1”", "Время для «%1»"}},
       {"notify.blockSoon", {"“%1” in %2 min", "«%1» через %2 мин"}},
       {"notify.blockBody", {"planned for %1–%2", "запланировано на %1–%2"}},
+      {"notify.remindTitle", {"Reminder: %1", "Напоминание: %1"}},
+      {"notify.remindBody", {"at %1", "на %1"}},
+      {"notify.remindLate", {"at %1, while Tabless was closed", "на %1, пока Tabless был закрыт"}},
+      {"notify.action.snooze", {"Snooze", "Отложить"}},
+      {"remind.set", {"Reminder at %1", "Напомню в %1"}},
+      {"remind.setLead", {"Reminder %1 min before", "Напомню за %1 мин"}},
+      {"remind.cleared", {"Reminder removed", "Напоминание снято"}},
+      {"remind.noTime",
+       {"“%1” has no time yet: give it one, or say when to remind", "У «%1» нет времени: задайте его или скажите, когда напомнить"}},
+      {"remind.unknown", {"Can’t read “%1” as a time", "Не понял «%1» как время"}},
+      {"undo.remind", {"Reminder for %1", "Напоминание для %1"}},
       {"notify.action.snooze15", {"In 15 min", "Через 15 мин"}},
       {"notify.action.window", {"Next free window", "В ближайшее окно"}},
       {"notify.overdueTitle", {"Overdue %1", "Просрочено %1"}},
@@ -2053,6 +2066,10 @@ QString AppController::newNote(const QString& title, const QString& folder) {
   n.body = QStringLiteral("# %1\n\n").arg(n.title);
   m_notes.upsert(n);
   setActiveNoteId(n.id);
+  // A quick note in the next hour goes on in this one (APP-320).
+  if(folder.isEmpty()) {
+    noteChainTo(n.id, QString(), n.created);
+  }
   if(title.trimmed().isEmpty() && folder.isEmpty()) {
     m_freshNoteId = n.id;
   }
@@ -2377,10 +2394,70 @@ QString AppController::inboxNoteId() const {
   return {};
 }
 
-QString AppController::quickNoteTarget() const {
-  // Where appendNoteEntry() will write: always the Inbox.
-  const int row = m_notes.indexOfId(inboxNoteId());
-  return row >= 0 ? m_notes.items().at(row).title : tr_("notes.inbox");
+QString AppController::quickNoteTarget(const QString& label) const {
+  return quickNoteTargetAt(label, QDateTime::currentDateTime());
+}
+
+QString AppController::quickNoteTargetAt(const QString& label, const QDateTime& now) const {
+  // The note the chain is on (APP-320), while it still takes this note.
+  const QJsonObject chain = m_settingsExtra.value(QStringLiteral("noteChain")).toObject();
+  const int row = m_notes.indexOfId(chain.value(QStringLiteral("id")).toString());
+  if(row < 0 || !heap::notes::chainAppends(QDateTime::fromString(chain.value(QStringLiteral("at")).toString(), Qt::ISODate),
+                                           chain.value(QStringLiteral("label")).toString(),
+                                           label,
+                                           now)) {
+    return {};
+  }
+  return m_notes.items().at(row).title;
+}
+
+void AppController::noteChainTo(const QString& noteId, const QString& label, const QDateTime& at) {
+  m_settingsExtra.insert(QStringLiteral("noteChain"),
+                         QJsonObject{{QStringLiteral("id"), noteId},
+                                     {QStringLiteral("at"), at.toString(Qt::ISODate)},
+                                     {QStringLiteral("label"), heap::notes::normLabel(label)}});
+}
+
+QStringList AppController::noteLabels() const {
+  QStringList out{QStringLiteral("личное"), QStringLiteral("hr"), QStringLiteral("работа")};
+  if(m_language != QLatin1String("ru")) {
+    out = {QStringLiteral("personal"), QStringLiteral("hr"), QStringLiteral("work")};
+  }
+  const auto add = [&](const QString& t) {
+    const QString l = heap::notes::normLabel(t);
+    if(!l.isEmpty() && !out.contains(l)) {
+      out << l;
+    }
+  };
+  for(const QVariant& v : localTagCatalog()) {
+    add(v.toMap().value(QStringLiteral("id")).toString());
+  }
+  for(const QVariant& v : noteTagCounts()) {
+    add(v.toMap().value(QStringLiteral("id")).toString());
+  }
+  return out;
+}
+
+QVariantList AppController::noteTagCounts() const {
+  QHash<QString, int> count;
+  QStringList order;
+  for(const Note& n : m_notes.items()) {
+    const bool open = n.id == m_activeNoteId;
+    for(const QString& t : heap::notes::noteTags(open ? m_notesState : n.body)) {
+      if(!count.contains(t)) {
+        order << t;
+      }
+      ++count[t];
+    }
+  }
+  std::stable_sort(order.begin(), order.end(), [&](const QString& a, const QString& b) {
+    return count.value(a) > count.value(b);
+  });
+  QVariantList out;
+  for(const QString& t : order) {
+    out.append(QVariantMap{{QStringLiteral("id"), t}, {QStringLiteral("count"), count.value(t)}});
+  }
+  return out;
 }
 
 QVariantMap AppController::quickNoteDraft() const {
@@ -2409,58 +2486,83 @@ void AppController::setQuickNoteDraft(const QString& text, const QString& attach
   scheduleSave();
 }
 
-void AppController::appendNoteEntry(const QString& text) {
+QString AppController::appendNoteEntry(const QString& text, const QString& label) {
+  return appendNoteEntryAt(text, label, QDateTime::currentDateTime());
+}
+
+QString AppController::appendNoteEntryAt(const QString& text, const QString& label, const QDateTime& now) {
   const QString body = text.trimmed();
   if(body.isEmpty()) {
-    return;
+    return {};
   }
   // The editor's debounced keystrokes go into notesState first: the entry is
   // appended to notesState, and the view diffs the editor against it, so text
   // typed in the last 250 ms was erased (KNOW-17, audit 2026-09-30).
   emit aboutToChangeActiveNote();
   // Text in the editor with no note behind it becomes a note before the
-  // Inbox is looked at, so it is neither lost nor taken for the Inbox.
+  // chain is looked at, so it is neither lost nor written over.
   adoptOrphanNotesState();
   syncActiveNoteBody();
-  QString inboxId = inboxNoteId();
-  if(inboxId.isEmpty()) {
-    // Made on first use, beside the open note — the open note stays open.
+  const QString tag = heap::notes::normLabel(label);
+  const QString stamp = now.toString("yyyy-MM-dd HH:mm");
+  // Within an hour of the last note and under the same label: on in that
+  // note; else a note of its own, named by its first words (APP-320, the
+  // owner's rule: one note per sitting, not one Inbox for ever).
+  const QJsonObject chain = m_settingsExtra.value(QStringLiteral("noteChain")).toObject();
+  QString targetId = quickNoteTargetAt(tag, now).isEmpty() ? QString() : chain.value(QStringLiteral("id")).toString();
+  if(targetId.isEmpty()) {
     Note n;
     n.id = QStringLiteral("note-") + QUuid::createUuid().toString(QUuid::WithoutBraces).left(8);
-    n.title = tr_("notes.inbox");
-    n.created = QDateTime::currentDateTime();
-    n.updated = n.created;
-    m_notes.upsert(n);
-    inboxId = n.id;
-  }
-  // With no note open the Inbox opens, so the editor shows where it went.
-  if(m_notes.indexOfId(m_activeNoteId) < 0) {
-    m_activeNoteId = inboxId;
-    m_notesState = noteBody(inboxId);
-    emit activeNoteChanged();
-  }
-  const bool open = inboxId == m_activeNoteId;
-  const QString was = open ? m_notesState : noteBody(inboxId);
-  const QString stamp = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm");
-  QString next;
-  if(was.trimmed().isEmpty()) {
-    next = QStringLiteral("### %1\n\n%2").arg(stamp, body);
-  } else {
-    next = was;
-    while(next.endsWith(QLatin1Char('\n'))) {
-      next.chop(1);
+    QString title = heap::notes::titleFromEntry(body);
+    if(title.isEmpty()) {
+      title = tr_("notes.untitled");
     }
+    if(noteTitleTaken(title, QString(), QString())) {
+      title += QStringLiteral(" · ") + heap::text::formatTime(now.time(), twelveHourClock());
+    }
+    n.title = title;
+    n.created = now;
+    n.updated = now;
+    n.body =
+        QStringLiteral("# %1\n\n%2### %3\n\n%4").arg(title, tag.isEmpty() ? QString() : QStringLiteral("#%1\n\n").arg(tag), stamp, body);
+    m_notes.upsert(n);
+    targetId = n.id;
+    // With no note open the new one opens, so the editor shows where it went.
+    if(m_notes.indexOfId(m_activeNoteId) < 0) {
+      m_activeNoteId = targetId;
+      m_notesState = n.body;
+      emit activeNoteChanged();
+    }
+    noteChainTo(targetId, tag, now);
+    scheduleSave();
+    return targetId;
+  }
+  const bool open = targetId == m_activeNoteId;
+  QString next = open ? m_notesState : noteBody(targetId);
+  while(next.endsWith(QLatin1Char('\n')) || next.endsWith(QLatin1Char(' ')) || next.endsWith(QLatin1Char('\t'))) {
+    next.chop(1);
+  }
+  // A rule between entries, not under the note's own heading: a note made by
+  // hand a minute ago holds only "# Title".
+  const QString heading = QStringLiteral("# ") + m_notes.items().at(m_notes.indexOfId(targetId)).title;
+  if(next.trimmed().isEmpty()) {
+    next = QStringLiteral("### %1\n\n%2").arg(stamp, body);
+  } else if(next.trimmed() == heading) {
+    next = QStringLiteral("%1\n\n### %2\n\n%3").arg(heading, stamp, body);
+  } else {
     next += QStringLiteral("\n\n----\n### %1\n\n%2").arg(stamp, body);
   }
+  noteChainTo(targetId, tag, now);
   if(open) {
     setNotesState(next);
-    return;
+    return targetId;
   }
-  Note n = m_notes.items().at(m_notes.indexOfId(inboxId));
+  Note n = m_notes.items().at(m_notes.indexOfId(targetId));
   n.body = next;
-  n.updated = QDateTime::currentDateTime();
+  n.updated = now;
   m_notes.upsert(n);
   scheduleSave();
+  return targetId;
 }
 
 QStringList AppController::noteHeadings(const QString& markdown) const {
@@ -3942,6 +4044,7 @@ QVariantMap AppController::captureParse(const QString& raw, const QDateTime& ref
   out["due"] = p.due;
   out["dueHasTime"] = p.dueHasTime;
   out["duePast"] = p.duePast;
+  out["remind"] = p.remind;
   out["priority"] = meta.priority;
   out["labels"] = meta.labels;
   out["ticketKey"] = meta.ticketKey;
@@ -4030,6 +4133,9 @@ QVariantMap AppController::quickTaskDraft(const QString& raw, const QDateTime& r
   if(parsed.due.isValid()) {
     draft["dueAt"] = parsed.due;
     draft["dueHasTime"] = parsed.dueHasTime;
+  }
+  if(parsed.remind.isValid()) {
+    draft["remindAt"] = parsed.remind;
   }
   if(parsed.estimateMinutes > 0) {
     draft["estimateMinutes"] = parsed.estimateMinutes;
@@ -4333,6 +4439,12 @@ bool AppController::saveTask(const QVariantMap& draft) {
     // sort lists it last, a task created in Done never auto-archives and one
     // created in Blocked never reads as stuck.
     t.statusChangedAt = QDateTime::currentDateTime();
+  }
+
+  // A reminder said in the input ("напомни в 15:00 …", APP-319).
+  if(draft.contains("remindAt")) {
+    t.local.remindAt = draft.value("remindAt").toDateTime();
+    t.local.remindLead = -1;
   }
 
   // ── Rename path ──
@@ -5070,11 +5182,13 @@ QVariantMap AppController::todayData(const QDate& date, bool allProfiles) const 
     timed.append(in);
   }
 
-  const heap::plan::Day day = heap::plan::buildDay(date, now, events, timed, m_workdayStart, m_workdayEnd, isWorkDay(date));
+  const heap::plan::Day day = heap::plan::buildDay(date, now, events, timed, m_workdayStart, m_workdayEnd, isWorkDay(date), lunchSpan());
   out["date"] = day.date;
   out["workday"] = day.workday;
   out["workStart"] = day.workStart;
   out["workEnd"] = day.workEnd;
+  out["lunchStart"] = day.lunchStart;
+  out["lunchEnd"] = day.lunchEnd;
   out["fromHour"] = day.fromHour;
   out["toHour"] = day.toHour;
   QVariantList allDay;
@@ -5219,14 +5333,18 @@ QVariantMap AppController::todayData(const QDate& date, bool allProfiles) const 
   out["facts"] = QVariantMap{{"meetings", meetings}, {"planned", planned}, {"dueToday", dueToday}};
 
   // Whom to write: the people list's open asks.
+  out["people"] = openPings();
+  return out;
+}
+
+QVariantList AppController::openPings() const {
   QVariantList people;
   for(const Person& p : m_people.items()) {
     if(p.state == QLatin1String("todo")) {
       people.append(QVariantMap{{"id", p.id}, {"name", p.name}, {"question", p.question}, {"color", p.color}});
     }
   }
-  out["people"] = people;
-  return out;
+  return people;
 }
 
 QVariantMap AppController::dayLoad(const QDate& date) const {
@@ -7361,6 +7479,7 @@ QVariantMap AppController::freeWindowAt(const QString& taskId, const QDate& date
   ask.hours = taskBlockMinutes(taskId) / 60.0;
   ask.workStart = m_workdayStart;
   ask.workEnd = m_workdayEnd;
+  ask.lunch = lunchSpan();
   ask.step = snapStepHours();
   const heap::plan::Window w = heap::plan::findWindow(
       ask,
@@ -7450,6 +7569,7 @@ int AppController::carryTasksAt(const QStringList& ids, const QString& mode, con
       ask.hours = taskBlockMinutes(id) / 60.0;
       ask.workStart = m_workdayStart;
       ask.workEnd = m_workdayEnd;
+      ask.lunch = lunchSpan();
       ask.step = snapStepHours();
       // The tasks carried before this one are in the model already, so they
       // count as busy and the selection lines up instead of stacking.
@@ -7681,6 +7801,7 @@ double AppController::nextFreeSlot(const QDate& date, double durationHours) cons
   ask.hours = dur;
   ask.workStart = m_workdayStart;
   ask.workEnd = m_workdayEnd;
+  ask.lunch = lunchSpan();
   ask.step = step;
   ask.maxDays = 0;
   const heap::plan::Window w = heap::plan::findWindow(
@@ -7759,6 +7880,9 @@ void AppController::setPersonState(const QString& id, const QString& state) {
   personStateMoved(id, before);
   if(state == QLatin1String("pinged") || state == QLatin1String("replied")) {
     emit undoableToast(tr_(state == QLatin1String("pinged") ? "person.pinged" : "person.replied").arg(person.name), 6);
+  } else if(state == QLatin1String("todo")) {
+    // Back on "Кому написать" from "Люди" (APP-321).
+    emit undoableToast(tr_("person.backToTodo").arg(person.name), 6);
   }
   scheduleSave();
 }
@@ -8623,6 +8747,15 @@ QVariantMap AppController::taskById(const QString& id) const {
     tags.append(QVariantMap{{"id", tag.id}, {"color", tag.color}});
   }
   m["localTags"] = tags;
+  // "Remind me" (APP-319): as set, and the moment it comes to.
+  m["remindAt"] = t.local.remindAt;
+  m["remindLead"] = t.local.remindLead;
+  m["remindFireAt"] = heap::cal::taskReminderFireAt(t.local.remindAt,
+                                                    t.local.remindLead,
+                                                    t.scheduledAt,
+                                                    t.scheduledHasTime,
+                                                    heap::local::effectiveDueAt(t),
+                                                    heap::local::effectiveDueHasTime(t));
   // The document's meta column (DG-061): history and the PR, if one is known.
   m["statusChangedAt"] = t.statusChangedAt;
   m.insert(m_tasks.gitFactsFor(t.id));
@@ -15316,7 +15449,21 @@ QStringList AppController::notesMatchingExactly_(const QString& query) const {
   QStringList out;
   for(const Note& n : m_notes.items()) {
     bool all = true;
+    QStringList tags;
+    bool tagsRead = false;
     for(const QString& t : terms) {
+      // "#hr" (a label chip, a tag clicked in a note): that tag exactly.
+      if(t.size() > 1 && t.startsWith(QLatin1Char('#'))) {
+        if(!tagsRead) {
+          tags = heap::notes::noteTags(n.id == m_activeNoteId ? m_notesState : n.body);
+          tagsRead = true;
+        }
+        if(!tags.contains(t.mid(1))) {
+          all = false;
+          break;
+        }
+        continue;
+      }
       if(!n.title.contains(t, Qt::CaseInsensitive) && !n.folder.contains(t, Qt::CaseInsensitive) &&
          !n.body.contains(t, Qt::CaseInsensitive)) {
         all = false;
@@ -17207,6 +17354,7 @@ void AppController::scheduleFocusBlockFor(const QString& taskId) {
   ask.hours = dur;
   ask.workStart = m_workdayStart;
   ask.workEnd = m_workdayEnd;
+  ask.lunch = lunchSpan();
   ask.step = snapStepHours();
   ask.maxDays = 6;
   const auto [day, start] = heap::plan::nextWindow(
@@ -17512,6 +17660,48 @@ void AppController::runAutomationAt(const QDateTime& now) {
       if(p.id != m_activeProfileId) {
         for(const Task& t : p.tasks) {
           consider(p.id, t, false);
+        }
+      }
+    }
+  }
+
+  // 3c. "Remind me" on a task (APP-319): only where one was set. Held by
+  // quiet hours like the rest; one whose minute passed while the app was
+  // closed still comes, once, and says so.
+  if(!quiet) {
+    const auto remind = [&](const QString& profileId, const Task& t, bool own) {
+      if(t.archived || (!t.local.remindAt.isValid() && t.local.remindLead < 0)) {
+        return;
+      }
+      const QString cat = own ? statusCategory(t.status) : heap::board::defaultCategoryFor(t.status);
+      if(cat == QLatin1String("done")) {
+        return;
+      }
+      const QDateTime fireAt = heap::cal::taskReminderFireAt(t.local.remindAt,
+                                                             t.local.remindLead,
+                                                             t.scheduledAt,
+                                                             t.scheduledHasTime,
+                                                             heap::local::effectiveDueAt(t),
+                                                             heap::local::effectiveDueHasTime(t));
+      const heap::cal::TaskRemindCall call = heap::cal::taskReminder(t.id, fireAt, now);
+      if(!call.due || reminderSent(call.key)) {
+        return;
+      }
+      markReminderSent(call.key, now);
+      const QString at = heap::text::formatTime(fireAt.time(), twelveHourClock());
+      notifyTaskAt(heap::notify::taskRef(profileId, t.id),
+                   tr_("notify.remindTitle").arg(t.title),
+                   call.late ? tr_("notify.remindLate").arg(at) : tr_("notify.remindBody").arg(at),
+                   QStringLiteral("remind"),
+                   now);
+    };
+    for(const Task& t : m_tasks.items()) {
+      remind(m_activeProfileId, t, true);
+    }
+    for(const Profile& p : m_profiles) {
+      if(p.id != m_activeProfileId) {
+        for(const Task& t : p.tasks) {
+          remind(p.id, t, false);
         }
       }
     }
@@ -18025,13 +18215,13 @@ void AppController::notifyTaskAt(
   // The start of a task block (APP-256) carries its buttons in the window too:
   // open, in 15 minutes, the next free window.
   const auto inAppToast = [&]() {
-    if(kind == QLatin1String("taskBlock")) {
+    if(kind == QLatin1String("taskBlock") || kind == QLatin1String("remind")) {
       const QString id = heap::notify::routingId(kind, taskId);
       ShownReminder& shown = m_shownReminders[id];
       shown.title = title;
       shown.body = body;
       shown.kind = kind;
-      emit reminderToast(id, inApp);
+      emit reminderToast(id, inApp, kind);
     } else {
       emit toast(inApp);
     }

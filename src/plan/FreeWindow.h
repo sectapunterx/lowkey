@@ -33,6 +33,9 @@ struct WindowAsk {
   double workEnd = 19;
   double step = 0.25;  // the calendar's snap, in hours
   int maxDays = 14;    // how far ahead the next working day may be
+  // Lunch (APP-319): busy on every working day when it is set, so no window
+  // is found across it. {-1, -1} = no lunch.
+  Span lunch{-1, -1};
 };
 
 struct Window {
@@ -46,6 +49,10 @@ struct Window {
   double nextStart = -1;
   double lateStart = -1;
 };
+
+// `busy` with the lunch break added when it is set: what a working day is
+// busy with before anything is planned on it.
+QVector<Span> withLunch(QVector<Span> busy, const Span& lunch);
 
 using BusyOn = std::function<QVector<Span>(const QDate&)>;
 using IsWorkDay = std::function<bool(const QDate&)>;

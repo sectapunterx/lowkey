@@ -370,6 +370,7 @@ qt_add_qml_module(heap_core
         qml/CursorBar.qml
         qml/TextCaret.qml
         qml/TaskCiPanel.qml
+        qml/SidebarPings.qml
         qml/SectionHeader.qml
         qml/MeetingIcon.qml
         qml/Icon.qml

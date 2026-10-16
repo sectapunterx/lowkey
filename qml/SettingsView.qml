@@ -1981,6 +1981,37 @@ Item {
                         }
                     }
                 }
+                // Lunch (APP-319): off by default. On a working day it is
+                // neither free time nor a place for a new block.
+                SwitchRow {
+                    objectName: "settings-lunch"
+                    label: I18n.t("settings.cal.lunch")
+                    hint: I18n.t("settings.cal.lunch.hint")
+                    checked: !!(root.settings.calendar && root.settings.calendar.lunchOn)
+                    onToggled: (checked) => root.set("calendar", "lunchOn", checked)
+                }
+                SettingsTextRow {
+                    objectName: "settings-lunch-start"
+                    visible: !!(root.settings.calendar && root.settings.calendar.lunchOn)
+                    label: I18n.t("settings.cal.lunchStart")
+                    mono: true; placeholder: "13:00"
+                    fieldWidth: Theme.px(80)
+                    clockTime: true
+                    hint: invalid ? I18n.t("settings.cal.lunch.invalid") : ""
+                    value: (root.settings.calendar && root.settings.calendar.lunchStart) || "13:00"
+                    onCommitted: (text) => root.set("calendar", "lunchStart", text)
+                }
+                SettingsTextRow {
+                    objectName: "settings-lunch-end"
+                    visible: !!(root.settings.calendar && root.settings.calendar.lunchOn)
+                    label: I18n.t("settings.cal.lunchEnd")
+                    mono: true; placeholder: "14:00"
+                    fieldWidth: Theme.px(80)
+                    clockTime: true
+                    hint: invalid ? I18n.t("settings.cal.lunch.invalid") : ""
+                    value: (root.settings.calendar && root.settings.calendar.lunchEnd) || "14:00"
+                    onCommitted: (text) => root.set("calendar", "lunchEnd", text)
+                }
                 SegRow {
                     objectName: "settings-week-start"
                     label: I18n.t("settings.cal.weekStart")
