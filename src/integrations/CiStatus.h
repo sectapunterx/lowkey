@@ -27,8 +27,8 @@ inline QString gitlabState(const QString& status) {
   if(s == QLatin1String("failed")) {
     return QStringLiteral("failed");
   }
-  if(s == QLatin1String("running") || s == QLatin1String("pending") || s == QLatin1String("created") ||
-     s == QLatin1String("preparing") || s == QLatin1String("waiting_for_resource") || s == QLatin1String("scheduled")) {
+  if(s == QLatin1String("running") || s == QLatin1String("pending") || s == QLatin1String("created") || s == QLatin1String("preparing") ||
+     s == QLatin1String("waiting_for_resource") || s == QLatin1String("scheduled")) {
     return QStringLiteral("running");
   }
   if(s == QLatin1String("canceled") || s == QLatin1String("canceling")) {
@@ -127,14 +127,14 @@ inline QVariantList githubFailedChecks(const QByteArray& raw) {
     const QString app = r.value(QStringLiteral("app")).toObject().value(QStringLiteral("slug")).toString();
     const QDateTime from = QDateTime::fromString(r.value(QStringLiteral("started_at")).toString(), Qt::ISODate);
     const QDateTime to = QDateTime::fromString(r.value(QStringLiteral("completed_at")).toString(), Qt::ISODate);
-    out.append(QVariantMap{{QStringLiteral("id"), QString::number(static_cast<qlonglong>(r.value(QStringLiteral("id")).toDouble()))},
-                           {QStringLiteral("name"), r.value(QStringLiteral("name")).toString()},
-                           {QStringLiteral("stage"), app},
-                           {QStringLiteral("seconds"), from.isValid() && to.isValid() ? static_cast<int>(from.secsTo(to)) : 0},
-                           {QStringLiteral("url"), r.value(QStringLiteral("html_url")).toString()},
-                           {QStringLiteral("summary"),
-                            r.value(QStringLiteral("output")).toObject().value(QStringLiteral("summary")).toString().left(2000)},
-                           {QStringLiteral("hasLog"), app == QLatin1String("github-actions")}});
+    out.append(QVariantMap{
+        {QStringLiteral("id"), QString::number(static_cast<qlonglong>(r.value(QStringLiteral("id")).toDouble()))},
+        {QStringLiteral("name"), r.value(QStringLiteral("name")).toString()},
+        {QStringLiteral("stage"), app},
+        {QStringLiteral("seconds"), from.isValid() && to.isValid() ? static_cast<int>(from.secsTo(to)) : 0},
+        {QStringLiteral("url"), r.value(QStringLiteral("html_url")).toString()},
+        {QStringLiteral("summary"), r.value(QStringLiteral("output")).toObject().value(QStringLiteral("summary")).toString().left(2000)},
+        {QStringLiteral("hasLog"), app == QLatin1String("github-actions")}});
   }
   return out;
 }
