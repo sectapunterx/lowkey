@@ -62,6 +62,9 @@ TestCase {
         tryVerify(() => field.visible && field.activeFocus, 1000, "no block open for editing");
         // The whole text opens, not a block of it (0.8.2).
         compare(field.text, "first line\n\n- [ ] item");
+        // It opens with the caret at the end of the text (dogfood 2026-10-16).
+        compare(field.cursorPosition, field.length);
+        keyClick(Qt.Key_Home, Qt.ControlModifier);
         keyClick(Qt.Key_End);
         typeText(" more");
         doc.flush();

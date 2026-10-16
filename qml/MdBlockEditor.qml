@@ -50,6 +50,10 @@ Item {
     // A printable key on the drawn document opens the block the caret was
     // last in and is typed there (the Knowledge editors).
     property bool typeToEdit: false
+    // Rich: the caret drawn dimmed where the text would go while the drawn
+    // document holds the keyboard, so the text reads as one to type into
+    // (a task's notes, dogfood 2026-10-16).
+    property bool ghostCaret: false
     // A key of the open block, offered to the caller first (an autocomplete
     // list over it): accepting the event takes it.
     signal blockKey(var event)
@@ -211,6 +215,11 @@ Item {
         const last = t.substring(root._lineStart(t, line), root._lineEnd(t, line));
         if (last.trim().length === 0 || /^#{1,6}\s/.test(last)) root.appendBlock();
         else root.editLine(line, false);
+    }
+    // Rich: the caret to the end of the text without taking the keyboard,
+    // where Return or a click beside the text picks it up.
+    function caretToEnd() {
+        if (root._isRich) field.cursorPosition = field.length;
     }
     // A new document: its heading open with the title selected, so what is
     // typed names it; "/" or ↓ go to the line under it (PERSONA-20).
@@ -625,6 +634,10 @@ Item {
             placeholderTextColor: Theme.textDim
             textFormat: TextEdit.PlainText
             color: Theme.text
+            cursorDelegate: TextCaret {
+                field: field
+                ghost: root.ghostCaret && root._isRich && !root.readOnly && !field.activeFocus
+            }
             font.family: _single && view.editHostCode ? Theme.fontMono : Theme.fontUi
             // One editor, no modes (N/X-Oth-Knowledge, R3-092): the source
             // is typed where the block was drawn, in the block's own face,
@@ -806,10 +819,17 @@ Item {
                         return;
                     }
                 }
-                const firstLine = field.text.lastIndexOf("\n", field.cursorPosition - 1) < 0;
-                const lastLine = field.text.indexOf("\n", field.cursorPosition) < 0;
+                // The first and last line as drawn, not as typed: a long
+                // paragraph wraps, and ↑/↓ inside it left the block or did
+                // nothing at all instead of going up a line (dogfood
+                // 2026-10-16).
+                const caretY = field.positionToRectangle(field.cursorPosition).y;
+                const firstLine = caretY <= field.positionToRectangle(0).y + 1;
+                const lastLine = caretY >= field.positionToRectangle(field.length).y - 1;
                 if (event.key === Qt.Key_Up && mods === Qt.NoModifier && firstLine) {
                     const prev = view.editFirst - 1;
+                    // Nothing above: to the start of the line, as text fields do.
+                    if (prev < 0) field.cursorPosition = 0;
                     if (prev >= 0) {
                         root._commit();
                         let line = prev;
@@ -825,7 +845,37 @@ Item {
                     const total = root._lineCount(src.text);
                     let line = view.editLast + 1;
                     while (line < total - 1 && src.text.substring(root._lineStart(src.text, line), root._lineEnd(src.text, line)).trim().length === 0) line++;
-                    if (line < total) root.editLine(line, true);
+                    if (line < total && line > view.editLast) root.editLine(line, true);
+                    else field.cursorPosition = field.length;
+                    event.accepted = true;
+                    return;
+                }
+                // ← at a block's start and → at its end go on into the
+                // block beside it, and Ctrl+Home / Ctrl+End to the start and
+                // end of the whole text, as in any editor: they stopped at
+                // the block's edge.
+                if (!root.wholeDocument && mods === Qt.NoModifier
+                        && ((event.key === Qt.Key_Left && field.cursorPosition === 0 && view.editFirst > 0)
+                            || (event.key === Qt.Key_Right && field.cursorPosition === field.length))) {
+                    root._commit();
+                    const t = src.text;
+                    const total = root._lineCount(t);
+                    const back = event.key === Qt.Key_Left;
+                    let line = back ? view.editFirst - 1 : view.editLast + 1;
+                    while (line > 0 && line < total - 1
+                           && t.substring(root._lineStart(t, line), root._lineEnd(t, line)).trim().length === 0)
+                        line += back ? -1 : 1;
+                    if (line >= 0 && line < total && (back || line > view.editLast)) {
+                        root.editLine(line, !back);
+                        event.accepted = true;
+                        return;
+                    }
+                }
+                if (!root.wholeDocument && mods === Qt.ControlModifier
+                        && (event.key === Qt.Key_Home || event.key === Qt.Key_End)) {
+                    root._commit();
+                    if (event.key === Qt.Key_Home) root.editLine(0, true);
+                    else root.editLine(Math.max(0, root._lineCount(src.text) - 1), false);
                     event.accepted = true;
                     return;
                 }

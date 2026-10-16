@@ -123,6 +123,22 @@ TestCase {
         verify(!chip.activeFocus, "Esc must hand the keyboard back to the view");
     }
 
+    // Dogfood 2026-10-16: on Settings typing goes straight into the search;
+    // the box had to be clicked first.
+    function test_settings_takes_typing_at_once() {
+        AppController.currentView = "board";
+        wait(50);
+        AppController.currentView = "settings";
+        tryVerify(function () { return tc.win.activeViewItem() && tc.win.activeViewItem().openSection !== undefined; });
+        const sv = tc.win.activeViewItem();
+        const search = byName("settings-search", sv);
+        tryVerify(function () { return search.activeFocus; }, 2000, "the search box does not hold the keyboard");
+        keyClick(Qt.Key_T);
+        compare(search.text, "t");
+        sv.searchText = "";
+        search.text = "";
+    }
+
     function test_settings_search_enter_opens_the_section() {
         AppController.currentView = "settings";
         tryVerify(function () { return tc.win.activeViewItem() && tc.win.activeViewItem().openSection !== undefined; });

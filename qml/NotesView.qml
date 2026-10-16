@@ -557,6 +557,14 @@ Item {
     // letter that is no key still lands in the note (IDIOT-KNOW-6), and a
     // bare "u" never reaches a change made on another screen (IDIOT-KNOW-5,
     // undoKeyLive). An open page is the document on screen.
+    // Arriving on Knowledge from another screen: the caret at the end of the
+    // note, ready to type on (dogfood 2026-10-16); a Ctrl K hit that jumps
+    // to a line keeps its line.
+    function arrive() {
+        root.takeFocus();
+        if (root.jumpToLine >= 0 || root.pageId.length > 0) return;
+        if (editor.activeFocus) editor.cursorPosition = editor.length;
+    }
     function takeFocus() {
         if (notesList.reclaimFocus()) return;
         if (root.pageId.length > 0) pageEditor.focusDocument();
@@ -1183,6 +1191,7 @@ Item {
                         placeholderText: I18n.t("notes.placeholderBody")
                         placeholderTextColor: Theme.textDim
                         color: Theme.text
+                        cursorDelegate: TextCaret { field: editor }
                         // The note's own face in rich, where it reads as drawn;
                         // the source in mono in split and edit.
                         font.family: root.viewMode === "rich" ? Theme.fontUi : Theme.fontMono

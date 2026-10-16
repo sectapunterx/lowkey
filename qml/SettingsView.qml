@@ -762,6 +762,15 @@ Item {
         }
     }
 
+    // Opening Settings puts the caret in the search box, so typing finds a
+    // setting right away; ↓ still walks the section list, Esc on an empty
+    // box goes on to whatever Esc does around it.
+    function takeFocus() { settingsSearch.forceActiveFocus(); }
+    function focusSearch() {
+        settingsSearch.forceActiveFocus();
+        settingsSearch.selectAll();
+    }
+
     // Deep link from the command palette ("Settings: Appearance").
     function openSection(id) {
         // The profile section is gone (DG-101); its old deep link opens the top.

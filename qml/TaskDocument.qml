@@ -127,6 +127,8 @@ FocusScope {
         // it was scrolled to, and the height it had shrunk to (0.9.4).
         trackerBody.scrollToTop();
         root._trackerFullH = trackerBody.contentHeight;
+        // My notes wait with the caret at their end (dogfood 2026-10-16).
+        body.caretToEnd();
         if (intoTitle === true) root.focusTitle();
         else root.takeFocus();
         // The first tracker text opened says whose it is, once (coach mark).
@@ -605,9 +607,13 @@ FocusScope {
         if (all.length > 0) all[forward ? 0 : all.length - 1].forceActiveFocus(reason);
         else root.focusTitle();
     }
+    // Return on the document goes into the text, at its end: the drawn
+    // text gave no sign it could be typed into, and in rich the old
+    // full-width toggle here never ran (body.editing is always true).
     Keys.onReturnPressed: (e) => {
-        if (titleField.activeFocus || body.editing) { e.accepted = false; return; }
-        root.full = !root.full;
+        if (titleField.activeFocus || body.editor.activeFocus) { e.accepted = false; return; }
+        body.caretToEnd();
+        body.focusEnd();
     }
 
     Rectangle {
@@ -688,8 +694,16 @@ FocusScope {
                     // The name the card shows: the tracker key (A3-10, A1-29).
                     objectName: "task-doc-crumb-id"
                     text: root.task.externalKey || root.taskId
-                    color: Theme.textMuted
+                    color: crumbIdCA.hovered ? Theme.text : Theme.textMuted
                     font.family: Theme.fontMono
+                    ClickArea {
+                        id: crumbIdCA
+                        objectName: "task-doc-crumb-id-copy"
+                        label: I18n.t("taskcard.copyId")
+                        tip: I18n.t("taskcard.copyId.tip")
+                        activeFocusOnTab: false
+                        onActivated: AppController.copyTaskKey(parent.text)
+                    }
                     font.pixelSize: Theme.fsSm
                 }
                 Item { Layout.fillWidth: true }
@@ -1273,6 +1287,7 @@ FocusScope {
                 // nothing between them (F3-EYES-10).
                 clip: true
                 placeholder: I18n.t("taskdoc.bodyPh")
+                ghostCaret: true
                 menuTitle: I18n.t("textmenu.title.taskBody")
                 // The note look (APP-292): the same md4c drawing as Knowledge.
                 noteType: true

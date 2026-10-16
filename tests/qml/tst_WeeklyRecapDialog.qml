@@ -220,6 +220,42 @@ TestCase {
         compare(Math.round((a.getTime() - d.facts.weekStart.getTime()) / 86400000), 7);
         d.close();
     }
+    // Dogfood 2026-10-16: "Next week →" pages forward like "← Week before"
+    // (it closed the dialog for the calendar), and stops at this week.
+    function test_next_week_pages_and_stops_at_this_week() {
+        const d = make();
+        d.open();
+        tryVerify(() => d.opened);
+        d._load(new Date());
+        const next = findChild(d.contentItem, "weekly-recap-next");
+        verify(!next.enabled, "no week after this one");
+        const a = d.facts.weekStart;
+        d.stepWeek(1);
+        compare(d.facts.weekStart.getTime(), a.getTime(), "] past this week does nothing");
+        d.stepWeek(-2);
+        verify(next.enabled);
+        next.clicked();
+        verify(d.opened, "the summary stays open");
+        compare(Math.round((a.getTime() - d.facts.weekStart.getTime()) / 86400000), 7);
+        d.close();
+    }
+    // New and put-off tasks are counted and listed beside the closed ones.
+    function test_new_and_put_off_are_counted() {
+        const d = make();
+        d.open();
+        tryVerify(() => d.opened);
+        d.facts = { weekStart: new Date(2026, 9, 5), weekEnd: new Date(2026, 9, 11), perDay: [0, 0, 0, 0, 0, 0, 0], closed: [],
+                    created: [ { id: "APP-7", title: "seven" }, { id: "APP-8", title: "eight" } ],
+                    moved: [ { id: "APP-9", title: "nine" } ] };
+        d.meetingMinutes = 0;
+        compare(findChild(d.contentItem, "recap-facts").text,
+                [I18n.t("recap.noneClosed"), I18n.count(2, "recap.createdN"), I18n.count(1, "recap.movedN")].join(" · "));
+        verify(findChild(d.contentItem, "recap-created-APP-7") !== null);
+        verify(findChild(d.contentItem, "recap-moved-APP-9") !== null);
+        verify(!findChild(d.contentItem, "recap-section-closed").visible);
+        verify(d.markdown().indexOf("- APP-9 nine") >= 0);
+        d.close();
+    }
     // F3-EYES-11: a week with nothing closed says so in one line, with no
     // column of "0 closed" days.
     function test_an_empty_week_says_so_once() {

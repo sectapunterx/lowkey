@@ -324,9 +324,12 @@ Popup {
         // allowed: different requests for the same contact are different
         // pings). Resolved handles inherit the existing person's name /
         // role / color; unresolved handles get a "@handle" placeholder.
+        // A ping with a date ("написать @viktor завтра") is a task on that
+        // day: as a person's ask it lost the date and showed only on Today
+        // (dogfood 2026-10-16).
         const kindEarly = _classifyKind(inputField.text);
         if (kindEarly === "contact" && _meta && _meta.handles
-            && _meta.handles.length > 0)
+            && _meta.handles.length > 0 && !(_preview && _preview.ok))
         {
             // Question text = title with @handles stripped (verb stays so
             // the action reads naturally in the contact card).
@@ -747,6 +750,16 @@ Popup {
                         // whichever task or id came first in the list (#TASK-2700).
                         if (enter && !(e.modifiers & (Qt.ControlModifier | Qt.ShiftModifier)) && at.navigated) {
                             at.accept();
+                            e.accepted = true;
+                            return;
+                        }
+                        // A person is picked as in every messenger: Enter on
+                        // "@vik" takes the highlighted Viktor and the field
+                        // stays open for the rest of the line; it created the
+                        // task with a half-typed name (dogfood 2026-10-16).
+                        // No match (only "add a person") still goes on to create.
+                        if (enter && !(e.modifiers & (Qt.ControlModifier | Qt.ShiftModifier))
+                                && at._trigger === "@" && at.accept()) {
                             e.accepted = true;
                             return;
                         }

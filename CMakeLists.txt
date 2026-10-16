@@ -368,6 +368,7 @@ qt_add_qml_module(heap_core
         qml/PropertyChip.qml
         qml/KeyHint.qml
         qml/CursorBar.qml
+        qml/TextCaret.qml
         qml/SectionHeader.qml
         qml/MeetingIcon.qml
         qml/Icon.qml

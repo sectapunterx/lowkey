@@ -504,6 +504,16 @@ Rectangle {
                 font.family: Theme.fontMono
                 font.pixelSize: Theme.fsXs
                 wrapMode: Text.NoWrap
+                // A click copies the key (dogfood 2026-10-16: there was no
+                // way to copy it at all).
+                ClickArea {
+                    objectName: "tc-key-copy"
+                    label: I18n.t("taskcard.copyId")
+                    tip: I18n.t("taskcard.copyId.tip")
+                    cursorShape: Qt.PointingHandCursor
+                    activeFocusOnTab: false
+                    onActivated: AppController.copyTaskKey(parent.text)
+                }
             }
             // The due line's box: its width comes from the row alone, so the
             // text can pick the short form by it without feeding its own

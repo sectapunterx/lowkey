@@ -87,6 +87,33 @@ TestCase {
         qc.close();
     }
 
+    // Dogfood 2026-10-16: Enter on "@vik" with Viktor in the list picks
+    // Viktor, as in a messenger, and the line stays open; it created the
+    // task with the half-typed name.
+    function test_enter_picks_the_person() {
+        const draft = AppController.newPersonDraft();
+        draft.name = "Viktorcapread";
+        draft.id = AppController.suggestPersonId(draft.name);
+        draft.state = "idle";
+        verify(AppController.savePerson(draft));
+        const qc = open();
+        const spy = createTemporaryQmlObject('import QtTest; SignalSpy { signalName: "captured" }', host);
+        spy.target = qc;
+        try {
+            const input = findChild(qc, "qc-input");
+            type(qc, "write @viktorcapr");
+            tryVerify(() => input.text.length > 0);
+            keyClick(Qt.Key_Return);
+            wait(50);
+            compare(spy.count, 0, "Enter created the task with a half-typed name");
+            verify(qc.opened);
+            verify(input.text.indexOf("@" + draft.id + " ") >= 0, input.text);
+        } finally {
+            qc.close();
+            AppController.deletePerson(draft.id);
+        }
+    }
+
     function test_ctrl_m_then_enter_books_the_meeting() {
         const qc = open();
         const spy = createTemporaryQmlObject('import QtTest; SignalSpy { signalName: "captured" }', host);

@@ -48,6 +48,49 @@ class TaskHistoryApp : public ::testing::Test {
   }
 };
 
+// The week's summary counts what came in and what was put off, not only
+// what closed (dogfood 2026-10-16): a new task is "created", a date pushed
+// later is "moved", a date pulled earlier is neither.
+TEST_F(TaskHistoryApp, WeekFactsCountNewAndPutOffTasks) {
+  AppController app;
+  const QDateTime today(QDate::currentDate(), QTime(12, 0));
+  const auto addOn = [&](const QString& title, const QDateTime& when) {
+    QVariantMap draft = app.newTaskDraft(QStringLiteral("todo"));
+    draft[QStringLiteral("title")] = title;
+    draft[QStringLiteral("scheduledAt")] = when;
+    EXPECT_TRUE(app.saveTask(draft));
+    return draft.value(QStringLiteral("id")).toString();
+  };
+  const QString later = addOn(QStringLiteral("put off"), today);
+  const QString sooner = addOn(QStringLiteral("pulled in"), today.addDays(3));
+  ASSERT_FALSE(later.isEmpty());
+  ASSERT_FALSE(sooner.isEmpty());
+  QVariantMap a = app.taskById(later);
+  a[QStringLiteral("scheduledAt")] = today.addDays(2);
+  ASSERT_TRUE(app.saveTask(a));
+  QVariantMap b = app.taskById(sooner);
+  b[QStringLiteral("scheduledAt")] = today.addDays(1);
+  ASSERT_TRUE(app.saveTask(b));
+
+  const QVariantMap f = app.weekFacts(QDate::currentDate());
+  QStringList created;
+  for(const QVariant& v : f.value(QStringLiteral("created")).toList()) {
+    created << v.toMap().value(QStringLiteral("id")).toString();
+  }
+  EXPECT_TRUE(created.contains(later));
+  EXPECT_TRUE(created.contains(sooner));
+  QStringList moved;
+  for(const QVariant& v : f.value(QStringLiteral("moved")).toList()) {
+    moved << v.toMap().value(QStringLiteral("id")).toString();
+  }
+  EXPECT_TRUE(moved.contains(later));
+  EXPECT_FALSE(moved.contains(sooner)) << "a date pulled earlier is not put off";
+  // Next week's summary has none of this week's.
+  const QVariantMap next = app.weekFacts(QDate::currentDate().addDays(7));
+  EXPECT_TRUE(next.value(QStringLiteral("created")).toList().isEmpty());
+  EXPECT_TRUE(next.value(QStringLiteral("moved")).toList().isEmpty());
+}
+
 TEST_F(TaskHistoryApp, CreateMoveRetitleAreRecordedNewestFirst) {
   AppController app;
   const QString id = addTask(app, QStringLiteral("write it"));

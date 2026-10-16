@@ -332,7 +332,7 @@ Item {
             height: visible ? implicitHeight : 0
             shortcutId: "task.copyId"
             text: I18n.t("taskcard.copyId")
-            onTriggered: if (host._t && host._t.id) AppController.copyToClipboard(host._t.id)
+            onTriggered: if (host._t && host._t.id) AppController.copyTaskKey(host._t.id)
         }
         AppMenuItem {
             objectName: "tc-menu-branch"

@@ -709,6 +709,12 @@ ApplicationWindow {
         const v = win.activeViewItem();
         for (let p = f; p && v; p = p.parent)
             if (p === v) return;
+        // A view that lands the keyboard differently on arrival than on a
+        // focus hand-back (Knowledge: the caret at the note's end).
+        if (v && !eventEditor.opened && !taskDoc.opened && typeof v.arrive === "function") {
+            v.arrive();
+            return;
+        }
         win.focusActiveView();
     }
     // Whether `it` sits in one of the four view loaders (any view, shown or not).
@@ -2512,7 +2518,7 @@ ApplicationWindow {
     function _copyKeyTask(field) {
         const out = [];
         win._eachKeyTask(function (t) {
-            const v = field === "id" ? t.id
+            const v = field === "id" ? String(t.externalKey || t.id)
                 : field === "branch" ? String(t.branch || "")
                 : String((t.ticket && t.ticket.url) || t.externalUrl || "");
             if (v.length > 0) out.push(v);
@@ -3238,10 +3244,6 @@ ApplicationWindow {
         id: weeklyRecap
         onTaskActivated: (id) => win.showTask(AppController.taskById(id))
         onStandupDraftRequested: standupDraft.showNow()
-        onNextWeekRequested: (day) => {
-            AppController.selectedDate = day;
-            AppController.currentView = "week";
-        }
     }
     // The recap opens by itself only where it can be seen (APP-211): the
     // window on screen and in front, nothing open over it. A week that

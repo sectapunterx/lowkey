@@ -558,6 +558,9 @@ const QHash<QString, I18nEntry>& i18nTable() {
       {"event.scheduled", {"%1 scheduled for %2", "%1 запланировано на %2"}},
       {"person.added", {"Added: %1", "Добавлен: %1"}},
       {"person.deleted", {"Removed: %1", "Удалён: %1"}},
+      {"person.pinged", {"Wrote to %1", "Написал: %1"}},
+      {"person.replied", {"%1 replied", "Ответил: %1"}},
+      {"person.stateUndone", {"Back on the list: %1", "Снова в списке: %1"}},
       {"person.restored", {"Restored: %1", "Восстановлён: %1"}},
       {"person.idTaken", {"%1 is already taken by %2 — pick another id", "%1 уже занят: %2 — выберите другой id"}},
       {"person.createUndone", {"Creation undone: %1", "Создание отменено: %1"}},
@@ -583,6 +586,7 @@ const QHash<QString, I18nEntry>& i18nTable() {
       {"move.profile.redone", {"Moved to %1 again: %2", "Снова в «%1»: %2"}},
       {"move.profile.gone", {"Can't take the move back: a profile is gone", "Перенос не отменить: профиля больше нет"}},
       {"profile.exported", {"Profile exported: %1", "Профиль экспортирован: %1"}},
+      {"task.keyCopied", {"Copied: %1", "Скопировано: %1"}},
       {"profile.mdCopied", {"Profile Markdown copied to clipboard", "Markdown профиля скопирован в буфер"}},
       {"profile.weeklyCopied", {"Weekly report copied to clipboard", "Недельный отчёт скопирован в буфер"}},
       {"profile.imported", {"Profile imported: %1", "Импортирован профиль: %1"}},
@@ -7737,9 +7741,22 @@ void AppController::cyclePerson(const QString& id) {
 
 void AppController::setPersonState(const QString& id, const QString& state) {
   const int row = m_people.indexOfId(id);
-  const QString before = row >= 0 ? m_people.items().at(row).state : QString();
+  if(row < 0) {
+    return;
+  }
+  const Person person = m_people.items().at(row);
+  const QString before = person.state;
+  if(before == state) {
+    return;
+  }
+  // "Wrote" took the person off Today with no way back (dogfood 2026-10-16):
+  // the move is undoable, and the toast says so.
+  const UndoScope scope(this, tr_("person.stateUndone").arg(person.name));
   m_people.setState(id, state);
   personStateMoved(id, before);
+  if(state == QLatin1String("pinged") || state == QLatin1String("replied")) {
+    emit undoableToast(tr_(state == QLatin1String("pinged") ? "person.pinged" : "person.replied").arg(person.name), 6);
+  }
   scheduleSave();
 }
 
@@ -8965,6 +8982,15 @@ void AppController::copyToClipboard(const QString& text) {
   }
 }
 
+void AppController::copyTaskKey(const QString& key) {
+  const QString k = key.trimmed();
+  if(k.isEmpty()) {
+    return;
+  }
+  copyToClipboard(k);
+  emit toast(tr_("task.keyCopied").arg(k));
+}
+
 void AppController::copyActiveProfileMarkdownToClipboard() {
   emit flushEditorsRequested();
   snapshotActiveProfile();  // flush live models into the active Profile first
@@ -9218,7 +9244,46 @@ QVariantMap AppController::weekFacts(const QDate& day) const {
     const auto i = static_cast<qsizetype>(start.daysTo(t->statusChangedAt.date()));
     perDay[i] = perDay.at(i).toInt() + 1;
   }
-  return QVariantMap{{"weekStart", start}, {"weekEnd", end.addDays(-1)}, {"closed", rows}, {"perDay", perDay}};
+  // What came in and what was put off in the week, from the task history
+  // (APP-165): the summary counted only what closed, and a week of new work
+  // and carried-over tasks read as an empty one (dogfood 2026-10-16). Moved =
+  // its date or deadline pushed later; once per task, at its last move.
+  QVariantList created;
+  QVariantList moved;
+  const QString pid = activeProfileId();
+  const auto inWeek = [&](const QDateTime& at) {
+    return at.isValid() && at.toLocalTime().date() >= start && at.toLocalTime().date() < end;
+  };
+  for(const Task& t : m_tasks.items()) {
+    QDateTime createdAt;
+    QDateTime movedAt;
+    QString movedTo;
+    for(const heap::history::HistoryEvent& e : m_history.events(pid, t.id)) {
+      if(!inWeek(e.at)) {
+        continue;
+      }
+      if(e.kind == QLatin1String("created")) {
+        createdAt = e.at;
+      } else if((e.kind == QLatin1String("scheduled") || e.kind == QLatin1String("due")) && !e.from.isEmpty() && !e.to.isEmpty() &&
+                e.to.left(10) > e.from.left(10)) {
+        movedAt = e.at;
+        movedTo = e.to.left(10);
+      }
+    }
+    if(createdAt.isValid()) {
+      created.append(QVariantMap{{"id", t.id}, {"title", t.title}, {"at", createdAt}});
+    }
+    if(movedAt.isValid()) {
+      moved.append(QVariantMap{{"id", t.id}, {"title", t.title}, {"at", movedAt}, {"to", QDate::fromString(movedTo, Qt::ISODate)}});
+    }
+  }
+  const auto byAt = [](const QVariant& a, const QVariant& b) {
+    return a.toMap().value("at").toDateTime() < b.toMap().value("at").toDateTime();
+  };
+  std::stable_sort(created.begin(), created.end(), byAt);
+  std::stable_sort(moved.begin(), moved.end(), byAt);
+  return QVariantMap{
+      {"weekStart", start}, {"weekEnd", end.addDays(-1)}, {"closed", rows}, {"perDay", perDay}, {"created", created}, {"moved", moved}};
 }
 
 void AppController::copyWeeklyReportToClipboard() {
@@ -15928,7 +15993,9 @@ void AppController::seedShortcutCatalog() {
   // palette shows the key once there is one.
   add("timeMachine.open", "");
   add("standup.draft", "");
-  add("recap.open", "");
+  // The week's summary had no key and was found only on the last working day
+  // (dogfood 2026-10-16): "g w", beside "g t" / "g n".
+  add("recap.open", "G, W");
   add("endOfDay.open", "");
   add("welcome.replay", "");
   // The example profile from anywhere (PERSONA-1): the first-run link was the

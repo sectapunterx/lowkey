@@ -868,6 +868,13 @@ Popup {
                 font.family: Theme.fontMono
                 font.pixelSize: Theme.fsMd
                 font.weight: Theme.fwTitle
+                ClickArea {
+                    objectName: "te-id-copy"
+                    label: I18n.t("taskcard.copyId")
+                    tip: I18n.t("taskcard.copyId.tip")
+                    activeFocusOnTab: false
+                    onActivated: AppController.copyTaskKey(parent.text)
+                }
             }
             Item { Layout.fillWidth: true }
             // "в Работа ▾" (A5-14): where a new task goes, as quick capture

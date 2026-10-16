@@ -1783,6 +1783,8 @@ class AppController : public QObject {
   Q_INVOKABLE void perfMarkShown(const QString& name, QObject* item) const;
 
   Q_INVOKABLE void copyToClipboard(const QString& text);
+  // A task's key ("APP-123") onto the clipboard, and a toast that says so.
+  Q_INVOKABLE void copyTaskKey(const QString& key);
 
   // ---- Free-form text classification (used by QuickCapture / TaskEditor) ----
   // Returns one of "focus" | "sync" | "ticket" | "contact" | "none".

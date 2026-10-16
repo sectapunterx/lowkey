@@ -35,7 +35,7 @@ TestCase {
         bar.recapUnseen = true;
         verify(dot.visible);
         compare(findChild(bar, "recap-button").tip, I18n.t("recap.button.unseen")
-                + (AppController.shortcutFor("recap.open").length > 0 ? "  " + AppController.shortcutFor("recap.open") : ""));
+                + (AppController.shortcutText("recap.open").length > 0 ? "  " + AppController.shortcutText("recap.open") : ""));
         bar.recapUnseen = false;
         verify(!dot.visible);
     }
