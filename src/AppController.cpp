@@ -561,6 +561,7 @@ const QHash<QString, I18nEntry>& i18nTable() {
       {"person.pinged", {"Wrote to %1", "Написал: %1"}},
       {"person.replied", {"%1 replied", "Ответил: %1"}},
       {"person.stateUndone", {"Back on the list: %1", "Снова в списке: %1"}},
+      {"person.backToTodo", {"Message again: %1", "Снова написать: %1"}},
       {"person.restored", {"Restored: %1", "Восстановлён: %1"}},
       {"person.idTaken", {"%1 is already taken by %2 — pick another id", "%1 уже занят: %2 — выберите другой id"}},
       {"person.createUndone", {"Creation undone: %1", "Создание отменено: %1"}},
@@ -5216,14 +5217,18 @@ QVariantMap AppController::todayData(const QDate& date, bool allProfiles) const 
   out["facts"] = QVariantMap{{"meetings", meetings}, {"planned", planned}, {"dueToday", dueToday}};
 
   // Whom to write: the people list's open asks.
+  out["people"] = openPings();
+  return out;
+}
+
+QVariantList AppController::openPings() const {
   QVariantList people;
   for(const Person& p : m_people.items()) {
     if(p.state == QLatin1String("todo")) {
       people.append(QVariantMap{{"id", p.id}, {"name", p.name}, {"question", p.question}, {"color", p.color}});
     }
   }
-  out["people"] = people;
-  return out;
+  return people;
 }
 
 QVariantMap AppController::dayLoad(const QDate& date) const {
@@ -7756,6 +7761,9 @@ void AppController::setPersonState(const QString& id, const QString& state) {
   personStateMoved(id, before);
   if(state == QLatin1String("pinged") || state == QLatin1String("replied")) {
     emit undoableToast(tr_(state == QLatin1String("pinged") ? "person.pinged" : "person.replied").arg(person.name), 6);
+  } else if(state == QLatin1String("todo")) {
+    // Back on "Кому написать" from "Люди" (APP-321).
+    emit undoableToast(tr_("person.backToTodo").arg(person.name), 6);
   }
   scheduleSave();
 }

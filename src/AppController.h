@@ -1593,6 +1593,9 @@ class AppController : public QObject {
   // ---- People ops ----
   Q_INVOKABLE void cyclePerson(const QString& id);
   Q_INVOKABLE void setPersonState(const QString& id, const QString& state);
+  // "Кому написать" (APP-321): the open asks, people with state "todo", as
+  // Today and the sidebar list them: [{id, name, question, color}].
+  Q_INVOKABLE QVariantList openPings() const;
   Q_INVOKABLE QVariantMap newPersonDraft() const;
   Q_INVOKABLE QVariantMap personById(const QString& id) const;
   // What lowkey knows links to the person (DG-002): tasks waiting on them

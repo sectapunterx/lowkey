@@ -47,6 +47,11 @@ Rectangle {
     signal removeExampleRequested()
     // The running timer's line (R2-052) opens its task.
     signal timerTaskRequested(string taskId)
+    // "Кому написать" (APP-321): a person opened, edited or added from the
+    // sidebar's block.
+    signal personRequested(string id)
+    signal personEditRequested(string id)
+    signal personAddRequested()
     // The update line (R2-053): what's new in the release on offer.
     signal updateNotesRequested()
     // Set by Main when a check finds a newer release (R2-053).
@@ -497,6 +502,17 @@ Rectangle {
             model: root._savedViews
             ScrollBar.vertical: ThinScrollBar { objectName: "sidebar-views-scrollbar" }
             delegate: ViewRow {}
+        }
+        // Who to message (APP-321): the open asks beside every view, under
+        // my views; folded away with the sidebar.
+        SidebarPings {
+            id: sidebarPings
+            visible: root.expanded && sidebarPings.people.length > 0
+            Layout.fillWidth: true
+            Layout.topMargin: Theme.spXl
+            onPersonRequested: (id) => root.personRequested(id)
+            onPersonEditRequested: (id) => root.personEditRequested(id)
+            onPersonAddRequested: root.personAddRequested()
         }
         Item { visible: !root.expanded; Layout.fillHeight: true }
 

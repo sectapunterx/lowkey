@@ -1147,6 +1147,9 @@ ApplicationWindow {
             // Every source and how it is doing (R2-048).
             onSyncStatusRequested: syncPopover.openAt(rail.profileSwitcher)
             onTimerTaskRequested: (id) => win.showTask(AppController.taskById(id))
+            onPersonRequested: (id) => peopleDialog.showFor(id)
+            onPersonEditRequested: (id) => personEditor.showFor(AppController.personById(id))
+            onPersonAddRequested: personPicker.open_()
             onUpdateNotesRequested: AppController.openLatestRelease()
             onNewProfileRequested: profileEditor.showCreate()
             onRenameProfileRequested: {

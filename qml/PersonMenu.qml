@@ -30,6 +30,11 @@ AppMenu {
         onTriggered: AppController.setPersonState(menu.person.id, "pinged")
     }
     AppMenuItem {
+        objectName: "person-menu-replied"
+        text: I18n.t("people.state.replied.tag")
+        onTriggered: AppController.setPersonState(menu.person.id, "replied")
+    }
+    AppMenuItem {
         objectName: "person-menu-edit"
         text: I18n.t("people.menu.question")
         onTriggered: menu.editRequested(menu.person.id)
